@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { fetchFuturesKlines, configuredSymbols } from "@/lib/binance/client";
+import { sendEmail } from "@/lib/notifications/mailer";
 import { buildSignalEmail } from "@/lib/notifications/templates";
 import { evaluateSignalCandidate } from "@/lib/signal/engine";
 import type { Candle } from "@/lib/signal/types";
@@ -31,6 +32,8 @@ export async function POST(request: Request) {
   let persistedSignals = 0;
   let persistedNotifications = 0;
   let persistedCandles = 0;
+  let sentEmails = 0;
+  let failedEmails = 0;
 
   for (const symbol of symbols.filter((item) => item !== "BTCUSDT")) {
     const candles = closedCandles(candleSets.get(candleKey(symbol, "15m")) ?? []);
@@ -146,15 +149,39 @@ export async function POST(request: Request) {
       if (data?.id) {
         persistedSignals += 1;
         const email = buildSignalEmail(signal);
-        await supabase.from("gpt_notifications").insert({
-          signal_id: data.id,
-          channel: "email",
-          subject: email.subject,
-          body: email.body,
-          recipient: process.env.NOTIFICATION_EMAIL_TO ?? null,
-          status: "queued"
-        });
+        const { data: notification } = await supabase
+          .from("gpt_notifications")
+          .insert({
+            signal_id: data.id,
+            channel: "email",
+            subject: email.subject,
+            body: email.body,
+            recipient: process.env.NOTIFICATION_EMAIL_TO ?? null,
+            status: "queued"
+          })
+          .select("id")
+          .single();
         persistedNotifications += 1;
+
+        const sendResult = await sendEmail({
+          to: process.env.NOTIFICATION_EMAIL_TO,
+          subject: email.subject,
+          body: email.body
+        });
+
+        if (notification?.id && sendResult.status !== "skipped") {
+          await supabase
+            .from("gpt_notifications")
+            .update({
+              status: sendResult.status === "sent" ? "sent" : "failed",
+              sent_at: sendResult.status === "sent" ? new Date().toISOString() : null,
+              error_message: sendResult.status === "failed" ? sendResult.error : null
+            })
+            .eq("id", notification.id);
+        }
+
+        if (sendResult.status === "sent") sentEmails += 1;
+        if (sendResult.status === "failed") failedEmails += 1;
       }
     }
 
@@ -168,7 +195,9 @@ export async function POST(request: Request) {
         generated: generated.length,
         qualified: qualified.length,
         persistedSignals,
-        persistedNotifications
+        persistedNotifications,
+        sentEmails,
+        failedEmails
       }
     });
   }
@@ -181,6 +210,8 @@ export async function POST(request: Request) {
     persistedCandles,
     persistedSignals,
     persistedNotifications,
+    sentEmails,
+    failedEmails,
     signals: generated.map((item) => ({
       symbol: item.symbol,
       level: item.level,

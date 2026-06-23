@@ -32,11 +32,28 @@ BINANCE_FUTURES_BASE_URL=https://fapi.binance.com
 SIGNAL_SYNC_SECRET=
 NOTIFICATION_EMAIL_TO=
 NOTIFICATION_EMAIL_FROM=
-SMTP_HOST=
-SMTP_PORT=
+SMTP_HOST=smtp.gmail.com
+SMTP_PORT=465
 SMTP_USER=
 SMTP_PASS=
 ```
+
+### Gmail 邮件通知
+
+如果要用 Gmail 发通知，建议使用 Gmail App Password，不要使用 Google 账号主密码。
+
+需要配置：
+
+```text
+NOTIFICATION_EMAIL_TO=接收通知的邮箱
+NOTIFICATION_EMAIL_FROM=你的 Gmail 地址
+SMTP_HOST=smtp.gmail.com
+SMTP_PORT=465
+SMTP_USER=你的 Gmail 地址
+SMTP_PASS=Gmail App Password
+```
+
+发送失败不会中断行情同步；通知会写入 `gpt_notifications`，状态会标记为 `sent`、`failed` 或 `queued`。
 
 ## Supabase
 
@@ -75,4 +92,3 @@ npm run build
 ## Vercel
 
 把上述环境变量配置到 Vercel Project Settings。Cron 可以配置为定时 POST `/api/jobs/sync-market`；若启用 `SIGNAL_SYNC_SECRET`，建议用外部调度器或 Vercel Cron 包一层带请求头的任务。
-

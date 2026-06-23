@@ -2,32 +2,36 @@ import type { SignalEvaluation } from "@/lib/signal/types";
 
 export function buildSignalEmail(signal: SignalEvaluation) {
   const plan = signal.plan;
-  const levelName = signal.level === "S" ? "S级强信号" : signal.level === "A" ? "A级合约信号" : "机会预警";
+  const sideText = signal.direction === "LONG" ? "做多" : "做空";
+  const plainSideText = signal.direction === "LONG" ? "上涨" : "下跌";
+  const levelName = signal.level === "S" ? "很强" : signal.level === "A" ? "较强" : "观察";
   const subject = plan
-    ? `【${levelName}】${signal.symbol}${signal.direction === "LONG" ? "做多" : "做空"} | 入场区 ${plan.entryLow}-${plan.entryHigh} | 加权RR 1:${plan.weightedRr.toFixed(1)}`
-    : `【${levelName}】${signal.symbol}${signal.direction === "LONG" ? "做多" : "做空"}观察 | 等确认`;
+    ? `【GPT Signal】${signal.symbol} 关注${sideText}机会｜风险价 ${plan.stopLoss}`
+    : `【GPT Signal】${signal.symbol} 有${plainSideText}机会，先观察`;
 
   const body = [
-    `信号等级：${signal.level}`,
-    `信号类型：${signal.signalType}`,
-    `交易方向：${signal.direction}`,
-    `生命周期状态：${signal.lifecycleStatus}`,
-    `市场模式：${signal.marketRegime}`,
-    `BTC 状态：${signal.btcState}`,
-    `数据质量评分：${signal.dataQualityScore}`,
-    `相对 BTC 强弱：${signal.relativeStrengthScore.toFixed(2)}%`,
-    plan ? `参考入场区间：${plan.entryLow} - ${plan.entryHigh}` : "参考入场区间：等待确认",
-    plan ? `不追价位置：${plan.noChasePrice}` : "不追价位置：等待确认",
-    plan ? `止损SL：${plan.stopLoss}` : "止损SL：等待确认",
-    plan ? `TP1/TP2/TP3：${plan.tp1} / ${plan.tp2} / ${plan.tp3}` : "TP1/TP2/TP3：等待确认",
-    plan ? `理论RR：1:${plan.theoreticalRr}` : "理论RR：等待确认",
-    plan ? `加权RR：1:${plan.weightedRr.toFixed(1)}` : "加权RR：等待确认",
-    plan ? `成本后RR：1:${plan.costAdjustedRr.toFixed(2)}` : "成本后RR：等待确认",
-    `触发原因：${signal.reasons.join("；")}`,
-    `失效条件：${signal.invalidationRules.join("；")}`,
-    "风险提示：本信号为交易辅助，不代表必然盈利。合约交易请严格控制仓位。"
+    `币种：${signal.symbol}`,
+    `方向：关注${sideText}，也就是判断后面可能${plainSideText}。`,
+    `强度：${levelName}，系统评分 ${signal.score}/100。`,
+    "",
+    plan
+      ? `建议观察价格区间：${plan.entryLow} - ${plan.entryHigh}。价格进入这个区间再考虑，不要追。`
+      : "现在还没有合适的价格区间，只适合先观察，不建议马上行动。",
+    plan ? `风险价：${plan.stopLoss}。如果价格碰到这里，说明这次判断可能错了。` : "风险价：等待确认。",
+    plan ? `第一目标：${plan.tp1}；第二目标：${plan.tp2}；第三目标：${plan.tp3}。` : "目标价：等待确认。",
+    plan ? `如果价格已经超过 ${plan.noChasePrice}，就不要追了，容易买在高位或卖在低位。` : "不追价位置：等待确认。",
+    "",
+    `为什么提醒：${plainReasons(signal.reasons)}`,
+    `什么时候放弃：${plainReasons(signal.invalidationRules)}`,
+    "",
+    "这不是自动买入提醒，也不是保证赚钱。它只是提醒你：这里可能有机会，但需要你自己确认仓位和风险。",
+    "合约波动很大，请控制仓位；看不懂或来不及判断时，宁可错过。"
   ].join("\n");
 
   return { subject, body };
 }
 
+function plainReasons(items: string[]) {
+  if (items.length === 0) return "暂无更多原因。";
+  return items.join("；");
+}
