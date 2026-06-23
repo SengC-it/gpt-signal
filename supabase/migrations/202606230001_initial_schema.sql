@@ -1,6 +1,6 @@
 create extension if not exists pgcrypto;
 
-create table if not exists public.symbols (
+create table if not exists public.gpt_symbols (
   id uuid primary key default gen_random_uuid(),
   symbol text not null unique,
   status text not null default 'enabled',
@@ -16,7 +16,7 @@ create table if not exists public.symbols (
   updated_at timestamptz not null default now()
 );
 
-create table if not exists public.candles (
+create table if not exists public.gpt_candles (
   id uuid primary key default gen_random_uuid(),
   symbol text not null,
   interval text not null,
@@ -37,7 +37,7 @@ create table if not exists public.candles (
   unique(symbol, interval, open_time)
 );
 
-create table if not exists public.market_metrics (
+create table if not exists public.gpt_market_metrics (
   id uuid primary key default gen_random_uuid(),
   symbol text not null,
   mark_price numeric,
@@ -58,7 +58,7 @@ create table if not exists public.market_metrics (
   created_at timestamptz not null default now()
 );
 
-create table if not exists public.opportunities (
+create table if not exists public.gpt_opportunities (
   id text primary key,
   symbol text not null,
   direction text not null,
@@ -71,7 +71,7 @@ create table if not exists public.opportunities (
   current_level text not null default 'C'
 );
 
-create table if not exists public.strategy_versions (
+create table if not exists public.gpt_strategy_versions (
   id uuid primary key default gen_random_uuid(),
   name text not null,
   version text not null,
@@ -81,10 +81,10 @@ create table if not exists public.strategy_versions (
   notes text
 );
 
-create table if not exists public.signals (
+create table if not exists public.gpt_signals (
   id uuid primary key default gen_random_uuid(),
-  opportunity_id text references public.opportunities(id) on delete set null,
-  strategy_version_id uuid references public.strategy_versions(id) on delete set null,
+  opportunity_id text references public.gpt_opportunities(id) on delete set null,
+  strategy_version_id uuid references public.gpt_strategy_versions(id) on delete set null,
   symbol text not null,
   direction text not null,
   signal_type text not null,
@@ -121,9 +121,9 @@ create table if not exists public.signals (
   updated_at timestamptz not null default now()
 );
 
-create table if not exists public.signal_results (
+create table if not exists public.gpt_signal_results (
   id uuid primary key default gen_random_uuid(),
-  signal_id uuid references public.signals(id) on delete cascade,
+  signal_id uuid references public.gpt_signals(id) on delete cascade,
   entry_hit boolean not null default false,
   entry_time timestamptz,
   entry_price_actual numeric,
@@ -146,9 +146,9 @@ create table if not exists public.signal_results (
   completed_at timestamptz
 );
 
-create table if not exists public.backtest_runs (
+create table if not exists public.gpt_backtest_runs (
   id uuid primary key default gen_random_uuid(),
-  strategy_version_id uuid references public.strategy_versions(id) on delete set null,
+  strategy_version_id uuid references public.gpt_strategy_versions(id) on delete set null,
   symbols text[] not null default '{}',
   start_time timestamptz,
   end_time timestamptz,
@@ -157,9 +157,9 @@ create table if not exists public.backtest_runs (
   created_at timestamptz not null default now()
 );
 
-create table if not exists public.notifications (
+create table if not exists public.gpt_notifications (
   id uuid primary key default gen_random_uuid(),
-  signal_id uuid references public.signals(id) on delete set null,
+  signal_id uuid references public.gpt_signals(id) on delete set null,
   channel text not null,
   subject text not null,
   recipient text,
@@ -171,7 +171,7 @@ create table if not exists public.notifications (
   created_at timestamptz not null default now()
 );
 
-create table if not exists public.system_events (
+create table if not exists public.gpt_system_events (
   id uuid primary key default gen_random_uuid(),
   event_type text not null,
   severity text not null default 'info',
@@ -180,46 +180,25 @@ create table if not exists public.system_events (
   created_at timestamptz not null default now()
 );
 
-create index if not exists candles_symbol_interval_time_idx on public.candles(symbol, interval, open_time desc);
-create index if not exists market_metrics_symbol_time_idx on public.market_metrics(symbol, created_at desc);
-create index if not exists opportunities_status_idx on public.opportunities(lifecycle_status, last_updated_at desc);
-create index if not exists signals_symbol_time_idx on public.signals(symbol, created_at desc);
-create index if not exists signals_level_status_idx on public.signals(level, lifecycle_status, created_at desc);
-create index if not exists notifications_signal_idx on public.notifications(signal_id, created_at desc);
+create index if not exists candles_symbol_interval_time_idx on public.gpt_candles(symbol, interval, open_time desc);
+create index if not exists market_metrics_symbol_time_idx on public.gpt_market_metrics(symbol, created_at desc);
+create index if not exists opportunities_status_idx on public.gpt_opportunities(lifecycle_status, last_updated_at desc);
+create index if not exists signals_symbol_time_idx on public.gpt_signals(symbol, created_at desc);
+create index if not exists signals_level_status_idx on public.gpt_signals(level, lifecycle_status, created_at desc);
+create index if not exists notifications_signal_idx on public.gpt_notifications(signal_id, created_at desc);
 
-alter table public.symbols enable row level security;
-alter table public.candles enable row level security;
-alter table public.market_metrics enable row level security;
-alter table public.opportunities enable row level security;
-alter table public.strategy_versions enable row level security;
-alter table public.signals enable row level security;
-alter table public.signal_results enable row level security;
-alter table public.backtest_runs enable row level security;
-alter table public.notifications enable row level security;
-alter table public.system_events enable row level security;
+alter table public.gpt_symbols enable row level security;
+alter table public.gpt_candles enable row level security;
+alter table public.gpt_market_metrics enable row level security;
+alter table public.gpt_opportunities enable row level security;
+alter table public.gpt_strategy_versions enable row level security;
+alter table public.gpt_signals enable row level security;
+alter table public.gpt_signal_results enable row level security;
+alter table public.gpt_backtest_runs enable row level security;
+alter table public.gpt_notifications enable row level security;
+alter table public.gpt_system_events enable row level security;
 
-create policy "authenticated read symbols" on public.symbols for select to authenticated using (true);
-create policy "authenticated write symbols" on public.symbols for all to authenticated using (true) with check (true);
-create policy "authenticated read candles" on public.candles for select to authenticated using (true);
-create policy "authenticated write candles" on public.candles for all to authenticated using (true) with check (true);
-create policy "authenticated read market metrics" on public.market_metrics for select to authenticated using (true);
-create policy "authenticated write market metrics" on public.market_metrics for all to authenticated using (true) with check (true);
-create policy "authenticated read opportunities" on public.opportunities for select to authenticated using (true);
-create policy "authenticated write opportunities" on public.opportunities for all to authenticated using (true) with check (true);
-create policy "authenticated read strategy versions" on public.strategy_versions for select to authenticated using (true);
-create policy "authenticated write strategy versions" on public.strategy_versions for all to authenticated using (true) with check (true);
-create policy "authenticated read signals" on public.signals for select to authenticated using (true);
-create policy "authenticated write signals" on public.signals for all to authenticated using (true) with check (true);
-create policy "authenticated read signal results" on public.signal_results for select to authenticated using (true);
-create policy "authenticated write signal results" on public.signal_results for all to authenticated using (true) with check (true);
-create policy "authenticated read backtest runs" on public.backtest_runs for select to authenticated using (true);
-create policy "authenticated write backtest runs" on public.backtest_runs for all to authenticated using (true) with check (true);
-create policy "authenticated read notifications" on public.notifications for select to authenticated using (true);
-create policy "authenticated write notifications" on public.notifications for all to authenticated using (true) with check (true);
-create policy "authenticated read system events" on public.system_events for select to authenticated using (true);
-create policy "authenticated write system events" on public.system_events for all to authenticated using (true) with check (true);
-
-insert into public.strategy_versions (name, version, parameters, notes)
+insert into public.gpt_strategy_versions (name, version, parameters, notes)
 values (
   'GPT Signal Conservative V1',
   '0.1.0',
@@ -227,4 +206,3 @@ values (
   'Initial conservative SaaS strategy version.'
 )
 on conflict do nothing;
-

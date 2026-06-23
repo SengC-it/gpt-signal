@@ -32,7 +32,7 @@ export async function POST() {
 
   if (hasSupabaseServerEnv()) {
     const supabase = getSupabaseAdmin();
-    await supabase.from("backtest_runs").insert({
+    await supabase.from("gpt_backtest_runs").insert({
       symbols: runnableSignals.map((item) => item.symbol),
       cost_model: { feeRate: 0.001, slippageRate: 0.0005 },
       result_summary: result

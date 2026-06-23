@@ -47,7 +47,7 @@ export async function POST(request: Request) {
         signal.marketRegime,
         "15m"
       ].join(":");
-      await supabase.from("opportunities").upsert({
+      await supabase.from("gpt_opportunities").upsert({
         id: opportunityId,
         symbol: signal.symbol,
         direction: signal.direction,
@@ -59,7 +59,7 @@ export async function POST(request: Request) {
         last_updated_at: new Date().toISOString()
       });
       const { data } = await supabase
-        .from("signals")
+        .from("gpt_signals")
         .insert({
           opportunity_id: opportunityId,
           symbol: signal.symbol,
@@ -93,7 +93,7 @@ export async function POST(request: Request) {
 
       if (data?.id) {
         const email = buildSignalEmail(signal);
-        await supabase.from("notifications").insert({
+        await supabase.from("gpt_notifications").insert({
           signal_id: data.id,
           channel: "email",
           subject: email.subject,
