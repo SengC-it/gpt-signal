@@ -6,8 +6,8 @@ export function buildSignalEmail(signal: SignalEvaluation) {
   const plainSideText = signal.direction === "LONG" ? "上涨" : "下跌";
   const levelName = signal.level === "S" ? "很强" : signal.level === "A" ? "较强" : "观察";
   const subject = plan
-    ? `【GPT Signal】${signal.symbol} 关注${sideText}机会｜风险价 ${plan.stopLoss}`
-    : `【GPT Signal】${signal.symbol} 有${plainSideText}机会，先观察`;
+    ? `${sideText}${plainSideText}提醒｜${signal.score} 分｜${signal.symbol}｜风险价 ${plan.stopLoss}`
+    : `${sideText}${plainSideText}提醒｜${signal.score} 分｜${signal.symbol}｜先观察`;
 
   const body = [
     `币种：${signal.symbol}`,
@@ -33,7 +33,10 @@ export function buildSignalEmail(signal: SignalEvaluation) {
 
 export function buildSignalSummaryEmail(signals: SignalEvaluation[]) {
   const sortedSignals = [...signals].sort((a, b) => b.score - a.score);
-  const subject = `【GPT Signal】本轮 ${sortedSignals.length} 个机会，最高 ${sortedSignals[0]?.score ?? 0} 分`;
+  const topSignal = sortedSignals[0];
+  const subject = topSignal
+    ? `${directionLabel(topSignal)}提醒｜${sortedSignals.length} 个机会｜最高 ${topSignal.score} 分｜${topSignal.symbol}`
+    : "暂无新机会提醒";
   const lines = [
     `本轮共发现 ${sortedSignals.length} 个值得关注的机会，已按评分从高到低排列。`,
     "",
@@ -43,6 +46,10 @@ export function buildSignalSummaryEmail(signals: SignalEvaluation[]) {
   ];
 
   return { subject, body: lines.join("\n") };
+}
+
+function directionLabel(signal: SignalEvaluation) {
+  return signal.direction === "LONG" ? "做多上涨" : "做空下跌";
 }
 
 function signalSummaryLines(signal: SignalEvaluation, rank: number) {

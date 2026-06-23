@@ -45,6 +45,7 @@ function smtpConfig(to: string | null | undefined) {
     user,
     pass,
     from,
+    fromName: "GPT Signal",
     to: recipient
   };
 }
@@ -56,6 +57,7 @@ async function sendSmtp(input: {
   user: string;
   pass: string;
   from: string;
+  fromName: string;
   to: string;
   subject: string;
   body: string;
@@ -80,16 +82,22 @@ async function sendSmtp(input: {
   await client.command(`MAIL FROM:<${input.from}>`, 250);
   await client.command(`RCPT TO:<${input.to}>`, 250);
   await client.command("DATA", 354);
-  await client.writeData(formatMessage(input));
+  await client.writeData(formatEmailMessage(input));
   await client.expect(250);
   await client.command("QUIT", 221);
   client.close();
 }
 
-function formatMessage(input: { from: string; to: string; subject: string; body: string }) {
+export function formatEmailMessage(input: {
+  from: string;
+  fromName: string;
+  to: string;
+  subject: string;
+  body: string;
+}) {
   const encodedSubject = `=?UTF-8?B?${Buffer.from(input.subject, "utf8").toString("base64")}?=`;
   const lines = [
-    `From: ${input.from}`,
+    `From: ${formatAddress(input.fromName, input.from)}`,
     `To: ${input.to}`,
     `Subject: ${encodedSubject}`,
     "MIME-Version: 1.0",
@@ -101,6 +109,10 @@ function formatMessage(input: { from: string; to: string; subject: string; body:
   ];
 
   return `${lines.join("\r\n")}\r\n`;
+}
+
+function formatAddress(name: string, email: string) {
+  return `${name} <${email}>`;
 }
 
 class SmtpClient {
