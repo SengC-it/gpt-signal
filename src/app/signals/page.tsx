@@ -1,9 +1,13 @@
 import Link from "next/link";
 import { AppShell } from "@/components/app-shell";
 import { StatusBadge } from "@/components/status-badge";
-import { sampleSignals } from "@/lib/sample-data";
+import { getRecentSignals } from "@/lib/data-access";
 
-export default function SignalsPage() {
+export const dynamic = "force-dynamic";
+
+export default async function SignalsPage() {
+  const signals = await getRecentSignals(50);
+
   return (
     <AppShell>
       <header className="page-header">
@@ -28,9 +32,9 @@ export default function SignalsPage() {
             </tr>
           </thead>
           <tbody>
-            {sampleSignals.map((signal) => (
-              <tr key={signal.symbol}>
-                <td>样例</td>
+            {signals.map((signal) => (
+              <tr key={signal.id}>
+                <td>{signal.createdAt ? new Date(signal.createdAt).toLocaleString("zh-CN") : "样例"}</td>
                 <td>{signal.symbol}</td>
                 <td><StatusBadge value={signal.direction} /></td>
                 <td>{signal.signalType}</td>
@@ -38,7 +42,7 @@ export default function SignalsPage() {
                 <td>{signal.score}</td>
                 <td>{signal.plan ? `${signal.plan.entryLow}-${signal.plan.entryHigh}` : "等待确认"}</td>
                 <td>{signal.plan ? `${signal.plan.stopLoss}/${signal.plan.tp2}` : "等待确认"}</td>
-                <td><Link className="button" href={`/signals/${signal.symbol}`}>查看</Link></td>
+                <td><Link className="button" href={`/signals/${signal.id}`}>查看</Link></td>
               </tr>
             ))}
           </tbody>
@@ -47,4 +51,3 @@ export default function SignalsPage() {
     </AppShell>
   );
 }
-

@@ -1,11 +1,13 @@
 import { AppShell } from "@/components/app-shell";
 import { StatusBadge } from "@/components/status-badge";
+import { getSignalById } from "@/lib/data-access";
 import { buildSignalEmail } from "@/lib/notifications/templates";
-import { sampleSignals } from "@/lib/sample-data";
+
+export const dynamic = "force-dynamic";
 
 export default async function SignalDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const signal = sampleSignals.find((item) => item.symbol === id) ?? sampleSignals[0];
+  const signal = await getSignalById(id);
   const email = buildSignalEmail(signal);
 
   return (
@@ -47,4 +49,3 @@ export default async function SignalDetailPage({ params }: { params: Promise<{ i
     </AppShell>
   );
 }
-

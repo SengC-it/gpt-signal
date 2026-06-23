@@ -1,8 +1,12 @@
 import { AppShell } from "@/components/app-shell";
 import { StatusBadge } from "@/components/status-badge";
-import { sampleRadar } from "@/lib/sample-data";
+import { getRadarRows } from "@/lib/data-access";
 
-export default function RadarPage() {
+export const dynamic = "force-dynamic";
+
+export default async function RadarPage() {
+  const radar = await getRadarRows();
+
   return (
     <AppShell>
       <header className="page-header">
@@ -25,7 +29,7 @@ export default function RadarPage() {
             </tr>
           </thead>
           <tbody>
-            {sampleRadar.map((item) => (
+            {radar.map((item) => (
               <tr key={item.symbol}>
                 <td>{item.symbol}</td>
                 <td><StatusBadge value={item.pool} /></td>
@@ -42,4 +46,3 @@ export default function RadarPage() {
     </AppShell>
   );
 }
-
