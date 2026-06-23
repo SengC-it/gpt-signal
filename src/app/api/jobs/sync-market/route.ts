@@ -1,9 +1,9 @@
 import { NextResponse } from "next/server";
 import { fetchFuturesKlines, configuredSymbols } from "@/lib/binance/client";
 import { sendEmail } from "@/lib/notifications/mailer";
-import { buildSignalEmail } from "@/lib/notifications/templates";
+import { buildSignalEmail, buildSignalSummaryEmail } from "@/lib/notifications/templates";
 import { evaluateSignalCandidate } from "@/lib/signal/engine";
-import type { Candle } from "@/lib/signal/types";
+import type { Candle, SignalEvaluation } from "@/lib/signal/types";
 import { getSupabaseAdmin, hasSupabaseServerEnv } from "@/lib/supabase/server";
 
 const SYNC_INTERVALS = ["15m", "1h", "4h"] as const;
@@ -77,6 +77,9 @@ export async function POST(request: Request) {
       persistedCandles = candleRows.length;
     }
 
+    const newSignals: SignalEvaluation[] = [];
+    const notificationIds: string[] = [];
+
     for (const signal of qualified) {
       const opportunityId = [
         signal.symbol,
@@ -148,6 +151,7 @@ export async function POST(request: Request) {
 
       if (data?.id) {
         persistedSignals += 1;
+        newSignals.push(signal);
         const email = buildSignalEmail(signal);
         const { data: notification } = await supabase
           .from("gpt_notifications")
@@ -162,27 +166,31 @@ export async function POST(request: Request) {
           .select("id")
           .single();
         persistedNotifications += 1;
-
-        const sendResult = await sendEmail({
-          to: process.env.NOTIFICATION_EMAIL_TO,
-          subject: email.subject,
-          body: email.body
-        });
-
-        if (notification?.id && sendResult.status !== "skipped") {
-          await supabase
-            .from("gpt_notifications")
-            .update({
-              status: sendResult.status === "sent" ? "sent" : "failed",
-              sent_at: sendResult.status === "sent" ? new Date().toISOString() : null,
-              error_message: sendResult.status === "failed" ? sendResult.error : null
-            })
-            .eq("id", notification.id);
-        }
-
-        if (sendResult.status === "sent") sentEmails += 1;
-        if (sendResult.status === "failed") failedEmails += 1;
+        if (notification?.id) notificationIds.push(notification.id);
       }
+    }
+
+    if (newSignals.length > 0) {
+      const email = buildSignalSummaryEmail(newSignals);
+      const sendResult = await sendEmail({
+        to: process.env.NOTIFICATION_EMAIL_TO,
+        subject: email.subject,
+        body: email.body
+      });
+
+      if (notificationIds.length > 0 && sendResult.status !== "skipped") {
+        await supabase
+          .from("gpt_notifications")
+          .update({
+            status: sendResult.status === "sent" ? "sent" : "failed",
+            sent_at: sendResult.status === "sent" ? new Date().toISOString() : null,
+            error_message: sendResult.status === "failed" ? sendResult.error : null
+          })
+          .in("id", notificationIds);
+      }
+
+      if (sendResult.status === "sent") sentEmails = 1;
+      if (sendResult.status === "failed") failedEmails = 1;
     }
 
     await supabase.from("gpt_system_events").insert({

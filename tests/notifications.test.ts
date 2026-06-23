@@ -1,5 +1,5 @@
 import { describe, expect, test } from "vitest";
-import { buildSignalEmail } from "@/lib/notifications/templates";
+import { buildSignalEmail, buildSignalSummaryEmail } from "@/lib/notifications/templates";
 import { sendEmail } from "@/lib/notifications/mailer";
 import type { SignalEvaluation } from "@/lib/signal/types";
 
@@ -51,5 +51,17 @@ describe("notification templates", () => {
 
     expect(result.status).toBe("skipped");
   });
-});
 
+  test("builds one plain summary email ordered by score", () => {
+    const ethSignal = { ...signal, symbol: "ETHUSDT", score: 89, level: "S" as const };
+    const bnbSignal = { ...signal, symbol: "BNBUSDT", score: 81, level: "A" as const };
+    const summary = buildSignalSummaryEmail([bnbSignal, signal, ethSignal]);
+
+    expect(summary.subject).toContain("本轮 3 个机会");
+    expect(summary.body).toContain("本轮共发现 3 个值得关注的机会");
+    expect(summary.body.indexOf("ETHUSDT")).toBeLessThan(summary.body.indexOf("SOLUSDT"));
+    expect(summary.body.indexOf("SOLUSDT")).toBeLessThan(summary.body.indexOf("BNBUSDT"));
+    expect(summary.body).toContain("这不是自动买入提醒");
+    expect(summary.body).not.toContain("market_regime");
+  });
+});

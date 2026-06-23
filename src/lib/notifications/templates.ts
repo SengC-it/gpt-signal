@@ -31,6 +31,41 @@ export function buildSignalEmail(signal: SignalEvaluation) {
   return { subject, body };
 }
 
+export function buildSignalSummaryEmail(signals: SignalEvaluation[]) {
+  const sortedSignals = [...signals].sort((a, b) => b.score - a.score);
+  const subject = `【GPT Signal】本轮 ${sortedSignals.length} 个机会，最高 ${sortedSignals[0]?.score ?? 0} 分`;
+  const lines = [
+    `本轮共发现 ${sortedSignals.length} 个值得关注的机会，已按评分从高到低排列。`,
+    "",
+    ...sortedSignals.flatMap((signal, index) => signalSummaryLines(signal, index + 1)),
+    "这不是自动买入提醒，也不是保证赚钱。它只是提醒你：这里可能有机会，但需要你自己确认仓位和风险。",
+    "合约波动很大，请控制仓位；看不懂或来不及判断时，宁可错过。"
+  ];
+
+  return { subject, body: lines.join("\n") };
+}
+
+function signalSummaryLines(signal: SignalEvaluation, rank: number) {
+  const plan = signal.plan;
+  const sideText = signal.direction === "LONG" ? "做多" : "做空";
+  const plainSideText = signal.direction === "LONG" ? "上涨" : "下跌";
+  const levelName = signal.level === "S" ? "很强" : signal.level === "A" ? "较强" : "观察";
+
+  return [
+    `${rank}. ${signal.symbol}｜${levelName}｜${signal.score}/100｜关注${sideText}`,
+    `   判断：后面可能${plainSideText}。`,
+    plan
+      ? `   观察价格：${plan.entryLow} - ${plan.entryHigh}；风险价：${plan.stopLoss}；目标：${plan.tp1} / ${plan.tp2} / ${plan.tp3}。`
+      : "   观察价格：暂未形成合适区间，先观察。",
+    plan
+      ? `   不要追：如果价格已经超过 ${plan.noChasePrice}，这次就先放过。`
+      : "   不要追：等待更清楚的位置。",
+    `   原因：${plainReasons(signal.reasons)}`,
+    `   放弃条件：${plainReasons(signal.invalidationRules)}`,
+    ""
+  ];
+}
+
 function plainReasons(items: string[]) {
   if (items.length === 0) return "暂无更多原因。";
   return items.join("；");

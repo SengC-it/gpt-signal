@@ -1,0 +1,30 @@
+name: Sync market signals
+
+on:
+  schedule:
+    - cron: "*/15 * * * *"
+  workflow_dispatch:
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Trigger production market sync
+        env:
+          GPT_SIGNAL_SYNC_URL: ${{ vars.GPT_SIGNAL_SYNC_URL || 'https://gpt-signal.vercel.app/api/jobs/sync-market' }}
+          GPT_SIGNAL_SYNC_SECRET: ${{ secrets.GPT_SIGNAL_SYNC_SECRET }}
+        run: |
+          set -euo pipefail
+
+          if [ -z "${GPT_SIGNAL_SYNC_SECRET}" ]; then
+            echo "Missing GitHub secret: GPT_SIGNAL_SYNC_SECRET"
+            exit 1
+          fi
+
+          response="$(curl -sS -X POST "${GPT_SIGNAL_SYNC_URL}" \
+            -H "content-type: application/json" \
+            -H "x-signal-sync-secret: ${GPT_SIGNAL_SYNC_SECRET}")"
+
+          echo "${response}"
+          echo "${response}" | grep -q '"ok":true'

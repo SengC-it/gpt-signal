@@ -53,7 +53,7 @@ SMTP_USER=你的 Gmail 地址
 SMTP_PASS=Gmail App Password
 ```
 
-发送失败不会中断行情同步；通知会写入 `gpt_notifications`，状态会标记为 `sent`、`failed` 或 `queued`。
+发送失败不会中断行情同步；通知会写入 `gpt_notifications`，状态会标记为 `sent`、`failed` 或 `queued`。同一轮同步如果产生多条信号，只会发送一封汇总邮件，邮件内按评分从高到低排列。
 
 ## Supabase
 
@@ -91,4 +91,22 @@ npm run build
 
 ## Vercel
 
-把上述环境变量配置到 Vercel Project Settings。Cron 可以配置为定时 POST `/api/jobs/sync-market`；若启用 `SIGNAL_SYNC_SECRET`，建议用外部调度器或 Vercel Cron 包一层带请求头的任务。
+把上述环境变量配置到 Vercel Project Settings。
+
+## GitHub Actions 定时触发
+
+仓库包含 `.github/workflows/sync-market.yml`，默认每 15 分钟触发一次生产同步接口，也支持在 GitHub Actions 页面手动运行。
+
+需要在 GitHub 仓库设置中添加：
+
+```text
+Secret: GPT_SIGNAL_SYNC_SECRET = Vercel 里的 SIGNAL_SYNC_SECRET
+```
+
+可选添加：
+
+```text
+Variable: GPT_SIGNAL_SYNC_URL = https://gpt-signal.vercel.app/api/jobs/sync-market
+```
+
+如果不配置 `GPT_SIGNAL_SYNC_URL`，workflow 会默认请求 `https://gpt-signal.vercel.app/api/jobs/sync-market`。
