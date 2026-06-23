@@ -33,10 +33,10 @@ function smtpConfig(to: string | null | undefined) {
   const port = Number(process.env.SMTP_PORT || "465");
   const user = process.env.SMTP_USER;
   const pass = process.env.SMTP_PASS;
-  const from = process.env.NOTIFICATION_EMAIL_FROM || user;
+  const sender = resolveEmailSender(process.env.NOTIFICATION_EMAIL_FROM, user);
   const recipient = to || process.env.NOTIFICATION_EMAIL_TO;
 
-  if (!host || !port || !user || !pass || !from || !recipient) return null;
+  if (!host || !port || !user || !pass || !sender.email || !recipient) return null;
 
   return {
     host,
@@ -44,8 +44,8 @@ function smtpConfig(to: string | null | undefined) {
     secure: port === 465,
     user,
     pass,
-    from,
-    fromName: "GPT Signal",
+    from: sender.email,
+    fromName: sender.name,
     to: recipient
   };
 }
@@ -113,6 +113,15 @@ export function formatEmailMessage(input: {
 
 function formatAddress(name: string, email: string) {
   return `${name} <${email}>`;
+}
+
+export function resolveEmailSender(from: string | undefined, fallbackEmail: string | undefined) {
+  const email = fallbackEmail ?? "";
+  const name = from?.trim() || email;
+  return {
+    email,
+    name
+  };
 }
 
 class SmtpClient {

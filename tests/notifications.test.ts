@@ -1,6 +1,6 @@
 import { describe, expect, test } from "vitest";
 import { buildSignalEmail, buildSignalSummaryEmail } from "@/lib/notifications/templates";
-import { formatEmailMessage, sendEmail } from "@/lib/notifications/mailer";
+import { formatEmailMessage, resolveEmailSender, sendEmail } from "@/lib/notifications/mailer";
 import type { SignalEvaluation } from "@/lib/signal/types";
 
 const signal: SignalEvaluation = {
@@ -83,5 +83,19 @@ describe("notification templates", () => {
 
     expect(message).toContain("From: GPT Signal <zunxian.chi@gmail.com>");
     expect(message).not.toContain("From: zunxian.chi");
+  });
+
+  test("resolves sender display name from NOTIFICATION_EMAIL_FROM and email from SMTP_USER", () => {
+    expect(resolveEmailSender("GPT Signal", "zunxian.chi@gmail.com")).toEqual({
+      email: "zunxian.chi@gmail.com",
+      name: "GPT Signal"
+    });
+  });
+
+  test("falls back to the email address when NOTIFICATION_EMAIL_FROM has no display name", () => {
+    expect(resolveEmailSender("", "zunxian.chi@gmail.com")).toEqual({
+      email: "zunxian.chi@gmail.com",
+      name: "zunxian.chi@gmail.com"
+    });
   });
 });

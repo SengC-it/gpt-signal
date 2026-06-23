@@ -31,7 +31,7 @@ SUPABASE_SERVICE_ROLE_KEY=
 BINANCE_FUTURES_BASE_URL=https://fapi.binance.com
 SIGNAL_SYNC_SECRET=
 NOTIFICATION_EMAIL_TO=
-NOTIFICATION_EMAIL_FROM=
+NOTIFICATION_EMAIL_FROM=GPT Signal
 SMTP_HOST=smtp.gmail.com
 SMTP_PORT=465
 SMTP_USER=
@@ -46,12 +46,14 @@ SMTP_PASS=
 
 ```text
 NOTIFICATION_EMAIL_TO=接收通知的邮箱
-NOTIFICATION_EMAIL_FROM=你的 Gmail 地址
+NOTIFICATION_EMAIL_FROM=GPT Signal
 SMTP_HOST=smtp.gmail.com
 SMTP_PORT=465
 SMTP_USER=你的 Gmail 地址
 SMTP_PASS=Gmail App Password
 ```
+
+其中 `SMTP_USER` 是真正登录 Gmail SMTP 的邮箱地址；`NOTIFICATION_EMAIL_FROM` 只是收件箱里看到的发件人显示名。
 
 发送失败不会中断行情同步；通知会写入 `gpt_notifications`，状态会标记为 `sent`、`failed` 或 `queued`。同一轮同步如果产生多条信号，只会发送一封汇总邮件，邮件内按评分从高到低排列。
 
