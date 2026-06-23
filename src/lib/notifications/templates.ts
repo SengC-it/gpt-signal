@@ -35,10 +35,10 @@ export function buildSignalSummaryEmail(signals: SignalEvaluation[]) {
   const sortedSignals = [...signals].sort((a, b) => b.score - a.score);
   const topSignal = sortedSignals[0];
   const subject = topSignal
-    ? `${directionLabel(topSignal)}提醒｜${sortedSignals.length} 个机会｜最高 ${topSignal.score} 分｜${topSignal.symbol}`
+    ? `${directionLabel(topSignal)}强提醒｜${sortedSignals.length} 个S级机会｜最高 ${topSignal.score} 分｜${topSignal.symbol}`
     : "暂无新机会提醒";
   const lines = [
-    `本轮共发现 ${sortedSignals.length} 个值得关注的机会，已按评分从高到低排列。`,
+    `本轮共发现 ${sortedSignals.length} 个强提醒机会，已按评分从高到低排列。`,
     "",
     ...sortedSignals.flatMap((signal, index) => signalSummaryLines(signal, index + 1)),
     "这不是自动买入提醒，也不是保证赚钱。它只是提醒你：这里可能有机会，但需要你自己确认仓位和风险。",

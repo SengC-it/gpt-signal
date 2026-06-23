@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { fetchFuturesKlines, configuredSymbols } from "@/lib/binance/client";
 import { sendEmail } from "@/lib/notifications/mailer";
+import { filterStrongAlertSignals } from "@/lib/notifications/policy";
 import { buildSignalEmail, buildSignalSummaryEmail } from "@/lib/notifications/templates";
 import { evaluateSignalCandidate } from "@/lib/signal/engine";
 import type { Candle, SignalEvaluation } from "@/lib/signal/types";
@@ -32,6 +33,7 @@ export async function POST(request: Request) {
   let persistedSignals = 0;
   let persistedNotifications = 0;
   let persistedCandles = 0;
+  let strongAlerts = 0;
   let sentEmails = 0;
   let failedEmails = 0;
 
@@ -77,8 +79,7 @@ export async function POST(request: Request) {
       persistedCandles = candleRows.length;
     }
 
-    const newSignals: SignalEvaluation[] = [];
-    const notificationIds: string[] = [];
+    const newSignalRecords: { id: string; signal: SignalEvaluation }[] = [];
 
     for (const signal of qualified) {
       const opportunityId = [
@@ -151,34 +152,40 @@ export async function POST(request: Request) {
 
       if (data?.id) {
         persistedSignals += 1;
-        newSignals.push(signal);
-        const email = buildSignalEmail(signal);
-        const { data: notification } = await supabase
-          .from("gpt_notifications")
-          .insert({
-            signal_id: data.id,
-            channel: "email",
-            subject: email.subject,
-            body: email.body,
-            recipient: process.env.NOTIFICATION_EMAIL_TO ?? null,
-            status: "queued"
-          })
-          .select("id")
-          .single();
-        persistedNotifications += 1;
-        if (notification?.id) notificationIds.push(notification.id);
+        newSignalRecords.push({ id: data.id, signal });
       }
     }
 
-    if (newSignals.length > 0) {
-      const email = buildSignalSummaryEmail(newSignals);
+    const strongAlertSignals = filterStrongAlertSignals(newSignalRecords.map((record) => record.signal));
+    strongAlerts = strongAlertSignals.length;
+
+    if (strongAlertSignals.length > 0) {
+      const email = buildSignalSummaryEmail(strongAlertSignals);
+      const { data: notifications } = await supabase
+        .from("gpt_notifications")
+        .insert(
+          newSignalRecords
+            .filter((record) => strongAlertSignals.includes(record.signal))
+            .map((record) => ({
+              signal_id: record.id,
+              channel: "email",
+              subject: email.subject,
+              body: buildSignalEmail(record.signal).body,
+              recipient: process.env.NOTIFICATION_EMAIL_TO ?? null,
+              status: "queued"
+            }))
+        )
+        .select("id");
+      const strongAlertNotificationIds = notifications?.map((notification) => notification.id) ?? [];
+      persistedNotifications += strongAlertNotificationIds.length;
+
       const sendResult = await sendEmail({
         to: process.env.NOTIFICATION_EMAIL_TO,
         subject: email.subject,
         body: email.body
       });
 
-      if (notificationIds.length > 0 && sendResult.status !== "skipped") {
+      if (strongAlertNotificationIds.length > 0 && sendResult.status !== "skipped") {
         await supabase
           .from("gpt_notifications")
           .update({
@@ -186,7 +193,7 @@ export async function POST(request: Request) {
             sent_at: sendResult.status === "sent" ? new Date().toISOString() : null,
             error_message: sendResult.status === "failed" ? sendResult.error : null
           })
-          .in("id", notificationIds);
+          .in("id", strongAlertNotificationIds);
       }
 
       if (sendResult.status === "sent") sentEmails = 1;
@@ -202,6 +209,7 @@ export async function POST(request: Request) {
         candles: candleRows.length,
         generated: generated.length,
         qualified: qualified.length,
+        strongAlerts,
         persistedSignals,
         persistedNotifications,
         sentEmails,
@@ -214,6 +222,7 @@ export async function POST(request: Request) {
     ok: true,
     generated: generated.length,
     qualified: qualified.length,
+    strongAlerts,
     persisted: hasSupabaseServerEnv(),
     persistedCandles,
     persistedSignals,

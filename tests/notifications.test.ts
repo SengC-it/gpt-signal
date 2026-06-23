@@ -1,6 +1,7 @@
 import { describe, expect, test } from "vitest";
 import { buildSignalEmail, buildSignalSummaryEmail } from "@/lib/notifications/templates";
 import { formatEmailMessage, resolveEmailSender, sendEmail } from "@/lib/notifications/mailer";
+import { filterStrongAlertSignals, shouldSendStrongAlert } from "@/lib/notifications/policy";
 import type { SignalEvaluation } from "@/lib/signal/types";
 
 const signal: SignalEvaluation = {
@@ -55,19 +56,20 @@ describe("notification templates", () => {
     expect(result.status).toBe("skipped");
   });
 
-  test("builds one plain summary email ordered by score", () => {
+  test("builds one plain strong-alert summary email ordered by score", () => {
     const ethSignal = { ...signal, symbol: "ETHUSDT", score: 89, level: "S" as const };
-    const bnbSignal = { ...signal, symbol: "BNBUSDT", score: 81, level: "A" as const };
-    const summary = buildSignalSummaryEmail([bnbSignal, signal, ethSignal]);
+    const bnbSignal = { ...signal, symbol: "BNBUSDT", score: 88, level: "S" as const };
+    const solSignal = { ...signal, symbol: "SOLUSDT", score: 84, level: "S" as const };
+    const summary = buildSignalSummaryEmail([bnbSignal, solSignal, ethSignal]);
 
-    expect(summary.subject).toContain("做多上涨提醒");
-    expect(summary.subject).toContain("3 个机会");
+    expect(summary.subject).toContain("做多上涨强提醒");
+    expect(summary.subject).toContain("3 个S级机会");
     expect(summary.subject).toContain("最高 89 分");
     expect(summary.subject).toContain("ETHUSDT");
     expect(summary.subject).not.toContain("【GPT Signal】");
-    expect(summary.body).toContain("本轮共发现 3 个值得关注的机会");
-    expect(summary.body.indexOf("ETHUSDT")).toBeLessThan(summary.body.indexOf("SOLUSDT"));
-    expect(summary.body.indexOf("SOLUSDT")).toBeLessThan(summary.body.indexOf("BNBUSDT"));
+    expect(summary.body).toContain("本轮共发现 3 个强提醒机会");
+    expect(summary.body.indexOf("ETHUSDT")).toBeLessThan(summary.body.indexOf("BNBUSDT"));
+    expect(summary.body.indexOf("BNBUSDT")).toBeLessThan(summary.body.indexOf("SOLUSDT"));
     expect(summary.body).toContain("这不是自动买入提醒");
     expect(summary.body).not.toContain("market_regime");
   });
@@ -97,5 +99,16 @@ describe("notification templates", () => {
       email: "zunxian.chi@gmail.com",
       name: "zunxian.chi@gmail.com"
     });
+  });
+
+  test("only sends strong alert emails for S-level symbols with positive backtest evidence", () => {
+    const ethSignal = { ...signal, symbol: "ETHUSDT", level: "S" as const, score: 90 };
+    const avaxSignal = { ...signal, symbol: "AVAXUSDT", level: "S" as const, score: 91 };
+    const aSignal = { ...signal, symbol: "BNBUSDT", level: "A" as const, score: 84 };
+
+    expect(shouldSendStrongAlert(ethSignal)).toBe(true);
+    expect(shouldSendStrongAlert(avaxSignal)).toBe(false);
+    expect(shouldSendStrongAlert(aSignal)).toBe(false);
+    expect(filterStrongAlertSignals([aSignal, avaxSignal, ethSignal])).toEqual([ethSignal]);
   });
 });
