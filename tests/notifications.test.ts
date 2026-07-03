@@ -1,7 +1,7 @@
 import { describe, expect, test } from "vitest";
 import { buildSignalEmail, buildSignalSummaryEmail } from "@/lib/notifications/templates";
 import { formatEmailMessage, resolveEmailSender, sendEmail } from "@/lib/notifications/mailer";
-import { filterStrongAlertSignals, shouldSendStrongAlert } from "@/lib/notifications/policy";
+import { filterStrongAlertSignals, shouldRunStrongAlertWindow, shouldSendStrongAlert } from "@/lib/notifications/policy";
 import type { SignalEvaluation } from "@/lib/signal/types";
 
 const signal: SignalEvaluation = {
@@ -110,5 +110,11 @@ describe("notification templates", () => {
     expect(shouldSendStrongAlert(avaxSignal)).toBe(false);
     expect(shouldSendStrongAlert(aSignal)).toBe(false);
     expect(filterStrongAlertSignals([aSignal, avaxSignal, ethSignal])).toEqual([ethSignal]);
+  });
+
+  test("runs strong alert windows on the configured candle boundary", () => {
+    expect(shouldRunStrongAlertWindow(Date.UTC(2026, 6, 3, 10, 29, 59, 999), 30)).toBe(true);
+    expect(shouldRunStrongAlertWindow(Date.UTC(2026, 6, 3, 10, 44, 59, 999), 30)).toBe(false);
+    expect(shouldRunStrongAlertWindow(Date.UTC(2026, 6, 3, 10, 14, 59, 999), 15)).toBe(true);
   });
 });

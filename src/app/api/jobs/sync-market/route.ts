@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { fetchFuturesKlines, configuredSymbols } from "@/lib/binance/client";
 import { sendEmail } from "@/lib/notifications/mailer";
-import { filterStrongAlertSignals } from "@/lib/notifications/policy";
+import { filterStrongAlertSignals, resolveStrongAlertIntervalMinutes, shouldRunStrongAlertWindow } from "@/lib/notifications/policy";
 import { buildSignalEmail, buildSignalSummaryEmail } from "@/lib/notifications/templates";
 import { evaluateSignalCandidate } from "@/lib/signal/engine";
 import type { Candle, SignalEvaluation } from "@/lib/signal/types";
@@ -36,6 +36,9 @@ export async function POST(request: Request) {
   let strongAlerts = 0;
   let sentEmails = 0;
   let failedEmails = 0;
+  const strongAlertIntervalMinutes = resolveStrongAlertIntervalMinutes(process.env.STRONG_ALERT_INTERVAL_MINUTES);
+  const strongAlertEvaluationTime = btcCandles.at(-1)?.closeTime ?? Date.now();
+  const strongAlertWindowOpen = shouldRunStrongAlertWindow(strongAlertEvaluationTime, strongAlertIntervalMinutes);
 
   for (const symbol of symbols.filter((item) => item !== "BTCUSDT")) {
     const candles = closedCandles(candleSets.get(candleKey(symbol, "15m")) ?? []);
@@ -156,7 +159,7 @@ export async function POST(request: Request) {
       }
     }
 
-    const strongAlertSignals = filterStrongAlertSignals(newSignalRecords.map((record) => record.signal));
+    const strongAlertSignals = strongAlertWindowOpen ? filterStrongAlertSignals(newSignalRecords.map((record) => record.signal)) : [];
     strongAlerts = strongAlertSignals.length;
 
     if (strongAlertSignals.length > 0) {
@@ -210,6 +213,8 @@ export async function POST(request: Request) {
         generated: generated.length,
         qualified: qualified.length,
         strongAlerts,
+        strongAlertIntervalMinutes,
+        strongAlertWindowOpen,
         persistedSignals,
         persistedNotifications,
         sentEmails,
@@ -229,6 +234,8 @@ export async function POST(request: Request) {
     persistedNotifications,
     sentEmails,
     failedEmails,
+    strongAlertIntervalMinutes,
+    strongAlertWindowOpen,
     signals: generated.map((item) => ({
       symbol: item.symbol,
       level: item.level,

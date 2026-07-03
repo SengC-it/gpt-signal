@@ -345,13 +345,13 @@ function simulateSignalOutcome(direction, plan, futureCandles) {
     const hitTp1 = direction === "LONG" ? candle.high >= plan.tp1 : candle.low <= plan.tp1;
     const hitTp2 = direction === "LONG" ? candle.high >= plan.tp2 : candle.low <= plan.tp2;
     const hitTp3 = direction === "LONG" ? candle.high >= plan.tp3 : candle.low <= plan.tp3;
-    if (hitSl) return withCosts({ entryHit, finalStatus: "hit_sl", finalR: -1, mfe, mae, durationCandles: i + 1 });
-    if (hitTp3) return withCosts({ entryHit, finalStatus: "hit_tp3", finalR: 3, mfe, mae, durationCandles: i + 1 });
-    if (hitTp2) return withCosts({ entryHit, finalStatus: "hit_tp2", finalR: 2, mfe, mae, durationCandles: i + 1 });
-    if (hitTp1) return withCosts({ entryHit, finalStatus: "hit_tp1", finalR: 1, mfe, mae, durationCandles: i + 1 });
+    if (hitSl) return withCosts({ entryHit, finalStatus: "hit_sl", finalR: -1, mfe, mae, durationCandles: i + 1 }, plan);
+    if (hitTp3) return withCosts({ entryHit, finalStatus: "hit_tp3", finalR: 3, mfe, mae, durationCandles: i + 1 }, plan);
+    if (hitTp2) return withCosts({ entryHit, finalStatus: "hit_tp2", finalR: 2, mfe, mae, durationCandles: i + 1 }, plan);
+    if (hitTp1) return withCosts({ entryHit, finalStatus: "hit_tp1", finalR: 1, mfe, mae, durationCandles: i + 1 }, plan);
   }
 
-  return withCosts({ entryHit, finalStatus: "expired", finalR: 0, mfe, mae, durationCandles: futureCandles.length });
+  return withCosts({ entryHit, finalStatus: "expired", finalR: 0, mfe, mae, durationCandles: futureCandles.length }, plan);
 }
 
 function scoreSignal(input) {
@@ -534,11 +534,12 @@ function dedupe(candles) {
   return [...new Map(candles.map((item) => [item.openTime, item])).values()].sort((a, b) => a.openTime - b.openTime);
 }
 
-function withCosts(outcome) {
-  const costInR = (FEE_RATE + SLIPPAGE_RATE) * 2;
+function withCosts(outcome, plan) {
+  const stopDistance = plan.slDistancePct / 100;
+  const costInR = stopDistance > 0 ? ((FEE_RATE + SLIPPAGE_RATE) * 2) / stopDistance : 0;
   return {
     ...outcome,
-    finalR: round(outcome.finalR - Math.sign(outcome.finalR) * costInR)
+    finalR: round(outcome.finalR - (outcome.entryHit ? costInR : 0))
   };
 }
 

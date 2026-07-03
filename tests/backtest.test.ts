@@ -61,7 +61,34 @@ describe("backtest", () => {
     });
 
     expect(result.finalStatus).toBe("hit_tp1");
-    expect(result.finalR).toBeLessThan(1);
+    expect(result.finalR).toBe(0.92);
+  });
+
+  test("adds fee and slippage to losing R based on stop distance", () => {
+    const result = simulateSignalOutcome({
+      direction: "LONG",
+      plan,
+      futureCandles: [candle(101, 94, 95, 1)],
+      feeRate: 0.001,
+      slippageRate: 0.001
+    });
+
+    expect(result.finalStatus).toBe("hit_sl");
+    expect(result.finalR).toBe(-1.08);
+  });
+
+  test("charges round-trip costs when an entered signal expires flat", () => {
+    const result = simulateSignalOutcome({
+      direction: "LONG",
+      plan,
+      futureCandles: [candle(102, 100, 101, 1)],
+      feeRate: 0.001,
+      slippageRate: 0.001
+    });
+
+    expect(result.finalStatus).toBe("expired");
+    expect(result.entryHit).toBe(true);
+    expect(result.finalR).toBe(-0.08);
   });
 
   test("summarizes core backtest metrics", () => {

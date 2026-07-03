@@ -44,13 +44,13 @@ export function simulateSignalOutcome(input: BacktestInput): SignalOutcome {
     const hitTp2 = input.direction === "LONG" ? candle.high >= input.plan.tp2 : candle.low <= input.plan.tp2;
     const hitTp3 = input.direction === "LONG" ? candle.high >= input.plan.tp3 : candle.low <= input.plan.tp3;
 
-    if (hitSl) return withCosts({ entryHit, finalStatus: "hit_sl", finalR: -1, mfe, mae }, feeRate, slippageRate);
-    if (hitTp3) return withCosts({ entryHit, finalStatus: "hit_tp3", finalR: 3, mfe, mae }, feeRate, slippageRate);
-    if (hitTp2) return withCosts({ entryHit, finalStatus: "hit_tp2", finalR: 2, mfe, mae }, feeRate, slippageRate);
-    if (hitTp1) return withCosts({ entryHit, finalStatus: "hit_tp1", finalR: 1, mfe, mae }, feeRate, slippageRate);
+    if (hitSl) return withCosts({ entryHit, finalStatus: "hit_sl", finalR: -1, mfe, mae }, feeRate, slippageRate, input.plan);
+    if (hitTp3) return withCosts({ entryHit, finalStatus: "hit_tp3", finalR: 3, mfe, mae }, feeRate, slippageRate, input.plan);
+    if (hitTp2) return withCosts({ entryHit, finalStatus: "hit_tp2", finalR: 2, mfe, mae }, feeRate, slippageRate, input.plan);
+    if (hitTp1) return withCosts({ entryHit, finalStatus: "hit_tp1", finalR: 1, mfe, mae }, feeRate, slippageRate, input.plan);
   }
 
-  return withCosts({ entryHit, finalStatus: "expired", finalR: 0, mfe, mae }, feeRate, slippageRate);
+  return withCosts({ entryHit, finalStatus: "expired", finalR: 0, mfe, mae }, feeRate, slippageRate, input.plan);
 }
 
 export function runBacktest(items: BacktestInput[]) {
@@ -73,11 +73,12 @@ export function runBacktest(items: BacktestInput[]) {
   };
 }
 
-function withCosts(outcome: SignalOutcome, feeRate: number, slippageRate: number): SignalOutcome {
-  const costInR = (feeRate + slippageRate) * 2;
+function withCosts(outcome: SignalOutcome, feeRate: number, slippageRate: number, plan: TradingPlan): SignalOutcome {
+  const stopDistance = plan.slDistancePct / 100;
+  const costInR = stopDistance > 0 ? ((feeRate + slippageRate) * 2) / stopDistance : 0;
   return {
     ...outcome,
-    finalR: Math.round((outcome.finalR - Math.sign(outcome.finalR) * costInR) * 10_000) / 10_000
+    finalR: Math.round((outcome.finalR - (outcome.entryHit ? costInR : 0)) * 10_000) / 10_000
   };
 }
 
