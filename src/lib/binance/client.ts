@@ -21,6 +21,24 @@ export async function fetchFuturesKlines(input: { symbol: string; interval: stri
   return data.map((item) => normalizeKline(input.symbol, input.interval, item));
 }
 
+export async function fetchFuturesFundingRate(symbol: string) {
+  const baseUrl = process.env.BINANCE_FUTURES_BASE_URL || DEFAULT_BASE_URL;
+  const url = new URL("/fapi/v1/premiumIndex", baseUrl);
+  url.searchParams.set("symbol", symbol);
+
+  const response = await fetch(url, {
+    next: { revalidate: 0 }
+  });
+
+  if (!response.ok) {
+    throw new Error(`Binance funding request failed: ${response.status} ${response.statusText}`);
+  }
+
+  const data = (await response.json()) as { lastFundingRate?: string };
+  const fundingRate = Number(data.lastFundingRate);
+  return Number.isFinite(fundingRate) ? fundingRate : null;
+}
+
 export function configuredSymbols() {
   const raw = process.env.SIGNAL_SYMBOLS || "BTCUSDT,ETHUSDT,SOLUSDT,BNBUSDT,LINKUSDT,AVAXUSDT,DOGEUSDT";
   return raw

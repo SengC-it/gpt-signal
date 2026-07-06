@@ -1,13 +1,16 @@
 import { NextResponse } from "next/server";
-import { fetchFuturesKlines, configuredSymbols } from "@/lib/binance/client";
+import { fetchFuturesFundingRate, fetchFuturesKlines, configuredSymbols } from "@/lib/binance/client";
 import { sendEmail } from "@/lib/notifications/mailer";
 import { filterStrongAlertSignals, resolveStrongAlertIntervalMinutes, shouldRunStrongAlertWindow } from "@/lib/notifications/policy";
 import { buildSignalEmail, buildSignalSummaryEmail } from "@/lib/notifications/templates";
+import { ALT_BASKET_SHORT_OPPORTUNITY_ID, evaluateAltBasketShortStrategy } from "@/lib/signal/alt-basket-strategy";
 import { evaluateSignalCandidate } from "@/lib/signal/engine";
 import type { Candle, SignalEvaluation } from "@/lib/signal/types";
 import { getSupabaseAdmin, hasSupabaseServerEnv } from "@/lib/supabase/server";
 
 const SYNC_INTERVALS = ["15m", "1h", "4h"] as const;
+const ALT_BASKET_OPEN_TTL_HOURS = 168;
+const OPEN_LIFECYCLE_STATUSES = ["planned", "waiting_entry", "entered", "setup_confirmed"] as const;
 
 export async function POST(request: Request) {
   const secret = process.env.SIGNAL_SYNC_SECRET;
@@ -34,11 +37,14 @@ export async function POST(request: Request) {
   let persistedNotifications = 0;
   let persistedCandles = 0;
   let strongAlerts = 0;
+  let altBasketAlerts = 0;
   let sentEmails = 0;
   let failedEmails = 0;
   const strongAlertIntervalMinutes = resolveStrongAlertIntervalMinutes(process.env.STRONG_ALERT_INTERVAL_MINUTES);
   const strongAlertEvaluationTime = btcCandles.at(-1)?.closeTime ?? Date.now();
   const strongAlertWindowOpen = shouldRunStrongAlertWindow(strongAlertEvaluationTime, strongAlertIntervalMinutes);
+  const altSymbols = configuredSymbols().filter((symbol) => symbol !== "BTCUSDT");
+  const fundingRates = await fetchFundingRates(altSymbols);
 
   for (const symbol of symbols.filter((item) => item !== "BTCUSDT")) {
     const candles = closedCandles(candleSets.get(candleKey(symbol, "15m")) ?? []);
@@ -60,7 +66,16 @@ export async function POST(request: Request) {
     generated.push(evaluation);
   }
 
-  const qualified = generated.filter((item) => item.level === "A" || item.level === "S");
+  const altBasketSignal = evaluateAltBasketShortStrategy({
+    btcCandles4h: closedCandles(candleSets.get(candleKey("BTCUSDT", "4h")) ?? []),
+    basketCandles15m: Object.fromEntries(
+      altSymbols.map((symbol) => [symbol, closedCandles(candleSets.get(candleKey(symbol, "15m")) ?? [])])
+    ),
+    fundingRates
+  });
+  if (altBasketSignal) generated.push(altBasketSignal);
+
+  const qualified = generated.filter((item) => item.signalType !== "alt_basket_short" && (item.level === "A" || item.level === "S"));
 
   if (hasSupabaseServerEnv()) {
     const supabase = getSupabaseAdmin();
@@ -159,6 +174,96 @@ export async function POST(request: Request) {
       }
     }
 
+    if (altBasketSignal) {
+      const existingOpenSignal = await findOpenAltBasketSignal(supabase);
+      if (!existingOpenSignal) {
+        await supabase.from("gpt_opportunities").upsert({
+          id: ALT_BASKET_SHORT_OPPORTUNITY_ID,
+          symbol: altBasketSignal.symbol,
+          direction: altBasketSignal.direction,
+          opportunity_type: altBasketSignal.signalType,
+          structure_id: altBasketSignal.marketRegime,
+          lifecycle_status: altBasketSignal.lifecycleStatus,
+          current_score: altBasketSignal.score,
+          current_level: altBasketSignal.level,
+          last_updated_at: new Date().toISOString()
+        });
+
+        const { data } = await supabase
+          .from("gpt_signals")
+          .insert({
+            opportunity_id: ALT_BASKET_SHORT_OPPORTUNITY_ID,
+            symbol: altBasketSignal.symbol,
+            direction: altBasketSignal.direction,
+            signal_type: altBasketSignal.signalType,
+            lifecycle_status: altBasketSignal.lifecycleStatus,
+            level: altBasketSignal.level,
+            score: altBasketSignal.score,
+            entry_mode: altBasketSignal.plan?.entryMode ?? "confirmation_wait",
+            entry_low: altBasketSignal.plan?.entryLow ?? null,
+            entry_high: altBasketSignal.plan?.entryHigh ?? null,
+            stop_loss: altBasketSignal.plan?.stopLoss ?? null,
+            tp1: altBasketSignal.plan?.tp1 ?? null,
+            tp2: altBasketSignal.plan?.tp2 ?? null,
+            tp3: altBasketSignal.plan?.tp3 ?? null,
+            theoretical_rr: altBasketSignal.plan?.theoreticalRr ?? null,
+            weighted_rr: altBasketSignal.plan?.weightedRr ?? null,
+            cost_adjusted_rr: altBasketSignal.plan?.costAdjustedRr ?? null,
+            sl_distance_pct: altBasketSignal.plan?.slDistancePct ?? null,
+            sl_atr_ratio: altBasketSignal.plan?.slAtrRatio ?? null,
+            btc_state: altBasketSignal.btcState,
+            market_regime: altBasketSignal.marketRegime,
+            relative_strength_score: altBasketSignal.relativeStrengthScore,
+            data_quality_score: altBasketSignal.dataQualityScore,
+            reasons: altBasketSignal.reasons,
+            invalidation_rules: altBasketSignal.invalidationRules,
+            no_chase_rule: altBasketSignal.noChaseRule
+          })
+          .select("id")
+          .single();
+
+        if (data?.id) {
+          altBasketAlerts = 1;
+          persistedSignals += 1;
+          const email = buildSignalEmail(altBasketSignal);
+          const { data: notifications } = await supabase
+            .from("gpt_notifications")
+            .insert({
+              signal_id: data.id,
+              channel: "email",
+              subject: email.subject,
+              body: email.body,
+              recipient: process.env.NOTIFICATION_EMAIL_TO ?? null,
+              status: "queued"
+            })
+            .select("id");
+
+          persistedNotifications += notifications?.length ?? 0;
+
+          const sendResult = await sendEmail({
+            to: process.env.NOTIFICATION_EMAIL_TO,
+            subject: email.subject,
+            body: email.body
+          });
+
+          const notificationIds = notifications?.map((notification) => notification.id) ?? [];
+          if (notificationIds.length > 0 && sendResult.status !== "skipped") {
+            await supabase
+              .from("gpt_notifications")
+              .update({
+                status: sendResult.status === "sent" ? "sent" : "failed",
+                sent_at: sendResult.status === "sent" ? new Date().toISOString() : null,
+                error_message: sendResult.status === "failed" ? sendResult.error : null
+              })
+              .in("id", notificationIds);
+          }
+
+          if (sendResult.status === "sent") sentEmails += 1;
+          if (sendResult.status === "failed") failedEmails += 1;
+        }
+      }
+    }
+
     const strongAlertSignals = strongAlertWindowOpen ? filterStrongAlertSignals(newSignalRecords.map((record) => record.signal)) : [];
     strongAlerts = strongAlertSignals.length;
 
@@ -213,6 +318,7 @@ export async function POST(request: Request) {
         generated: generated.length,
         qualified: qualified.length,
         strongAlerts,
+        altBasketAlerts,
         strongAlertIntervalMinutes,
         strongAlertWindowOpen,
         persistedSignals,
@@ -228,6 +334,7 @@ export async function POST(request: Request) {
     generated: generated.length,
     qualified: qualified.length,
     strongAlerts,
+    altBasketAlerts,
     persisted: hasSupabaseServerEnv(),
     persistedCandles,
     persistedSignals,
@@ -279,4 +386,32 @@ function candleToRow(candle: Candle) {
     is_closed: candle.isClosed,
     data_quality_score: candle.isClosed ? 100 : 70
   };
+}
+
+async function fetchFundingRates(symbols: string[]) {
+  const entries = await Promise.all(
+    symbols.map(async (symbol) => {
+      try {
+        return [symbol, await fetchFuturesFundingRate(symbol)] as const;
+      } catch {
+        return [symbol, null] as const;
+      }
+    })
+  );
+  return Object.fromEntries(entries);
+}
+
+async function findOpenAltBasketSignal(supabase: ReturnType<typeof getSupabaseAdmin>) {
+  const since = new Date(Date.now() - ALT_BASKET_OPEN_TTL_HOURS * 60 * 60 * 1000).toISOString();
+  const { data } = await supabase
+    .from("gpt_signals")
+    .select("id, lifecycle_status, created_at")
+    .eq("opportunity_id", ALT_BASKET_SHORT_OPPORTUNITY_ID)
+    .in("lifecycle_status", [...OPEN_LIFECYCLE_STATUSES])
+    .gte("created_at", since)
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  return data;
 }

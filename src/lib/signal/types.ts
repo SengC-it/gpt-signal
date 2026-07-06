@@ -1,6 +1,6 @@
 export type Direction = "LONG" | "SHORT";
 export type SignalLevel = "S" | "A" | "B" | "C" | "NONE";
-export type SignalType = "trend_pullback" | "volume_breakout" | "risk_anomaly";
+export type SignalType = "trend_pullback" | "volume_breakout" | "risk_anomaly" | "alt_basket_short";
 export type LifecycleStatus =
   | "detected"
   | "watching"

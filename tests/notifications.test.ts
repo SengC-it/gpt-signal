@@ -36,6 +36,50 @@ const signal: SignalEvaluation = {
 };
 
 describe("notification templates", () => {
+  test("builds a strict BTC weak alt-basket short email", () => {
+    const basketSignal: SignalEvaluation = {
+      ...signal,
+      symbol: "ALT_SHORT_BASKET",
+      direction: "SHORT",
+      signalType: "alt_basket_short",
+      score: 91,
+      noChaseRule: {
+        basketSymbols: "ETHUSDT,SOLUSDT,BNBUSDT,LINKUSDT,AVAXUSDT,DOGEUSDT",
+        weights: "ETHUSDT:16.67%,SOLUSDT:16.67%",
+        entryPrices: "ETHUSDT:2500,SOLUSDT:150",
+        btc4hClose: 60000,
+        btcSma50: 62000,
+        takeProfitPct: 6,
+        stopLossPct: 5,
+        expectedFundingCostPct: 0.2
+      },
+      plan: {
+        entryMode: "confirmation_wait",
+        entryLow: 100,
+        entryHigh: 100,
+        stopLoss: 105,
+        tp1: 94,
+        tp2: 94,
+        tp3: 94,
+        theoreticalRr: 1.2,
+        weightedRr: 1.2,
+        costAdjustedRr: 1.164,
+        slDistancePct: 5,
+        slAtrRatio: 0,
+        noChasePrice: 105
+      }
+    };
+
+    const email = buildSignalEmail(basketSignal);
+
+    expect(email.subject).toContain("BTC弱势做空山寨篮子提醒");
+    expect(email.subject).toContain("TP 6% / SL 5%");
+    expect(email.body).toContain("收到邮件后，用下一根 15m 开盘价附近建立等权空头篮子");
+    expect(email.body).toContain("篮子整体盈利 6% 止盈");
+    expect(email.body).toContain("篮子整体亏损 5% 止损");
+    expect(email.body).toContain("BTC 4h 收盘重新站回 SMA50");
+  });
+
   test("uses plain language that explains the action and risk", () => {
     const email = buildSignalEmail(signal);
 

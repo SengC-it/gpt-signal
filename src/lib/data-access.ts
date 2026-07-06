@@ -186,7 +186,7 @@ function direction(value: unknown): Direction {
 }
 
 function signalType(value: unknown): SignalType {
-  if (value === "volume_breakout" || value === "risk_anomaly") return value;
+  if (value === "volume_breakout" || value === "risk_anomaly" || value === "alt_basket_short") return value;
   return "trend_pullback";
 }
 

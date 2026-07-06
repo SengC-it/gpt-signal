@@ -1,6 +1,8 @@
 import type { SignalEvaluation } from "@/lib/signal/types";
 
 export function buildSignalEmail(signal: SignalEvaluation) {
+  if (signal.signalType === "alt_basket_short") return buildAltBasketShortEmail(signal);
+
   const plan = signal.plan;
   const sideText = signal.direction === "LONG" ? "做多" : "做空";
   const plainSideText = signal.direction === "LONG" ? "上涨" : "下跌";
@@ -26,6 +28,43 @@ export function buildSignalEmail(signal: SignalEvaluation) {
     "",
     "这不是自动买入提醒，也不是保证赚钱。它只是提醒你：这里可能有机会，但需要你自己确认仓位和风险。",
     "合约波动很大，请控制仓位；看不懂或来不及判断时，宁可错过。"
+  ].join("\n");
+
+  return { subject, body };
+}
+
+function buildAltBasketShortEmail(signal: SignalEvaluation) {
+  const plan = signal.plan;
+  const basketSymbols = textField(signal.noChaseRule.basketSymbols, "ETHUSDT,SOLUSDT,BNBUSDT,LINKUSDT,AVAXUSDT,DOGEUSDT");
+  const entryPrices = textField(signal.noChaseRule.entryPrices, "see latest market prices");
+  const weights = textField(signal.noChaseRule.weights, "equal weight");
+  const tpPct = numberField(signal.noChaseRule.takeProfitPct, 6);
+  const slPct = numberField(signal.noChaseRule.stopLossPct, 5);
+  const btcClose = numberField(signal.noChaseRule.btc4hClose, 0);
+  const btcSma50 = numberField(signal.noChaseRule.btcSma50, 0);
+  const fundingCost = numberField(signal.noChaseRule.expectedFundingCostPct, 0);
+  const subject = `BTC弱势做空山寨篮子提醒｜${signal.score}分｜TP ${tpPct}% / SL ${slPct}%`;
+
+  const body = [
+    "策略：BTC 4h 跌破 SMA50，做空山寨等权篮子。",
+    `方向：做空 ${basketSymbols}`,
+    `权重：${weights}`,
+    btcClose > 0 && btcSma50 > 0 ? `BTC状态：4h close ${btcClose} < SMA50 ${btcSma50}` : "BTC状态：4h close < SMA50",
+    "",
+    "严格执行计划：",
+    "1. 收到邮件后，用下一根 15m 开盘价附近建立等权空头篮子。",
+    `2. 篮子整体盈利 ${tpPct}% 止盈。`,
+    `3. 篮子整体亏损 ${slPct}% 止损。`,
+    "4. 如果 BTC 4h 收盘重新站回 SMA50，退出，不恋战。",
+    "",
+    plan ? `指数化计划：entry ${plan.entryLow}，TP ${plan.tp1}，SL ${plan.stopLoss}。` : "指数化计划：等待确认。",
+    `参考入场价：${entryPrices}`,
+    `预估资金费率成本：${fundingCost}%`,
+    "",
+    `为什么提醒：${plainReasons(signal.reasons)}`,
+    `什么情况放弃：${plainReasons(signal.invalidationRules)}`,
+    "",
+    "风险提醒：这是纸面验证后筛出的策略提醒，不是自动交易，也不保证盈利。先小仓或纸面跟踪，严格按邮件止盈止损复盘。"
   ].join("\n");
 
   return { subject, body };
@@ -76,4 +115,13 @@ function signalSummaryLines(signal: SignalEvaluation, rank: number) {
 function plainReasons(items: string[]) {
   if (items.length === 0) return "暂无更多原因。";
   return items.join("；");
+}
+
+function textField(value: unknown, fallback: string) {
+  return typeof value === "string" && value.length > 0 ? value : fallback;
+}
+
+function numberField(value: unknown, fallback: number) {
+  const numeric = Number(value);
+  return Number.isFinite(numeric) ? numeric : fallback;
 }
