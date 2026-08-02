@@ -57,7 +57,7 @@ describe("signal engine", () => {
     ).toBe(true);
   });
 
-  test("builds a long trading plan with weighted RR", () => {
+  test("builds a long trading plan with full-TP1 reward risk", () => {
     const plan = buildTradingPlan({
       direction: "LONG",
       currentPrice: 100,
@@ -67,7 +67,7 @@ describe("signal engine", () => {
     });
 
     expect(plan.stopLoss).toBeCloseTo(95.4, 5);
-    expect(plan.weightedRr).toBeCloseTo(1.8, 5);
+    expect(plan.weightedRr).toBeCloseTo(1, 5);
     expect(plan.noChasePrice).toBeGreaterThan(plan.entryHigh);
   });
 
@@ -87,5 +87,40 @@ describe("signal engine", () => {
 
     expect(result.level === "A" || result.level === "S").toBe(true);
     expect(result.plan).not.toBeNull();
+  });
+
+  test("V2 supports both long and short signals with the compact target plan", () => {
+    const candles = Array.from({ length: 40 }, (_, index) => candle(100 + index * 0.5, index));
+    const shortCandles = Array.from({ length: 40 }, (_, index) => candle(120 - index * 0.5, index));
+    const btcCandles15m = Array.from({ length: 40 }, (_, index) => candle(100 + index * 0.1, index));
+    const btcCandles4h = Array.from({ length: 50 }, (_, index) => ({
+      ...candle(100 + index, index),
+      interval: "4h"
+    }));
+    const input = {
+      symbol: "SOLUSDT",
+      signalType: "trend_pullback" as const,
+      candles15m: candles,
+      btcCandles15m,
+      btcCandles4h,
+      strategyVersion: "v2" as const,
+      now: candles.at(-1)!.closeTime + 1,
+      fundingRate: null,
+      oiChange15m: null,
+      circuitBreakerActive: false
+    };
+
+    const longResult = evaluateSignalCandidate({ ...input, direction: "LONG" });
+    const shortResult = evaluateSignalCandidate({ ...input, candles15m: shortCandles, direction: "SHORT" });
+
+    expect(longResult.strategyVersion).toBe("v2");
+    expect(longResult.plan).not.toBeNull();
+    expect(longResult.plan?.weightedRr).toBeCloseTo(0.35, 2);
+    expect(longResult.plan?.tp1).toBeCloseTo(
+      longResult.plan!.entryHigh + (longResult.plan!.entryHigh - longResult.plan!.stopLoss) * 0.35,
+      4
+    );
+    expect(shortResult.plan).not.toBeNull();
+    expect(shortResult.direction).toBe("SHORT");
   });
 });

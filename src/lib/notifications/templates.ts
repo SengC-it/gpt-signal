@@ -21,6 +21,7 @@ export function buildSignalEmail(signal: SignalEvaluation) {
       : "现在还没有合适的价格区间，只适合先观察，不建议马上行动。",
     plan ? `风险价：${plan.stopLoss}。如果价格碰到这里，说明这次判断可能错了。` : "风险价：等待确认。",
     plan ? `第一目标：${plan.tp1}；第二目标：${plan.tp2}；第三目标：${plan.tp3}。` : "目标价：等待确认。",
+    plan ? "Execution: close the full position at TP1; TP2/TP3 are reference extensions only." : "",
     plan ? `如果价格已经超过 ${plan.noChasePrice}，就不要追了，容易买在高位或卖在低位。` : "不追价位置：等待确认。",
     "",
     `为什么提醒：${plainReasons(signal.reasons)}`,
@@ -103,6 +104,7 @@ function signalSummaryLines(signal: SignalEvaluation, rank: number) {
     plan
       ? `   观察价格：${plan.entryLow} - ${plan.entryHigh}；风险价：${plan.stopLoss}；目标：${plan.tp1} / ${plan.tp2} / ${plan.tp3}。`
       : "   观察价格：暂未形成合适区间，先观察。",
+    plan ? "   Execution: close the full position at TP1; TP2/TP3 are reference extensions only." : "",
     plan
       ? `   不要追：如果价格已经超过 ${plan.noChasePrice}，这次就先放过。`
       : "   不要追：等待更清楚的位置。",

@@ -1,7 +1,7 @@
-import type { Candle, SignalEvaluation, TradingPlan } from "@/lib/signal/types";
+import type { Candle, SignalEvaluation, TradingPlan } from "./types.ts";
+import { REVIEW_ROUND_TRIP_COST_PCT } from "./review.ts";
 
 export const ALT_BASKET_SHORT_SYMBOL = "ALT_SHORT_BASKET";
-export const ALT_BASKET_SHORT_OPPORTUNITY_ID = "alt_basket_short:btc_4h_sma50:tp6_sl5";
 
 export type AltBasketShortConfig = {
   basketSymbols?: string[];
@@ -20,9 +20,24 @@ export type AltBasketShortInput = {
 
 const DEFAULT_BASKET = ["ETHUSDT", "SOLUSDT", "BNBUSDT", "LINKUSDT", "AVAXUSDT", "DOGEUSDT"];
 const DEFAULT_SMA_PERIOD = 50;
-const DEFAULT_TAKE_PROFIT_PCT = 6;
-const DEFAULT_STOP_LOSS_PCT = 5;
 const DEFAULT_MAX_FUNDING_COST_PCT = 1.2;
+
+export const ALT_BASKET_SHORT_CONFIG_V1: Required<AltBasketShortConfig> = {
+  basketSymbols: [...DEFAULT_BASKET],
+  btcSmaPeriod: DEFAULT_SMA_PERIOD,
+  takeProfitPct: 6,
+  stopLossPct: 5,
+  maxFundingCostPct: DEFAULT_MAX_FUNDING_COST_PCT
+};
+
+export const ALT_BASKET_SHORT_CONFIG_V2: Required<AltBasketShortConfig> = {
+  ...ALT_BASKET_SHORT_CONFIG_V1,
+  takeProfitPct: 4
+};
+
+export const ALT_BASKET_SHORT_OPPORTUNITY_ID_V1 = "alt_basket_short:btc_4h_sma50:tp6_sl5";
+export const ALT_BASKET_SHORT_OPPORTUNITY_ID_V2 = "alt_basket_short:btc_4h_sma50:tp4_sl5";
+export const ALT_BASKET_SHORT_OPPORTUNITY_ID = ALT_BASKET_SHORT_OPPORTUNITY_ID_V1;
 
 export function evaluateAltBasketShortStrategy(input: AltBasketShortInput): SignalEvaluation | null {
   const config = resolveConfig(input.config);
@@ -45,7 +60,7 @@ export function evaluateAltBasketShortStrategy(input: AltBasketShortInput): Sign
   const expectedFundingCostPct = estimateFundingCostPct(basket.map((item) => item.fundingRate));
   if (expectedFundingCostPct > config.maxFundingCostPct) return null;
 
-  const plan = buildIndexedPlan(config.takeProfitPct, config.stopLossPct);
+  const plan = buildIndexedPlan(config.takeProfitPct, config.stopLossPct, "SHORT");
   const btcWeaknessPct = ((btcSma - latestBtc.close) / btcSma) * 100;
   const score = Math.min(95, Math.round(78 + btcWeaknessPct * 5 + Math.max(0, config.maxFundingCostPct - expectedFundingCostPct) * 2));
   const level = score >= 88 ? "S" : "A";
@@ -92,18 +107,19 @@ export function evaluateAltBasketShortStrategy(input: AltBasketShortInput): Sign
 
 function resolveConfig(config: AltBasketShortConfig = {}) {
   return {
-    basketSymbols: config.basketSymbols ?? DEFAULT_BASKET,
-    btcSmaPeriod: config.btcSmaPeriod ?? DEFAULT_SMA_PERIOD,
-    takeProfitPct: config.takeProfitPct ?? DEFAULT_TAKE_PROFIT_PCT,
-    stopLossPct: config.stopLossPct ?? DEFAULT_STOP_LOSS_PCT,
-    maxFundingCostPct: config.maxFundingCostPct ?? DEFAULT_MAX_FUNDING_COST_PCT
+    ...ALT_BASKET_SHORT_CONFIG_V1,
+    ...config,
+    basketSymbols: config.basketSymbols ?? ALT_BASKET_SHORT_CONFIG_V1.basketSymbols
   };
 }
 
-function buildIndexedPlan(takeProfitPct: number, stopLossPct: number): TradingPlan {
+function buildIndexedPlan(takeProfitPct: number, stopLossPct: number, direction: "LONG" | "SHORT"): TradingPlan {
   const entry = 100;
-  const stopLoss = entry * (1 + stopLossPct / 100);
-  const tp1 = entry * (1 - takeProfitPct / 100);
+  const sign = direction === "LONG" ? 1 : -1;
+  const stopLoss = entry * (1 - sign * stopLossPct / 100);
+  const tp1 = entry * (1 + sign * takeProfitPct / 100);
+  const grossR = takeProfitPct / stopLossPct;
+  const costR = stopLossPct > 0 ? REVIEW_ROUND_TRIP_COST_PCT / (stopLossPct / 100) : 0;
   return {
     entryMode: "confirmation_wait",
     entryLow: entry,
@@ -112,9 +128,9 @@ function buildIndexedPlan(takeProfitPct: number, stopLossPct: number): TradingPl
     tp1: round(tp1, 4),
     tp2: round(tp1, 4),
     tp3: round(tp1, 4),
-    theoreticalRr: round(takeProfitPct / stopLossPct, 4),
-    weightedRr: round(takeProfitPct / stopLossPct, 4),
-    costAdjustedRr: round(takeProfitPct / stopLossPct - 0.036, 4),
+    theoreticalRr: round(grossR, 4),
+    weightedRr: round(grossR, 4),
+    costAdjustedRr: round(grossR - costR, 4),
     slDistancePct: stopLossPct,
     slAtrRatio: 0,
     noChasePrice: round(stopLoss, 4)

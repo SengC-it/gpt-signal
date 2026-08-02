@@ -4,9 +4,11 @@ import {
   calculateRelativeStrength,
   calculateVolumeRatio,
   findStructure
-} from "@/lib/signal/indicators";
-import { levelFromScore, scoreSignal } from "@/lib/signal/scoring";
-import type { Direction, SignalCandidateInput, SignalEvaluation, TradingPlan } from "@/lib/signal/types";
+} from "./indicators.ts";
+import { levelFromScore, scoreSignal } from "./scoring.ts";
+import { REVIEW_ROUND_TRIP_COST_PCT } from "./review.ts";
+import { resolveMainStrategyConfig, strategyParameters } from "./strategy-config.ts";
+import type { Direction, SignalCandidateInput, SignalEvaluation, TradingPlan } from "./types.ts";
 
 const FIFTEEN_MINUTES = 900_000;
 
@@ -16,22 +18,22 @@ export function buildTradingPlan(input: {
   atr: number;
   structureLow: number;
   structureHigh: number;
+  stopBufferAtr?: number;
+  targetR?: number;
 }): TradingPlan {
-  const buffer = input.atr * 0.3;
+  const buffer = input.atr * (input.stopBufferAtr ?? 0.3);
 
   if (input.direction === "LONG") {
     const stopLoss = input.structureLow - buffer;
-    const risk = input.currentPrice - stopLoss;
     const entryLow = input.currentPrice - input.atr * 0.15;
     const entryHigh = input.currentPrice + input.atr * 0.35;
-    return createPlan("pullback_limit", entryLow, entryHigh, stopLoss, input.currentPrice, risk, input.atr, "LONG");
+    return createPlan("pullback_limit", entryLow, entryHigh, stopLoss, input.atr, "LONG", input.targetR ?? 1);
   }
 
   const stopLoss = input.structureHigh + buffer;
-  const risk = stopLoss - input.currentPrice;
   const entryLow = input.currentPrice - input.atr * 0.35;
   const entryHigh = input.currentPrice + input.atr * 0.15;
-  return createPlan("pullback_limit", entryLow, entryHigh, stopLoss, input.currentPrice, risk, input.atr, "SHORT");
+  return createPlan("pullback_limit", entryLow, entryHigh, stopLoss, input.atr, "SHORT", input.targetR ?? 1);
 }
 
 export function shouldMarkNoChase(input: {
@@ -50,11 +52,13 @@ export function shouldMarkNoChase(input: {
 
 export function evaluateSignalCandidate(input: SignalCandidateInput): SignalEvaluation {
   const latest = input.candles15m.at(-1);
+  const strategyVersion = input.strategyVersion ?? "v1";
+  const strategyConfig = input.strategyConfig ?? resolveMainStrategyConfig(strategyVersion);
   const atr = calculateAtr(input.candles15m, 14);
   const dataQualityScore = calculateDataQualityScore(input.candles15m, input.now, FIFTEEN_MINUTES);
   const relativeStrengthScore = calculateRelativeStrength(input.candles15m.slice(-16), input.btcCandles15m.slice(-16));
   const volumeRatio = calculateVolumeRatio(input.candles15m, 20);
-  const structure = findStructure(input.candles15m, 20);
+  const structure = findStructure(input.candles15m, strategyConfig.structureLookback);
   const currentPrice = latest?.close ?? 0;
   const plan = latest
     ? buildTradingPlan({
@@ -62,18 +66,44 @@ export function evaluateSignalCandidate(input: SignalCandidateInput): SignalEval
         currentPrice,
         atr,
         structureLow: structure.low,
-        structureHigh: structure.high
+        structureHigh: structure.high,
+        targetR: strategyConfig.targetR,
+        stopBufferAtr: strategyConfig.stopBufferAtr
       })
     : null;
 
   const btcAligned = input.direction === "LONG" ? relativeStrengthScore >= -2 : relativeStrengthScore <= 2;
+  const btcRegime = resolveBtcRegime(input.btcCandles4h ?? []);
+  const marketRegimeMatched = strategyConfig.regimeMode === "any"
+    || (input.direction === "LONG" ? btcRegime === "bull" : btcRegime === "bear");
+  const weaknessMatched = !strategyConfig.requireWeakness
+    || (input.direction === "SHORT" ? relativeStrengthScore <= 0 : relativeStrengthScore >= 0);
+  const configuredStrengthThreshold = input.direction === "LONG"
+    ? strategyConfig.longRelativeStrengthThreshold || strategyConfig.relativeStrengthThreshold
+    : strategyConfig.shortRelativeStrengthThreshold || strategyConfig.relativeStrengthThreshold;
+  const relativeStrengthMatched = configuredStrengthThreshold <= 0
+    ? true
+    : input.direction === "LONG"
+      ? strategyConfig.relativeStrengthMode === "trend"
+        ? relativeStrengthScore >= configuredStrengthThreshold
+        : relativeStrengthScore <= -configuredStrengthThreshold
+      : strategyConfig.relativeStrengthMode === "trend"
+        ? relativeStrengthScore <= -configuredStrengthThreshold
+        : relativeStrengthScore >= configuredStrengthThreshold;
+  const entryStructureConfirmed = strategyConfig.setupMode === "pullback"
+    || isBreakout(input.candles15m, input.direction, strategyConfig.structureLookback);
+  const assetTrend1hAligned = resolveTrendAlignment(input.candles15m, input.direction, 4);
+  const assetTrend4hAligned = resolveTrendAlignment(input.candles15m, input.direction, 16);
+  const trendMatched = strategyConfig.trendMode === "any" || (assetTrend1hAligned && assetTrend4hAligned);
+  const trend1hAligned = strategyConfig.trendMode === "any" || assetTrend1hAligned;
+  const trend4hAligned = strategyConfig.trendMode === "any" || assetTrend4hAligned;
   const score = scoreSignal({
     dataQualityScore,
     btcAligned,
-    marketRegimeMatched: true,
-    trend4hAligned: true,
-    trend1hAligned: true,
-    entryStructureConfirmed: true,
+    marketRegimeMatched,
+    trend4hAligned,
+    trend1hAligned,
+    entryStructureConfirmed,
     volumeRatio,
     oiChange15m: input.oiChange15m,
     fundingRate: input.fundingRate,
@@ -93,8 +123,14 @@ export function evaluateSignalCandidate(input: SignalCandidateInput): SignalEval
     : true;
   const eligibleForPlan =
     (level === "A" || level === "S") &&
+    score >= strategyConfig.minScore &&
     dataQualityScore >= 90 &&
-    (plan?.weightedRr ?? 0) >= 1.3 &&
+    (plan?.weightedRr ?? 0) >= strategyConfig.minRewardRisk &&
+    marketRegimeMatched &&
+    weaknessMatched &&
+    relativeStrengthMatched &&
+    entryStructureConfirmed &&
+    trendMatched &&
     !noChase &&
     !input.circuitBreakerActive;
 
@@ -106,8 +142,8 @@ export function evaluateSignalCandidate(input: SignalCandidateInput): SignalEval
     level,
     score,
     plan: eligibleForPlan ? plan : null,
-    btcState: relativeStrengthScore >= 0 ? "weak_bull" : "range",
-    marketRegime: volumeRatio >= 2 ? "expansion" : "trend",
+    btcState: btcRegime,
+    marketRegime: `${btcRegime}_${volumeRatio >= 2 ? "expansion" : "trend"}`,
     dataQualityScore,
     relativeStrengthScore,
     reasons: buildReasons(volumeRatio, relativeStrengthScore, dataQualityScore),
@@ -117,7 +153,9 @@ export function evaluateSignalCandidate(input: SignalCandidateInput): SignalEval
           direction: input.direction,
           noChasePrice: plan.noChasePrice
         }
-      : {}
+      : {},
+    strategyVersion,
+    strategyParameters: strategyParameters(strategyConfig)
   };
 }
 
@@ -126,20 +164,26 @@ function createPlan(
   entryLow: number,
   entryHigh: number,
   stopLoss: number,
-  currentPrice: number,
-  risk: number,
   atr: number,
-  direction: Direction
+  direction: Direction,
+  targetR: number
 ): TradingPlan {
   const sign = direction === "LONG" ? 1 : -1;
-  const tp1 = currentPrice + sign * risk;
-  const tp2 = currentPrice + sign * risk * 2;
-  const tp3 = currentPrice + sign * risk * 3;
-  const weightedRr = 0.4 * 1 + 0.4 * 2 + 0.2 * 3;
-  const costAdjustedRr = weightedRr - 0.12;
-  const slDistancePct = Math.abs((currentPrice - stopLoss) / currentPrice) * 100;
-  const slAtrRatio = atr === 0 ? 0 : Math.abs(currentPrice - stopLoss) / atr;
-  const noChasePrice = direction === "LONG" ? entryHigh + risk : entryLow - risk;
+  const entryReference = direction === "LONG" ? entryHigh : entryLow;
+  const entryRisk = Math.abs(entryReference - stopLoss);
+  const tp1 = entryReference + sign * entryRisk * targetR;
+  const tp2 = entryReference + sign * entryRisk * targetR * 2;
+  const tp3 = entryReference + sign * entryRisk * targetR * 3;
+  // New signals are exited fully at TP1. Keep the legacy field name for the
+  // existing database/UI, but its value is now the actual TP1 gross R.
+  const weightedRr = targetR;
+  const costR = entryReference > 0 && entryRisk > 0
+    ? REVIEW_ROUND_TRIP_COST_PCT / (entryRisk / entryReference)
+    : 0;
+  const costAdjustedRr = weightedRr - costR;
+  const slDistancePct = entryReference === 0 ? 0 : (entryRisk / entryReference) * 100;
+  const slAtrRatio = atr === 0 ? 0 : entryRisk / atr;
+  const noChasePrice = direction === "LONG" ? entryHigh + entryRisk : entryLow - entryRisk;
 
   return {
     entryMode,
@@ -149,7 +193,7 @@ function createPlan(
     tp1: round(tp1),
     tp2: round(tp2),
     tp3: round(tp3),
-    theoreticalRr: 3,
+    theoreticalRr: targetR * 3,
     weightedRr,
     costAdjustedRr,
     slDistancePct: round(slDistancePct),
@@ -168,5 +212,37 @@ function buildReasons(volumeRatio: number, relativeStrengthScore: number, dataQu
 
 function round(value: number) {
   return Math.round(value * 100_000) / 100_000;
+}
+
+export function resolveBtcRegime(candles: Array<{ close: number; isClosed: boolean }>) {
+  const closed = candles.filter((candle) => candle.isClosed);
+  if (closed.length < 50) return "unknown" as const;
+  const averageClose = closed.slice(-50).reduce((sum, candle) => sum + candle.close, 0) / 50;
+  return closed.at(-1)!.close >= averageClose ? "bull" as const : "bear" as const;
+}
+
+function resolveTrendAlignment(candles: Array<{ close: number; isClosed: boolean }>, direction: Direction, period: number) {
+  const closed = candles.filter((candle) => candle.isClosed);
+  if (closed.length < period * 2) return false;
+  const recent = average(closed.slice(-period).map((candle) => candle.close));
+  const previous = average(closed.slice(-period * 2, -period).map((candle) => candle.close));
+  const latest = closed.at(-1)!.close;
+  return direction === "LONG"
+    ? latest >= recent && recent >= previous
+    : latest <= recent && recent <= previous;
+}
+
+function average(values: number[]) {
+  return values.reduce((sum, value) => sum + value, 0) / values.length;
+}
+
+function isBreakout(candles: Array<{ high: number; low: number; close: number; isClosed: boolean }>, direction: Direction, lookback: number) {
+  const closed = candles.filter((candle) => candle.isClosed);
+  if (closed.length <= lookback) return false;
+  const latest = closed.at(-1)!;
+  const previous = closed.slice(-lookback - 1, -1);
+  const previousHigh = Math.max(...previous.map((candle) => candle.high));
+  const previousLow = Math.min(...previous.map((candle) => candle.low));
+  return direction === "LONG" ? latest.close > previousHigh : latest.close < previousLow;
 }
 

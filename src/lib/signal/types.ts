@@ -1,4 +1,7 @@
 export type Direction = "LONG" | "SHORT";
+export type StrategyVersion = string;
+export type DeliveryMode = "production" | "shadow";
+export type StrategyFamily = "main" | "alt_basket";
 export type SignalLevel = "S" | "A" | "B" | "C" | "NONE";
 export type SignalType = "trend_pullback" | "volume_breakout" | "risk_anomaly" | "alt_basket_short";
 export type LifecycleStatus =
@@ -50,12 +53,32 @@ export type TradingPlan = {
   noChasePrice: number;
 };
 
+export type MainStrategyConfig = {
+  version: StrategyVersion;
+  targetR: number;
+  minScore: number;
+  minRewardRisk: number;
+  regimeMode: "any" | "aligned";
+  requireWeakness: boolean;
+  trendMode: "any" | "aligned";
+  structureLookback: number;
+  stopBufferAtr: number;
+  relativeStrengthThreshold: number;
+  longRelativeStrengthThreshold: number;
+  shortRelativeStrengthThreshold: number;
+  relativeStrengthMode: "trend" | "reversal";
+  setupMode: "pullback" | "breakout";
+};
+
 export type SignalCandidateInput = {
   symbol: string;
   direction: Direction;
   signalType: SignalType;
   candles15m: Candle[];
   btcCandles15m: Candle[];
+  btcCandles4h?: Candle[];
+  strategyVersion?: StrategyVersion;
+  strategyConfig?: MainStrategyConfig;
   now: number;
   fundingRate: number | null;
   oiChange15m: number | null;
@@ -77,5 +100,9 @@ export type SignalEvaluation = {
   reasons: string[];
   invalidationRules: string[];
   noChaseRule: Record<string, number | string>;
+  strategyVersion?: StrategyVersion;
+  deliveryMode?: DeliveryMode;
+  strategyFamily?: StrategyFamily;
+  strategyParameters?: Record<string, boolean | number | string>;
 };
 

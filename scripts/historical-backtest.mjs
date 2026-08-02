@@ -2,6 +2,8 @@ import https from "node:https";
 import fs from "node:fs";
 import path from "node:path";
 import { spawnSync } from "node:child_process";
+import { evaluateSignalCandidate } from "../src/lib/signal/engine.ts";
+import { applyReviewCandles, DEFAULT_REVIEW_EXECUTION_POLICY } from "../src/lib/signal/review.ts";
 
 const BASE_URL = process.env.BINANCE_FUTURES_BASE_URL || "https://fapi.binance.com";
 const SYMBOLS = (process.env.SIGNAL_SYMBOLS || "BTCUSDT,ETHUSDT,SOLUSDT,BNBUSDT,LINKUSDT,AVAXUSDT,DOGEUSDT")
@@ -9,13 +11,13 @@ const SYMBOLS = (process.env.SIGNAL_SYMBOLS || "BTCUSDT,ETHUSDT,SOLUSDT,BNBUSDT,
   .map((item) => item.trim().toUpperCase())
   .filter(Boolean);
 const INTERVAL_MS = 15 * 60 * 1000;
-const END_TIME = Date.now();
-const LOOKBACK_DAYS = Number(process.env.BACKTEST_LOOKBACK_DAYS || 365);
+const END_TIME = Number(process.env.BACKTEST_END_TIME || Date.now());
+const LOOKBACK_DAYS = Number(process.env.BACKTEST_LOOKBACK_DAYS || 452);
 const START_TIME = Number(process.env.BACKTEST_START_TIME || END_TIME - LOOKBACK_DAYS * 24 * 60 * 60 * 1000);
-const HORIZON_CANDLES = Number(process.env.BACKTEST_HORIZON_CANDLES || 96);
-const FEE_RATE = Number(process.env.BACKTEST_FEE_RATE || 0.0004);
+const FEE_RATE = Number(process.env.BACKTEST_FEE_RATE || 0.001);
 const SLIPPAGE_RATE = Number(process.env.BACKTEST_SLIPPAGE_RATE || 0.0005);
-const CACHE_DIR = path.join(process.cwd(), ".cache", "historical-backtest", `${LOOKBACK_DAYS}d`);
+const CACHE_KEY = process.env.BACKTEST_CACHE_KEY || `${LOOKBACK_DAYS}d`;
+const CACHE_DIR = path.join(process.cwd(), ".cache", "historical-backtest", CACHE_KEY);
 fs.mkdirSync(CACHE_DIR, { recursive: true });
 
 const pollingSteps = [1, 2, 4];
@@ -23,6 +25,23 @@ const pollingSteps = [1, 2, 4];
 const candlesBySymbol = new Map();
 for (const symbol of SYMBOLS) {
   candlesBySymbol.set(symbol, await fetchAllKlines(symbol));
+}
+
+if (process.env.FETCH_ONLY === "1") {
+  console.log(JSON.stringify({
+    generatedAt: new Date().toISOString(),
+    startTime: new Date(START_TIME).toISOString(),
+    endTime: new Date(END_TIME).toISOString(),
+    dataCoverage: Object.fromEntries(SYMBOLS.map((symbol) => {
+      const candles = candlesBySymbol.get(symbol) || [];
+      return [symbol, {
+        candles: candles.length,
+        first: candles[0] ? new Date(candles[0].openTime).toISOString() : null,
+        last: candles.at(-1) ? new Date(candles.at(-1).openTime).toISOString() : null
+      }];
+    }))
+  }, null, 2));
+  process.exit(0);
 }
 
 const btcCandles = candlesBySymbol.get("BTCUSDT") || [];
@@ -45,10 +64,9 @@ const report = {
     interval: "15m",
     startTime: new Date(START_TIME).toISOString(),
     endTime: new Date(END_TIME).toISOString(),
-    horizonCandles: HORIZON_CANDLES,
     feeRate: FEE_RATE,
     slippageRate: SLIPPAGE_RATE,
-    execution: "one active trade per symbol; entry can fill after signal candle; SL wins if TP and SL hit in same candle"
+    execution: "one active trade per symbol; entry can fill after signal candle; full position exits at TP1; TP2/TP3 do not change the result; SL wins if TP1 and SL hit in same candle; no time expiry; unhit TP/SL remains open"
   },
   dataCoverage: Object.fromEntries(
     SYMBOLS.map((symbol) => {
@@ -95,7 +113,7 @@ function isOptimizedStrongAlert(row) {
 function simulateSymbol(symbol, candles, step) {
   const trades = [];
   let nextAvailableIndex = 40;
-  for (let index = 40; index < candles.length - HORIZON_CANDLES; index += step) {
+  for (let index = 40; index < candles.length - 1; index += step) {
     if (index < nextAvailableIndex) continue;
     const signalWindow = candles.slice(0, index + 1);
     const btcIndex = btcIndexByOpenTime.get(candles[index].openTime);
@@ -105,16 +123,21 @@ function simulateSymbol(symbol, candles, step) {
     const signal = evaluateSignalCandidate({
       symbol,
       direction,
+      signalType: "trend_pullback",
       candles15m: signalWindow,
       btcCandles15m: btcWindow,
-      now: candles[index].closeTime
+      btcCandles4h: [],
+      now: candles[index].closeTime,
+      fundingRate: null,
+      oiChange15m: null,
+      circuitBreakerActive: false
     });
 
     if (!(signal.level === "A" || signal.level === "S") || signal.lifecycleStatus !== "planned" || !signal.plan) {
       continue;
     }
 
-    const outcome = simulateSignalOutcome(direction, signal.plan, candles.slice(index + 1, index + 1 + HORIZON_CANDLES));
+    const outcome = simulateSignalOutcome(direction, signal.plan, candles.slice(index + 1));
     trades.push({
       pollingMinutes: step * 15,
       symbol,
@@ -247,128 +270,31 @@ function requestJsonViaPowerShell(url) {
   return JSON.parse(result.stdout);
 }
 
-function evaluateSignalCandidate(input) {
-  const latest = input.candles15m.at(-1);
-  const atr = calculateAtr(input.candles15m, 14);
-  const dataQualityScore = calculateDataQualityScore(input.candles15m, input.now, INTERVAL_MS);
-  const relativeStrengthScore = calculateRelativeStrength(input.candles15m.slice(-16), input.btcCandles15m.slice(-16));
-  const volumeRatio = calculateVolumeRatio(input.candles15m, 20);
-  const structure = findStructure(input.candles15m, 20);
-  const currentPrice = latest?.close ?? 0;
-  const plan = latest
-    ? buildTradingPlan({
-        direction: input.direction,
-        currentPrice,
-        atr,
-        structureLow: structure.low,
-        structureHigh: structure.high
-      })
-    : null;
-
-  const btcAligned = input.direction === "LONG" ? relativeStrengthScore >= -2 : relativeStrengthScore <= 2;
-  const score = scoreSignal({
-    dataQualityScore,
-    btcAligned,
-    marketRegimeMatched: true,
-    trend4hAligned: true,
-    trend1hAligned: true,
-    entryStructureConfirmed: true,
-    volumeRatio,
-    oiChange15m: null,
-    fundingRate: null,
-    relativeStrengthScore,
-    liquidityScore: 5,
-    weightedRr: plan?.weightedRr ?? 0
+function simulateSignalOutcome(direction, plan, futureCandles) {
+  const state = applyReviewCandles({
+    direction,
+    plan,
+    candles: futureCandles,
+    feeRate: FEE_RATE,
+    slippageRate: SLIPPAGE_RATE,
+    executionPolicy: DEFAULT_REVIEW_EXECUTION_POLICY
   });
-  const level = levelFromScore(score);
-  const noChase = plan
-    ? shouldMarkNoChase({
-        direction: input.direction,
-        currentPrice,
-        entryLow: plan.entryLow,
-        entryHigh: plan.entryHigh,
-        stopLoss: plan.stopLoss
-      })
-    : true;
-  const eligibleForPlan =
-    (level === "A" || level === "S") && dataQualityScore >= 90 && (plan?.weightedRr ?? 0) >= 1.3 && !noChase;
+  const completedIndex = state.exitTime === null && state.lastCheckedAt === null
+    ? -1
+    : futureCandles.findIndex((candle) => candle.closeTime === (state.exitTime ?? state.lastCheckedAt));
 
   return {
-    symbol: input.symbol,
-    direction: input.direction,
-    lifecycleStatus: eligibleForPlan ? "planned" : score >= 65 ? "watching" : "detected",
-    level,
-    score,
-    plan: eligibleForPlan ? plan : null
+    entryHit: state.entryHit,
+    finalStatus: state.finalStatus,
+    finalR: state.netR,
+    grossR: state.grossR,
+    netR: state.netR,
+    grossPnlPct: state.grossPnlPct,
+    netPnlPct: state.netPnlPct,
+    mfe: state.mfe,
+    mae: state.mae,
+    durationCandles: completedIndex >= 0 ? completedIndex + 1 : futureCandles.length
   };
-}
-
-function buildTradingPlan(input) {
-  const buffer = input.atr * 0.3;
-  if (input.direction === "LONG") {
-    const stopLoss = input.structureLow - buffer;
-    const risk = input.currentPrice - stopLoss;
-    const entryLow = input.currentPrice - input.atr * 0.15;
-    const entryHigh = input.currentPrice + input.atr * 0.35;
-    return createPlan("pullback_limit", entryLow, entryHigh, stopLoss, input.currentPrice, risk, input.atr, "LONG");
-  }
-
-  const stopLoss = input.structureHigh + buffer;
-  const risk = stopLoss - input.currentPrice;
-  const entryLow = input.currentPrice - input.atr * 0.35;
-  const entryHigh = input.currentPrice + input.atr * 0.15;
-  return createPlan("pullback_limit", entryLow, entryHigh, stopLoss, input.currentPrice, risk, input.atr, "SHORT");
-}
-
-function simulateSignalOutcome(direction, plan, futureCandles) {
-  const risk = Math.abs(plan.entryHigh - plan.stopLoss);
-  let entryHit = false;
-  let mfe = 0;
-  let mae = 0;
-
-  for (let i = 0; i < futureCandles.length; i++) {
-    const candle = futureCandles[i];
-    if (!entryHit) {
-      entryHit =
-        direction === "LONG"
-          ? candle.low <= plan.entryHigh && candle.high >= plan.entryLow
-          : candle.high >= plan.entryLow && candle.low <= plan.entryHigh;
-    }
-    if (!entryHit) continue;
-
-    const favorable = direction === "LONG" ? candle.high - plan.entryHigh : plan.entryLow - candle.low;
-    const adverse = direction === "LONG" ? plan.entryHigh - candle.low : candle.high - plan.entryLow;
-    mfe = Math.max(mfe, favorable / risk);
-    mae = Math.max(mae, adverse / risk);
-
-    const hitSl = direction === "LONG" ? candle.low <= plan.stopLoss : candle.high >= plan.stopLoss;
-    const hitTp1 = direction === "LONG" ? candle.high >= plan.tp1 : candle.low <= plan.tp1;
-    const hitTp2 = direction === "LONG" ? candle.high >= plan.tp2 : candle.low <= plan.tp2;
-    const hitTp3 = direction === "LONG" ? candle.high >= plan.tp3 : candle.low <= plan.tp3;
-    if (hitSl) return withCosts({ entryHit, finalStatus: "hit_sl", finalR: -1, mfe, mae, durationCandles: i + 1 }, plan);
-    if (hitTp3) return withCosts({ entryHit, finalStatus: "hit_tp3", finalR: 3, mfe, mae, durationCandles: i + 1 }, plan);
-    if (hitTp2) return withCosts({ entryHit, finalStatus: "hit_tp2", finalR: 2, mfe, mae, durationCandles: i + 1 }, plan);
-    if (hitTp1) return withCosts({ entryHit, finalStatus: "hit_tp1", finalR: 1, mfe, mae, durationCandles: i + 1 }, plan);
-  }
-
-  return withCosts({ entryHit, finalStatus: "expired", finalR: 0, mfe, mae, durationCandles: futureCandles.length }, plan);
-}
-
-function scoreSignal(input) {
-  let score = 0;
-  score += clamp(input.dataQualityScore / 10, 0, 10);
-  score += input.btcAligned ? 10 : 4;
-  score += input.marketRegimeMatched ? 10 : 5;
-  score += input.trend4hAligned ? 8 : 3;
-  score += input.trend1hAligned ? 8 : 3;
-  score += input.entryStructureConfirmed ? 14 : 5;
-  score += clamp(input.volumeRatio / 2, 0, 1) * 8;
-  score += input.oiChange15m === null ? 5 : input.oiChange15m > 0 ? 8 : 3;
-  score += fundingHealthScore(input.fundingRate);
-  score += clamp(Math.abs(input.relativeStrengthScore), 0, 6);
-  score += clamp(input.liquidityScore, 0, 5);
-  score += input.weightedRr >= 1.3 ? 5 : 1;
-  return Math.round(clamp(score, 0, 100));
 }
 
 function summarizeGroup(items, keyFn) {
@@ -386,20 +312,24 @@ function summarizeGroup(items, keyFn) {
 }
 
 function summarize(items) {
-  const wins = items.filter((item) => item.finalR > 0);
-  const losses = items.filter((item) => item.finalR < 0);
+  const settled = items.filter((item) => typeof item.finalR === "number");
+  const wins = settled.filter((item) => item.finalR > 0);
+  const losses = settled.filter((item) => item.finalR < 0);
   const grossProfit = sum(wins.map((item) => item.finalR));
   const grossLoss = Math.abs(sum(losses.map((item) => item.finalR)));
   return {
     trades: items.length,
-    winRate: pct(wins.length, items.length),
+    settledTrades: settled.length,
+    openTrades: items.filter((item) => item.finalStatus === "open").length,
+    waitingEntryTrades: items.filter((item) => item.finalStatus === "waiting_entry").length,
+    winRate: pct(wins.length, settled.length),
     entryFillRate: pct(items.filter((item) => item.entryHit).length, items.length),
-    avgR: round(avg(items.map((item) => item.finalR))),
-    medianR: round(median(items.map((item) => item.finalR))),
-    totalR: round(sum(items.map((item) => item.finalR))),
+    avgR: round(avg(settled.map((item) => item.finalR))),
+    medianR: round(median(settled.map((item) => item.finalR))),
+    totalR: round(sum(settled.map((item) => item.finalR))),
     profitFactor: round(grossLoss === 0 ? grossProfit : grossProfit / grossLoss),
-    maxDrawdownR: round(maxDrawdown(items.map((item) => item.finalR))),
-    maxLosingStreak: maxLosingStreak(items.map((item) => item.finalR)),
+    maxDrawdownR: round(maxDrawdown(settled.map((item) => item.finalR))),
+    maxLosingStreak: maxLosingStreak(settled.map((item) => item.finalR)),
     avgMfe: round(avg(items.map((item) => item.mfe))),
     avgMae: round(avg(items.map((item) => item.mae))),
     avgScore: round(avg(items.map((item) => item.score))),
@@ -414,99 +344,6 @@ function countBy(items, keyFn) {
     result[key] = (result[key] || 0) + 1;
   }
   return result;
-}
-
-function createPlan(entryMode, entryLow, entryHigh, stopLoss, currentPrice, risk, atr, direction) {
-  const sign = direction === "LONG" ? 1 : -1;
-  const tp1 = currentPrice + sign * risk;
-  const tp2 = currentPrice + sign * risk * 2;
-  const tp3 = currentPrice + sign * risk * 3;
-  const weightedRr = 0.4 * 1 + 0.4 * 2 + 0.2 * 3;
-  const costAdjustedRr = weightedRr - 0.12;
-  const slDistancePct = Math.abs((currentPrice - stopLoss) / currentPrice) * 100;
-  const slAtrRatio = atr === 0 ? 0 : Math.abs(currentPrice - stopLoss) / atr;
-  const noChasePrice = direction === "LONG" ? entryHigh + risk : entryLow - risk;
-  return {
-    entryMode,
-    entryLow: round(entryLow),
-    entryHigh: round(entryHigh),
-    stopLoss: round(stopLoss),
-    tp1: round(tp1),
-    tp2: round(tp2),
-    tp3: round(tp3),
-    theoreticalRr: 3,
-    weightedRr,
-    costAdjustedRr,
-    slDistancePct: round(slDistancePct),
-    slAtrRatio: round(slAtrRatio),
-    noChasePrice: round(noChasePrice)
-  };
-}
-
-function shouldMarkNoChase(input) {
-  const risk = input.direction === "LONG" ? input.entryHigh - input.stopLoss : input.stopLoss - input.entryLow;
-  if (risk <= 0) return true;
-  return input.direction === "LONG" ? input.currentPrice > input.entryHigh + risk : input.currentPrice < input.entryLow - risk;
-}
-
-function calculateAtr(candles, period) {
-  const recent = candles.slice(-period - 1);
-  if (recent.length < 2) return 0;
-  const trueRanges = [];
-  for (let i = 1; i < recent.length; i++) {
-    const current = recent[i];
-    const previous = recent[i - 1];
-    trueRanges.push(Math.max(current.high - current.low, Math.abs(current.high - previous.close), Math.abs(current.low - previous.close)));
-  }
-  return avg(trueRanges);
-}
-
-function calculateDataQualityScore(candles, now, expectedIntervalMs) {
-  if (candles.length === 0) return 0;
-  let score = 100;
-  const openCount = candles.filter((item) => !item.isClosed).length;
-  score -= openCount * 20;
-  const uniqueOpenTimes = new Set(candles.map((item) => item.openTime));
-  if (uniqueOpenTimes.size !== candles.length) score -= 25;
-  for (let i = 1; i < candles.length; i++) {
-    const gap = candles[i].openTime - candles[i - 1].openTime;
-    if (gap > expectedIntervalMs * 1.5) score -= 10;
-  }
-  const latest = candles.at(-1);
-  if (latest && now - latest.closeTime > expectedIntervalMs * 2) score -= 25;
-  return clamp(score, 0, 100);
-}
-
-function calculateRelativeStrength(symbolCandles, btcCandles) {
-  if (symbolCandles.length < 2 || btcCandles.length < 2) return 0;
-  const symbolReturn = percentChange(symbolCandles[0].close, symbolCandles.at(-1).close);
-  const btcReturn = percentChange(btcCandles[0].close, btcCandles.at(-1).close);
-  return symbolReturn - btcReturn;
-}
-
-function calculateVolumeRatio(candles, period) {
-  const recent = candles.slice(-period);
-  if (recent.length === 0) return 0;
-  const latest = recent.at(-1).quoteVolume;
-  const baseline = avg(recent.slice(0, -1).map((item) => item.quoteVolume));
-  if (!baseline) return 0;
-  return latest / baseline;
-}
-
-function findStructure(candles, lookback) {
-  const recent = candles.slice(-lookback);
-  return {
-    high: Math.max(...recent.map((item) => item.high)),
-    low: Math.min(...recent.map((item) => item.low))
-  };
-}
-
-function fundingHealthScore(rate) {
-  if (rate === null || rate === undefined) return 5;
-  const abs = Math.abs(rate);
-  if (abs < 0.0002) return 8;
-  if (abs < 0.0005) return 5;
-  return 2;
 }
 
 function normalizeKline(symbol, item) {
@@ -532,23 +369,6 @@ function normalizeKline(symbol, item) {
 
 function dedupe(candles) {
   return [...new Map(candles.map((item) => [item.openTime, item])).values()].sort((a, b) => a.openTime - b.openTime);
-}
-
-function withCosts(outcome, plan) {
-  const stopDistance = plan.slDistancePct / 100;
-  const costInR = stopDistance > 0 ? ((FEE_RATE + SLIPPAGE_RATE) * 2) / stopDistance : 0;
-  return {
-    ...outcome,
-    finalR: round(outcome.finalR - (outcome.entryHit ? costInR : 0))
-  };
-}
-
-function levelFromScore(score) {
-  if (score >= 88) return "S";
-  if (score >= 78) return "A";
-  if (score >= 65) return "B";
-  if (score >= 50) return "C";
-  return "NONE";
 }
 
 function pct(numerator, denominator) {
@@ -594,15 +414,6 @@ function median(values) {
   const sorted = [...values].sort((a, b) => a - b);
   const mid = Math.floor(sorted.length / 2);
   return sorted.length % 2 ? sorted[mid] : (sorted[mid - 1] + sorted[mid]) / 2;
-}
-
-function percentChange(start, end) {
-  if (!start) return 0;
-  return ((end - start) / start) * 100;
-}
-
-function clamp(value, min, max) {
-  return Math.min(Math.max(value, min), max);
 }
 
 function round(value) {

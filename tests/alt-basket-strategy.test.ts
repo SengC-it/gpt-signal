@@ -1,5 +1,8 @@
 import { describe, expect, test } from "vitest";
-import { evaluateAltBasketShortStrategy } from "@/lib/signal/alt-basket-strategy";
+import {
+  ALT_BASKET_SHORT_CONFIG_V2,
+  evaluateAltBasketShortStrategy
+} from "@/lib/signal/alt-basket-strategy";
 import type { Candle } from "@/lib/signal/types";
 
 function candle(symbol: string, close: number, index: number, interval = "4h"): Candle {
@@ -62,5 +65,23 @@ describe("BTC weak alt basket short strategy", () => {
     const fundingRates = Object.fromEntries(basketSymbols.map((symbol) => [symbol, -0.003]));
 
     expect(evaluateAltBasketShortStrategy({ btcCandles4h: btcCandles, basketCandles15m, fundingRates })).toBeNull();
+  });
+
+  test("supports the validated V2 TP4/SL5 configuration", () => {
+    const btcCandles = Array.from({ length: 49 }, (_, index) => candle("BTCUSDT", 100, index));
+    btcCandles.push(candle("BTCUSDT", 94, 49));
+    const basketCandles15m = Object.fromEntries(
+      basketSymbols.map((symbol, index) => [symbol, [candle(symbol, 10 + index, 1, "15m")]])
+    );
+
+    const signal = evaluateAltBasketShortStrategy({
+      btcCandles4h: btcCandles,
+      basketCandles15m,
+      config: ALT_BASKET_SHORT_CONFIG_V2
+    });
+
+    expect(signal?.plan?.tp1).toBe(96);
+    expect(signal?.plan?.stopLoss).toBe(105);
+    expect(signal?.noChaseRule.takeProfitPct).toBe(4);
   });
 });

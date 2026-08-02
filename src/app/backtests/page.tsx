@@ -18,19 +18,20 @@ export default function BacktestsPage() {
       <header className="page-header">
         <div>
           <h1 className="page-title">回测</h1>
-          <p className="page-subtitle">保守规则：同 K 同时触及 TP/SL 时按 SL 处理。</p>
+          <p className="page-subtitle">只按入场、SL、TP 结算；数据窗口结束时未触发的信号保持未结算，不计为亏损。</p>
         </div>
         <form action="/api/backtests/run" method="post">
-          <button className="button primary" type="submit">运行样例回测</button>
+          <button className="button primary" type="submit">运行示例回测</button>
         </form>
       </header>
       <div className="grid metrics">
-        <MetricCard label="总交易数" value={result.totalTrades} />
-        <MetricCard label="胜率" value={`${result.winRate.toFixed(1)}%`} />
-        <MetricCard label="平均 R" value={result.avgR.toFixed(2)} />
-        <MetricCard label="最大连续亏损" value={result.maxLosingStreak} />
+        <MetricCard label="信号数" value={result.totalTrades} />
+        <MetricCard label="已结算" value={result.settledTrades} />
+        <MetricCard label="胜率" value={`${result.winRate.toFixed(1)}%`} note="仅按已结算交易计算" />
+        <MetricCard label="平均净 R" value={result.avgR.toFixed(2)} />
+        <MetricCard label="持仓中" value={result.openTrades} />
+        <MetricCard label="待入场" value={result.waitingEntryTrades} />
       </div>
     </AppShell>
   );
 }
-

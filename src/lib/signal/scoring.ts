@@ -1,5 +1,5 @@
-import { clamp } from "@/lib/signal/indicators";
-import type { SignalLevel } from "@/lib/signal/types";
+import { clamp } from "./indicators.ts";
+import type { SignalLevel } from "./types.ts";
 
 export type ScoreInput = {
   dataQualityScore: number;
@@ -29,7 +29,7 @@ export function scoreSignal(input: ScoreInput) {
   score += fundingHealthScore(input.fundingRate);
   score += clamp(Math.abs(input.relativeStrengthScore), 0, 6);
   score += clamp(input.liquidityScore, 0, 5);
-  score += input.weightedRr >= 1.3 ? 5 : 1;
+  score += input.weightedRr >= 1 ? 5 : 1;
   return Math.round(clamp(score, 0, 100));
 }
 

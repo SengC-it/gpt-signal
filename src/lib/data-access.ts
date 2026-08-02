@@ -1,6 +1,7 @@
 import "server-only";
 import { getSupabaseAdmin, hasSupabaseServerEnv } from "@/lib/supabase/server";
 import { sampleRadar, sampleSignals } from "@/lib/sample-data";
+import type { ReviewFinalStatus } from "@/lib/signal/review";
 import type { Direction, LifecycleStatus, SignalEvaluation, SignalLevel, SignalType } from "@/lib/signal/types";
 
 export type DisplaySignal = SignalEvaluation & {
@@ -18,8 +19,40 @@ export type RadarRow = {
   score: number;
 };
 
+export type DisplaySignalReview = {
+  id: string;
+  signalId: string;
+  strategyVersion: string | null;
+  strategyFamily: string | null;
+  deliveryMode: "production" | "shadow";
+  symbol: string;
+  direction: Direction;
+  status: ReviewFinalStatus;
+  signalSentAt: string;
+  entryLow: number;
+  entryHigh: number;
+  stopLoss: number;
+  tp1: number;
+  tp2: number;
+  tp3: number;
+  entryHit: boolean;
+  entryTime: string | null;
+  entryPrice: number | null;
+  exitTime: string | null;
+  exitPrice: number | null;
+  grossPnlPct: number | null;
+  netPnlPct: number | null;
+  grossR: number | null;
+  netR: number | null;
+  mfe: number;
+  mae: number;
+  lastCheckedAt: string | null;
+};
+
 type DbSignal = {
   id?: unknown;
+  strategy_version?: unknown;
+  delivery_mode?: unknown;
   symbol?: unknown;
   direction?: unknown;
   signal_type?: unknown;
@@ -107,6 +140,24 @@ export async function getRadarRows(): Promise<RadarRow[]> {
   }));
 }
 
+export async function getRecentSignalReviews(limit = 200): Promise<DisplaySignalReview[]> {
+  if (!hasSupabaseServerEnv()) return [];
+
+  try {
+    const supabase = getSupabaseAdmin();
+    const { data, error } = await supabase
+      .from("gpt_signal_results")
+      .select("*")
+      .order("signal_sent_at", { ascending: false })
+      .limit(limit);
+
+    if (error || !data) return [];
+    return data.map((row) => reviewFromRow(row as Record<string, unknown>));
+  } catch {
+    return [];
+  }
+}
+
 function signalFromRow(row: DbSignal): DisplaySignal {
   const plan = isNumberLike(row.entry_low)
     ? {
@@ -142,7 +193,41 @@ function signalFromRow(row: DbSignal): DisplaySignal {
     reasons: textArray(row.reasons),
     invalidationRules: textArray(row.invalidation_rules),
     noChaseRule: objectRecord(row.no_chase_rule),
+    strategyVersion: nullableText(row.strategy_version) ?? undefined,
+    deliveryMode: row.delivery_mode === "shadow" ? "shadow" : "production",
     plan
+  };
+}
+
+function reviewFromRow(row: Record<string, unknown>): DisplaySignalReview {
+  return {
+    id: text(row.id, "unknown"),
+    signalId: text(row.signal_id, "unknown"),
+    strategyVersion: nullableText(row.strategy_version),
+    strategyFamily: nullableText(row.strategy_family),
+    deliveryMode: row.delivery_mode === "shadow" ? "shadow" : "production",
+    symbol: text(row.symbol, "UNKNOWN"),
+    direction: direction(row.direction),
+    status: reviewStatus(row.final_status),
+    signalSentAt: text(row.signal_sent_at, ""),
+    entryLow: num(row.entry_low),
+    entryHigh: num(row.entry_high),
+    stopLoss: num(row.stop_loss),
+    tp1: num(row.tp1),
+    tp2: num(row.tp2),
+    tp3: num(row.tp3),
+    entryHit: row.entry_hit === true,
+    entryTime: nullableText(row.entry_time),
+    entryPrice: nullableNum(row.entry_price_actual),
+    exitTime: nullableText(row.exit_time ?? row.completed_at),
+    exitPrice: nullableNum(row.exit_price),
+    grossPnlPct: nullableNum(row.gross_pnl_pct),
+    netPnlPct: nullableNum(row.net_pnl_pct),
+    grossR: nullableNum(row.gross_r),
+    netR: nullableNum(row.net_r ?? row.final_r),
+    mfe: num(row.mfe),
+    mae: num(row.mae),
+    lastCheckedAt: nullableText(row.last_checked_at)
   };
 }
 
@@ -157,6 +242,16 @@ function num(value: unknown) {
 
 function text(value: unknown, fallback: string) {
   return typeof value === "string" && value.length > 0 ? value : fallback;
+}
+
+function nullableText(value: unknown) {
+  return typeof value === "string" && value.length > 0 ? value : null;
+}
+
+function nullableNum(value: unknown) {
+  if (value === null || value === undefined || value === "") return null;
+  const numeric = Number(value);
+  return Number.isFinite(numeric) ? numeric : null;
 }
 
 function textArray(value: unknown) {
@@ -208,6 +303,13 @@ function lifecycle(value: unknown): LifecycleStatus {
     "archived"
   ];
   return allowed.includes(value as LifecycleStatus) ? (value as LifecycleStatus) : "detected";
+}
+
+function reviewStatus(value: unknown): ReviewFinalStatus {
+  if (value === "open" || value === "hit_tp1" || value === "hit_tp2" || value === "hit_tp3" || value === "hit_sl") {
+    return value;
+  }
+  return "waiting_entry";
 }
 
 function level(value: unknown): SignalLevel {

@@ -1,7 +1,8 @@
 import Link from "next/link";
-import { Activity, Bell, Gauge, LineChart, Radar, Settings, Shield } from "lucide-react";
+import { Activity, Bell, ClipboardCheck, Gauge, LineChart, Radar, Settings, Shield } from "lucide-react";
 
 const items = [
+  { href: "/reviews", label: "已发复盘", icon: ClipboardCheck },
   { href: "/", label: "工作台", icon: Gauge },
   { href: "/radar", label: "机会雷达", icon: Radar },
   { href: "/signals", label: "信号列表", icon: Bell },

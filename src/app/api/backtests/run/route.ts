@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { runBacktest } from "@/lib/signal/backtest";
+import { DEFAULT_REVIEW_EXECUTION_POLICY } from "@/lib/signal/review";
 import { sampleSignals } from "@/lib/sample-data";
 import { getSupabaseAdmin, hasSupabaseServerEnv } from "@/lib/supabase/server";
 
@@ -33,9 +34,13 @@ export async function POST() {
   if (hasSupabaseServerEnv()) {
     const supabase = getSupabaseAdmin();
     await supabase.from("gpt_backtest_runs").insert({
+      strategy_version: "fixture-v1",
       symbols: runnableSignals.map((item) => item.symbol),
+      validation_mode: "fixture",
       cost_model: { feeRate: 0.001, slippageRate: 0.0005 },
-      result_summary: result
+      execution_policy: DEFAULT_REVIEW_EXECUTION_POLICY,
+      result_summary: result,
+      validation_passed: false
     });
   }
 

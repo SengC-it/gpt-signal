@@ -8,7 +8,10 @@
     "start": "next start",
     "test": "vitest run",
     "lint": "eslint . --max-warnings=0",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "deploy:guarded": "node --experimental-strip-types scripts/deploy-if-profitable.mjs",
+    "backtest:compare": "node --experimental-strip-types scripts/strategy-version-comparison.mjs",
+    "backtest:walk-forward": "node --experimental-strip-types scripts/walk-forward-validation.mjs"
   },
   "dependencies": {
     "@supabase/ssr": "^0.7.0",

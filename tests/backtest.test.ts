@@ -51,7 +51,7 @@ describe("backtest", () => {
     expect(result.finalR).toBe(-1);
   });
 
-  test("deducts fee and slippage from final R", () => {
+  test("calculates R from the email price levels and deducts fee and slippage", () => {
     const result = simulateSignalOutcome({
       direction: "LONG",
       plan,
@@ -61,7 +61,20 @@ describe("backtest", () => {
     });
 
     expect(result.finalStatus).toBe("hit_tp1");
-    expect(result.finalR).toBe(0.92);
+    expect(result.finalR).toBeCloseTo(0.766, 3);
+  });
+
+  test("settles at TP1 even when a later candle reaches TP2 and TP3", () => {
+    const result = simulateSignalOutcome({
+      direction: "LONG",
+      plan,
+      futureCandles: [candle(107, 100, 106, 1), candle(120, 106, 118, 2)],
+      feeRate: 0,
+      slippageRate: 0
+    });
+
+    expect(result.finalStatus).toBe("hit_tp1");
+    expect(result.grossR).toBeCloseTo(5 / 6, 6);
   });
 
   test("adds fee and slippage to losing R based on stop distance", () => {
@@ -74,10 +87,10 @@ describe("backtest", () => {
     });
 
     expect(result.finalStatus).toBe("hit_sl");
-    expect(result.finalR).toBe(-1.08);
+    expect(result.finalR).toBeCloseTo(-1.067333, 5);
   });
 
-  test("charges round-trip costs when an entered signal expires flat", () => {
+  test("keeps an entered signal open when neither TP nor SL is touched", () => {
     const result = simulateSignalOutcome({
       direction: "LONG",
       plan,
@@ -86,9 +99,24 @@ describe("backtest", () => {
       slippageRate: 0.001
     });
 
-    expect(result.finalStatus).toBe("expired");
+    expect(result.finalStatus).toBe("open");
     expect(result.entryHit).toBe(true);
-    expect(result.finalR).toBe(-0.08);
+    expect(result.netR).toBeNull();
+    expect(result.finalR).toBe(0);
+  });
+
+  test("keeps a signal waiting when the entry zone is never touched", () => {
+    const result = simulateSignalOutcome({
+      direction: "LONG",
+      plan,
+      futureCandles: [candle(99, 90, 95, 1)],
+      feeRate: 0,
+      slippageRate: 0
+    });
+
+    expect(result.finalStatus).toBe("waiting_entry");
+    expect(result.entryHit).toBe(false);
+    expect(result.netR).toBeNull();
   });
 
   test("summarizes core backtest metrics", () => {
@@ -106,6 +134,7 @@ describe("backtest", () => {
     ]);
 
     expect(summary.totalTrades).toBe(2);
+    expect(summary.settledTrades).toBe(2);
     expect(summary.winRate).toBe(50);
     expect(summary.maxLosingStreak).toBe(1);
   });
