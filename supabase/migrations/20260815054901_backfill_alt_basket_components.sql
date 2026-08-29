@@ -1,3 +1,9 @@
+alter table public.gpt_signals
+  add column if not exists superseded_at timestamptz;
+
+alter table public.gpt_signal_results
+  add column if not exists superseded_at timestamptz;
+
 create temporary table alt_basket_component_backfill on commit drop as
 select
   gen_random_uuid() as child_signal_id,
@@ -5,7 +11,7 @@ select
   parent.opportunity_id as parent_opportunity_id,
   parent.strategy_version_id,
   parent.strategy_version,
-  parent.delivery_mode,
+  'shadow'::text as delivery_mode,
   parent.level,
   parent.score,
   parent.btc_state,
@@ -180,7 +186,9 @@ left join public.gpt_signal_results parent_result on parent_result.signal_id = b
 on conflict (signal_id) do nothing;
 
 update public.gpt_signals parent
-set lifecycle_status = 'archived',
+set delivery_mode = 'shadow',
+    lifecycle_status = 'archived',
+    superseded_at = coalesce(parent.superseded_at, now()),
     updated_at = now()
 where parent.id in (
   select distinct parent_signal_id
@@ -188,7 +196,8 @@ where parent.id in (
 );
 
 update public.gpt_signal_results parent_result
-set completed_at = coalesce(parent_result.completed_at, now()),
+set delivery_mode = 'shadow',
+    superseded_at = coalesce(parent_result.superseded_at, now()),
     updated_at = now()
 where parent_result.signal_id in (
   select distinct parent_signal_id

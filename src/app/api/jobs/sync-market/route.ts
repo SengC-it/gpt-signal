@@ -14,14 +14,16 @@ import {
 import { evaluateSignalCandidate } from "@/lib/signal/engine";
 import { compareSignalConcentration } from "@/lib/signal/concentration-control";
 import { canSendNotifications } from "@/lib/signal/delivery";
-import { ALT_BASKET_DELIVERY_MODE } from "@/lib/signal/profitability-config";
-import { DEFAULT_REVIEW_EXECUTION_POLICY } from "@/lib/signal/review";
+import { buildEdgeEvidence, edgeEvidenceKey, type EdgeEvidenceTrade } from "@/lib/signal/edge-evidence";
+import { ALT_BASKET_DELIVERY_MODE, MAIN_STRATEGY_DELIVERY_MODE } from "@/lib/signal/profitability-config";
+import { DEFAULT_REVIEW_EXECUTION_POLICY, isSettledReviewStatus } from "@/lib/signal/review";
 import {
   ensureSignalReviewsForSentNotifications,
   ensureSignalReviewsForSignals,
   settleOpenSignalReviews
 } from "@/lib/signal/review-repository";
 import { resolveMainStrategyConfig, strategyParameters } from "@/lib/signal/strategy-config";
+import { mainOpportunityId, shouldCreateRuntimeSignal } from "@/lib/signal/runtime-parity";
 import type { Candle, DeliveryMode, SignalEvaluation } from "@/lib/signal/types";
 import { getSupabaseAdmin, hasSupabaseServerEnv } from "@/lib/supabase/server";
 
@@ -83,7 +85,7 @@ async function runSync(request: Request) {
 
     const direction = candles.at(-1)!.close >= candles.at(-10)!.close ? "LONG" : "SHORT";
     const strategyVersions = [
-      { version: MAIN_STRATEGY_VERSION, deliveryMode: "production" as const },
+      { version: MAIN_STRATEGY_VERSION, deliveryMode: MAIN_STRATEGY_DELIVERY_MODE },
       ...(SHADOW_MAIN_STRATEGY_VERSION && SHADOW_MAIN_STRATEGY_VERSION !== MAIN_STRATEGY_VERSION
         ? [{ version: SHADOW_MAIN_STRATEGY_VERSION, deliveryMode: "shadow" as const }]
         : [])
@@ -165,14 +167,14 @@ async function runSync(request: Request) {
   generated.push(...shadowAltBasketSignals);
 
   const qualified = generated.filter((item) => item.signalType !== "alt_basket_short" && (item.level === "A" || item.level === "S"));
-  const concentrationComparison = compareSignalConcentration(
-    qualified
-      .filter((signal) => signal.deliveryMode === "production" && signal.lifecycleStatus === "planned")
-      .map((signal) => ({ signal, evidenceStatus: "UNPROVEN" }))
+  const concentrationSignals = qualified.filter((signal) => signal.lifecycleStatus === "planned");
+  let concentrationComparison = compareSignalConcentration(
+    concentrationSignals.map((signal) => ({ signal, evidenceStatus: "UNPROVEN" }))
   );
 
   if (hasSupabaseServerEnv()) {
     const supabase = getSupabaseAdmin();
+    concentrationComparison = await compareRuntimeSignalConcentration(supabase, concentrationSignals);
     await supabase.from("gpt_symbols").upsert(
       symbols.map((symbol) => ({
         symbol,
@@ -196,14 +198,7 @@ async function runSync(request: Request) {
     for (const signal of qualified) {
       const deliveryMode = signal.deliveryMode ?? "production";
       const strategyVersionId = await ensureStrategyVersion(supabase, signal);
-      const opportunityId = [
-        signal.symbol,
-        signal.direction,
-        signal.signalType,
-        signal.marketRegime,
-        signal.strategyVersion ?? MAIN_STRATEGY_VERSION,
-        "15m"
-      ].join(":");
+      const opportunityId = mainOpportunityId(signal, MAIN_STRATEGY_VERSION);
       await supabase.from("gpt_opportunities").upsert({
         id: opportunityId,
         symbol: signal.symbol,
@@ -225,11 +220,10 @@ async function runSync(request: Request) {
         .limit(1)
         .maybeSingle();
 
-      if (
-        existingSignal &&
-        existingSignal.level === signal.level &&
-        existingSignal.lifecycle_status === signal.lifecycleStatus
-      ) {
+      if (!shouldCreateRuntimeSignal(
+        existingSignal ? { level: existingSignal.level, lifecycleStatus: existingSignal.lifecycle_status } : null,
+        signal
+      )) {
         continue;
       }
 
@@ -611,6 +605,79 @@ async function persistAltBasketSignals(
   }
 
   return records;
+}
+
+async function compareRuntimeSignalConcentration(
+  supabase: ReturnType<typeof getSupabaseAdmin>,
+  signals: SignalEvaluation[]
+) {
+  const fallback = () => compareSignalConcentration(
+    signals.map((signal) => ({ signal, evidenceStatus: "UNPROVEN" as const }))
+  );
+  if (signals.length === 0) return fallback();
+
+  const dimensions = [...new Map(signals.map((signal) => {
+    const item = {
+      strategyVersion: signal.strategyVersion ?? MAIN_STRATEGY_VERSION,
+      signalType: signal.signalType,
+      symbol: signal.symbol,
+      direction: signal.direction,
+      marketRegime: signal.marketRegime
+    };
+    return [edgeEvidenceKey(item), item];
+  })).values()];
+  const groups = await Promise.all(dimensions.map((item) => fetchEdgeEvidenceTrades(supabase, item)));
+  if (groups.some((group) => group === null)) return fallback();
+  const trades = groups.flatMap((group) => group ?? []);
+  const evidenceByKey = new Map(
+    buildEdgeEvidence(trades).map((item) => [edgeEvidenceKey(item), item.status])
+  );
+
+  return compareSignalConcentration(signals.map((signal) => ({
+    signal,
+    evidenceStatus: evidenceByKey.get(edgeEvidenceKey({
+      strategyVersion: signal.strategyVersion ?? MAIN_STRATEGY_VERSION,
+      signalType: signal.signalType,
+      symbol: signal.symbol,
+      direction: signal.direction,
+      marketRegime: signal.marketRegime
+    })) ?? "UNPROVEN"
+  })));
+}
+
+async function fetchEdgeEvidenceTrades(
+  supabase: ReturnType<typeof getSupabaseAdmin>,
+  dimensions: Omit<EdgeEvidenceTrade, "settled" | "netR">
+): Promise<EdgeEvidenceTrade[] | null> {
+  const pageSize = 1000;
+  const trades: EdgeEvidenceTrade[] = [];
+  for (let offset = 0; ; offset += pageSize) {
+    const { data, error } = await supabase
+      .from("gpt_signal_results")
+      .select("id, final_status, net_r")
+      .eq("strategy_version", dimensions.strategyVersion)
+      .eq("signal_type", dimensions.signalType)
+      .eq("symbol", dimensions.symbol)
+      .eq("direction", dimensions.direction)
+      .eq("market_regime", dimensions.marketRegime)
+      .is("superseded_at", null)
+      .order("signal_sent_at", { ascending: true })
+      .order("id", { ascending: true })
+      .range(offset, offset + pageSize - 1);
+    if (error || !data) return null;
+    trades.push(...(data as Array<Record<string, unknown>>).map((row) => ({
+      ...dimensions,
+      settled: isSettledReviewStatus(String(row.final_status ?? "")),
+      netR: numericOrNull(row.net_r)
+    })));
+    if (data.length < pageSize) return trades;
+  }
+}
+
+function numericOrNull(value: unknown) {
+  if (value === null || value === undefined || value === "") return null;
+  const number = Number(value);
+  return Number.isFinite(number) ? number : null;
 }
 
 async function fetchFundingRates(symbols: string[]) {

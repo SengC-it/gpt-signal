@@ -2,11 +2,12 @@ import Link from "next/link";
 import { AppShell } from "@/components/app-shell";
 import { MetricCard } from "@/components/metric-card";
 import { StatusBadge } from "@/components/status-badge";
-import { getRecentSignalReviews, getSchedulerHealth, type DisplaySignalReview } from "@/lib/data-access";
+import { getBenchmarkTimeSeriesSummaries, getRecentSignalReviews, getSchedulerHealth, type DisplaySignalReview } from "@/lib/data-access";
 import { buildEdgeEvidence } from "@/lib/signal/edge-evidence";
 import {
   buildProfitabilityBreakdown,
   summarizeProfitability,
+  type BenchmarkTimeSeriesSummary,
   type BreakdownKey
 } from "@/lib/signal/profitability-analytics";
 import { isSettledReviewStatus } from "@/lib/signal/review";
@@ -23,7 +24,11 @@ const BREAKDOWNS: Array<{ key: BreakdownKey; label: string }> = [
 ];
 
 export default async function ReviewsPage() {
-  const [reviews, scheduler] = await Promise.all([getRecentSignalReviews(5000), getSchedulerHealth()]);
+  const [reviews, benchmarkSummaries, scheduler] = await Promise.all([
+    getRecentSignalReviews(5000),
+    getBenchmarkTimeSeriesSummaries(),
+    getSchedulerHealth()
+  ]);
   const production = reviews.filter((review) => review.deliveryMode === "production");
   const shadow = reviews.filter((review) => review.deliveryMode === "shadow");
   const evidence = buildEdgeEvidence(reviews.map((review) => ({
@@ -62,8 +67,8 @@ export default async function ReviewsPage() {
         </div>
       </section>
 
-      <BenchmarkMetrics title="Production baseline" reviews={production} />
-      <BenchmarkMetrics title="Shadow candidates" reviews={shadow} />
+      <BenchmarkMetrics title="Production baseline" reviews={production} timeSeries={benchmarkSummaries.production} />
+      <BenchmarkMetrics title="Shadow candidates" reviews={shadow} timeSeries={benchmarkSummaries.shadow} />
 
       <section className="panel" style={{ marginTop: 16 }}>
         <h2>Breakdown — PF + Expectancy + DD</h2>
@@ -71,7 +76,7 @@ export default async function ReviewsPage() {
           <table>
             <thead>
               <tr>
-                <th>维度</th><th>值</th><th>Reviews</th><th>Settled</th><th>PF</th><th>Expectancy R</th><th>Net R</th><th>Realized DD</th><th>MTM DD</th>
+                <th>维度</th><th>值</th><th>Reviews</th><th>Settled</th><th>PF</th><th>Expectancy R</th><th>Net R</th><th>Realized DD</th><th>Current MTM adjusted equity</th>
               </tr>
             </thead>
             <tbody>
@@ -79,7 +84,7 @@ export default async function ReviewsPage() {
                 <tr key={`${key}:${row.value}`}>
                   <td>{label}</td><td>{row.value}</td><td>{row.totalReviews}</td><td>{row.settled}</td>
                   <td>{formatRatio(row.profitFactor)}</td><td>{row.expectancyR.toFixed(4)}</td><td>{row.netR.toFixed(4)}</td>
-                  <td>{row.realizedMaxDrawdownPct.toFixed(2)}%</td><td>{row.mtmMaxDrawdownPct.toFixed(2)}%</td>
+                  <td>{row.realizedMaxDrawdownPct.toFixed(2)}%</td><td>{row.currentMtmAdjustedEquity.toFixed(2)}</td>
                 </tr>
               )))}
             </tbody>
@@ -137,7 +142,15 @@ export default async function ReviewsPage() {
   );
 }
 
-function BenchmarkMetrics({ title, reviews }: { title: string; reviews: DisplaySignalReview[] }) {
+function BenchmarkMetrics({
+  title,
+  reviews,
+  timeSeries
+}: {
+  title: string;
+  reviews: DisplaySignalReview[];
+  timeSeries: BenchmarkTimeSeriesSummary;
+}) {
   const summary = summarizeProfitability(reviews);
   return (
     <section className="panel" style={{ marginTop: 16 }}>
@@ -150,7 +163,12 @@ function BenchmarkMetrics({ title, reviews }: { title: string; reviews: DisplayS
         <MetricCard label="Avg win / loss" value={`${summary.averageWinR.toFixed(3)} / -${summary.averageLossR.toFixed(3)} R`} />
         <MetricCard label="Payoff / BE win rate" value={`${formatRatio(summary.payoffRatio)} / ${summary.breakevenWinRate.toFixed(2)}%`} />
         <MetricCard label="Realized max DD" value={`${summary.realizedMaxDrawdownPct.toFixed(2)}%`} note="复合 hypothetical equity" />
-        <MetricCard label="MTM max DD" value={`${summary.mtmMaxDrawdownPct.toFixed(2)}%`} note={`Equity ${summary.signalBenchmarkEquity.toFixed(2)}（起点 100）`} />
+        <MetricCard label="Current MTM adjusted equity" value={summary.currentMtmAdjustedEquity.toFixed(2)} note="当前静态调整值，不是 Max Drawdown" />
+        <MetricCard
+          label="MTM DD since snapshot tracking started"
+          value={timeSeries.mtmMaxDrawdownPct === null ? "—" : `${timeSeries.mtmMaxDrawdownPct.toFixed(2)}%`}
+          note={timeSeries.benchmarkEquity === null ? "等待首个 review snapshot" : `${timeSeries.snapshotCount} snapshots · Equity ${timeSeries.benchmarkEquity.toFixed(2)}`}
+        />
       </div>
     </section>
   );

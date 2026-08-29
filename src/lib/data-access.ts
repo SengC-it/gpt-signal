@@ -2,6 +2,7 @@ import "server-only";
 import { getSupabaseAdmin, hasSupabaseServerEnv } from "@/lib/supabase/server";
 import { sampleRadar, sampleSignals } from "@/lib/sample-data";
 import type { ReviewFinalStatus } from "@/lib/signal/review";
+import type { BenchmarkTimeSeriesSummary } from "@/lib/signal/profitability-analytics";
 import { evaluateSchedulerHealth } from "@/lib/signal/scheduler-health";
 import type { Direction, LifecycleStatus, SignalEvaluation, SignalLevel, SignalType } from "@/lib/signal/types";
 
@@ -102,6 +103,7 @@ export async function getRecentSignals(limit = 20): Promise<DisplaySignal[]> {
       .from("gpt_signals")
       .select("*")
       .neq("symbol", "ALT_SHORT_BASKET")
+      .is("superseded_at", null)
       .order("created_at", { ascending: false })
       .limit(limit);
 
@@ -155,6 +157,42 @@ export async function getRadarRows(): Promise<RadarRow[]> {
   }));
 }
 
+export async function getBenchmarkTimeSeriesSummaries(): Promise<Record<"production" | "shadow", BenchmarkTimeSeriesSummary>> {
+  const empty = () => ({
+    snapshotCount: 0,
+    mtmMaxDrawdownPct: null,
+    benchmarkEquity: null,
+    trackingStartedAt: null,
+    sourceCandleTime: null
+  });
+  const summaries: Record<"production" | "shadow", BenchmarkTimeSeriesSummary> = {
+    production: empty(),
+    shadow: empty()
+  };
+  if (!hasSupabaseServerEnv()) return summaries;
+
+  try {
+    const supabase = getSupabaseAdmin();
+    const { data, error } = await supabase
+      .from("gpt_signal_benchmark_drawdowns")
+      .select("delivery_mode, snapshot_count, tracking_started_at, mtm_max_drawdown_pct, benchmark_equity, source_candle_time");
+    if (error || !data) return summaries;
+    for (const row of data as Array<Record<string, unknown>>) {
+      const deliveryMode = row.delivery_mode === "shadow" ? "shadow" : "production";
+      summaries[deliveryMode] = {
+        snapshotCount: num(row.snapshot_count),
+        mtmMaxDrawdownPct: nullableNum(row.mtm_max_drawdown_pct),
+        benchmarkEquity: nullableNum(row.benchmark_equity),
+        trackingStartedAt: nullableText(row.tracking_started_at),
+        sourceCandleTime: nullableText(row.source_candle_time)
+      };
+    }
+    return summaries;
+  } catch {
+    return summaries;
+  }
+}
+
 export async function getRecentSignalReviews(limit = 200): Promise<DisplaySignalReview[]> {
   if (!hasSupabaseServerEnv()) return [];
 
@@ -164,6 +202,7 @@ export async function getRecentSignalReviews(limit = 200): Promise<DisplaySignal
       .from("gpt_signal_results")
       .select("*")
       .neq("symbol", "ALT_SHORT_BASKET")
+      .is("superseded_at", null)
       .order("signal_sent_at", { ascending: false })
       .limit(limit);
 

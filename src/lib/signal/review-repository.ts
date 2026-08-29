@@ -13,6 +13,8 @@ import {
   type SignalReviewState
 } from "@/lib/signal/review";
 import type { Direction, TradingPlan } from "@/lib/signal/types";
+import { buildBenchmarkSnapshotRows } from "@/lib/signal/profitability-analytics";
+import { reviewStatusToLifecycle } from "@/lib/signal/runtime-parity";
 
 type SupabaseAdmin = ReturnType<typeof getSupabaseAdmin>;
 
@@ -65,6 +67,7 @@ type ReviewRow = {
   exit_price: number | string | null;
   exit_time: string | null;
   completed_at: string | null;
+  superseded_at: string | null;
   last_checked_at: string | null;
   strategy_version: string | null;
   strategy_family: string | null;
@@ -159,6 +162,7 @@ export async function settleOpenSignalReviews(supabase: SupabaseAdmin) {
     .from("gpt_signal_results")
     .select("*")
     .is("completed_at", null)
+    .is("superseded_at", null)
     .order("signal_sent_at", { ascending: true })
     .limit(1000);
 
@@ -228,7 +232,7 @@ export async function settleOpenSignalReviews(supabase: SupabaseAdmin) {
     const { error: signalUpdateError } = await supabase
       .from("gpt_signals")
       .update({
-        lifecycle_status: lifecycleStatus(state.finalStatus),
+        lifecycle_status: reviewStatusToLifecycle(state.finalStatus),
         updated_at: new Date().toISOString()
       })
       .eq("id", review.signal_id);
@@ -238,7 +242,52 @@ export async function settleOpenSignalReviews(supabase: SupabaseAdmin) {
     if (!isSettledReviewStatus(before.finalStatus) && isSettledReviewStatus(state.finalStatus)) settled += 1;
   }
 
+  if (updated > 0) await recordBenchmarkSnapshots(supabase);
   return { updated, settled };
+}
+
+async function recordBenchmarkSnapshots(supabase: SupabaseAdmin) {
+  const snapshots = buildBenchmarkSnapshotRows(
+    (await fetchBenchmarkReviews(supabase)).map((row) => ({
+      deliveryMode: row.delivery_mode === "shadow" ? "shadow" : "production",
+      status: reviewStatus(row.final_status),
+      signalSentAt: String(row.signal_sent_at ?? ""),
+      netPnlPct: numberOrNull(row.net_pnl_pct),
+      unrealizedNetPnlPct: numberOrNull(row.unrealized_net_pnl_pct),
+      lastCheckedAt: row.last_checked_at ? String(row.last_checked_at) : null
+    }))
+  );
+  if (snapshots.length === 0) return;
+
+  const { error: insertError } = await supabase.from("gpt_signal_benchmark_snapshots").insert(
+    snapshots.map((snapshot) => ({
+      snapshot_at: snapshot.snapshotAt,
+      delivery_mode: snapshot.deliveryMode,
+      realized_component: snapshot.realizedComponent,
+      unrealized_mtm_component: snapshot.unrealizedMtmComponent,
+      benchmark_equity: snapshot.benchmarkEquity,
+      open_reviews: snapshot.openReviews,
+      source_candle_time: snapshot.sourceCandleTime
+    }))
+  );
+  if (insertError) throw insertError;
+}
+
+async function fetchBenchmarkReviews(supabase: SupabaseAdmin) {
+  const pageSize = 1000;
+  const rows: Array<Record<string, unknown>> = [];
+  for (let offset = 0; ; offset += pageSize) {
+    const { data, error } = await supabase
+      .from("gpt_signal_results")
+      .select("id, delivery_mode, final_status, signal_sent_at, net_pnl_pct, unrealized_net_pnl_pct, last_checked_at")
+      .is("superseded_at", null)
+      .order("signal_sent_at", { ascending: true })
+      .order("id", { ascending: true })
+      .range(offset, offset + pageSize - 1);
+    if (error) throw error;
+    rows.push(...((data ?? []) as Array<Record<string, unknown>>));
+    if ((data?.length ?? 0) < pageSize) return rows;
+  }
 }
 
 function buildReviewRows(signals: SignalRow[], signalTime: (signal: SignalRow) => string) {
@@ -455,11 +504,6 @@ function hasProgress(before: SignalReviewState, after: SignalReviewState) {
     || before.entryHit !== after.entryHit
     || before.finalStatus !== after.finalStatus
     || before.exitTime !== after.exitTime;
-}
-
-function lifecycleStatus(status: ReviewFinalStatus) {
-  if (status === "open") return "entered";
-  return status;
 }
 
 function numberValue(value: unknown) {

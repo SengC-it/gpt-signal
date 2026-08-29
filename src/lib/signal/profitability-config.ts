@@ -1,5 +1,6 @@
 import type { DeliveryMode } from "./types.ts";
 
+export const MAIN_STRATEGY_DELIVERY_MODE: DeliveryMode = "shadow";
 export const ALT_BASKET_DELIVERY_MODE: DeliveryMode = "shadow";
 
 export const EDGE_EVIDENCE_THRESHOLDS = Object.freeze({

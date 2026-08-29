@@ -31,9 +31,34 @@ export type ProfitabilitySummary = {
   payoffRatio: number;
   breakevenWinRate: number;
   realizedMaxDrawdownPct: number;
-  mtmMaxDrawdownPct: number;
   realizedBenchmarkEquity: number;
-  signalBenchmarkEquity: number;
+  currentMtmAdjustedEquity: number;
+};
+
+export type BenchmarkSnapshot = {
+  snapshotAt: string;
+  deliveryMode: "production" | "shadow";
+  realizedComponent: number;
+  unrealizedMtmComponent: number;
+  benchmarkEquity: number;
+  openReviews: number;
+  sourceCandleTime: string | null;
+};
+
+export type BenchmarkSnapshotReview = Pick<
+  ProfitabilityReview,
+  "status" | "signalSentAt" | "netPnlPct" | "unrealizedNetPnlPct"
+> & {
+  deliveryMode: "production" | "shadow";
+  lastCheckedAt: string | null;
+};
+
+export type BenchmarkTimeSeriesSummary = {
+  snapshotCount: number;
+  mtmMaxDrawdownPct: number | null;
+  benchmarkEquity: number | null;
+  trackingStartedAt: string | null;
+  sourceCandleTime: string | null;
 };
 
 export type BreakdownKey = "strategyVersion" | "signalType" | "symbol" | "direction" | "marketRegime" | "month";
@@ -73,9 +98,49 @@ export function summarizeProfitability(reviews: ProfitabilityReview[]): Profitab
     payoffRatio,
     breakevenWinRate: Number.isFinite(payoffRatio) && payoffRatio > 0 ? 100 / (1 + payoffRatio) : 0,
     realizedMaxDrawdownPct: maximumDrawdown(realizedCurve),
-    mtmMaxDrawdownPct: maximumDrawdown(mtmCurve),
     realizedBenchmarkEquity: realizedCurve.at(-1) ?? 100,
-    signalBenchmarkEquity: mtmCurve.at(-1) ?? 100
+    currentMtmAdjustedEquity: mtmCurve.at(-1) ?? 100
+  };
+}
+
+export function buildBenchmarkSnapshotRows(
+  reviews: BenchmarkSnapshotReview[],
+  snapshotAt = new Date().toISOString()
+): BenchmarkSnapshot[] {
+  return (["production", "shadow"] as const).flatMap((deliveryMode) => {
+    const group = reviews.filter((review) => review.deliveryMode === deliveryMode);
+    if (group.length === 0) return [];
+    const summary = summarizeProfitability(group.map((review) => ({
+      ...review,
+      strategyVersion: null,
+      signalType: "benchmark",
+      symbol: "ALL",
+      direction: "LONG",
+      marketRegime: "all",
+      netR: null,
+      currentR: null
+    })));
+    const sourceCandleTime = latestTime(group.map((review) => review.lastCheckedAt));
+    return [{
+      snapshotAt,
+      deliveryMode,
+      realizedComponent: summary.realizedBenchmarkEquity - 100,
+      unrealizedMtmComponent: summary.currentMtmAdjustedEquity - summary.realizedBenchmarkEquity,
+      benchmarkEquity: summary.currentMtmAdjustedEquity,
+      openReviews: group.filter((review) => review.status === "open").length,
+      sourceCandleTime
+    }];
+  });
+}
+
+export function summarizeBenchmarkSnapshots(snapshots: BenchmarkSnapshot[]): BenchmarkTimeSeriesSummary {
+  const ordered = [...snapshots].sort((a, b) => timestamp(a.snapshotAt) - timestamp(b.snapshotAt));
+  return {
+    snapshotCount: ordered.length,
+    mtmMaxDrawdownPct: ordered.length ? maximumDrawdown(ordered.map((snapshot) => snapshot.benchmarkEquity)) : null,
+    benchmarkEquity: ordered.at(-1)?.benchmarkEquity ?? null,
+    trackingStartedAt: ordered[0]?.snapshotAt ?? null,
+    sourceCandleTime: ordered.at(-1)?.sourceCandleTime ?? null
   };
 }
 
@@ -120,6 +185,11 @@ function month(value: string) {
 function timestamp(value: string) {
   const result = new Date(value).getTime();
   return Number.isFinite(result) ? result : 0;
+}
+
+function latestTime(values: Array<string | null>) {
+  const valid = values.filter((value): value is string => Boolean(value) && Number.isFinite(new Date(value!).getTime()));
+  return valid.sort((a, b) => timestamp(b) - timestamp(a))[0] ?? null;
 }
 
 function average(values: number[]) {

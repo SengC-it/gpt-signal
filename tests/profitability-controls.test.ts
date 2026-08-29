@@ -4,11 +4,12 @@ import { describe, expect, test } from "vitest";
 import { compareSignalConcentration } from "@/lib/signal/concentration-control";
 import { calculateCostEdge, passesCostGate } from "@/lib/signal/cost-edge";
 import { buildEdgeEvidence, evaluateEdgeEvidence } from "@/lib/signal/edge-evidence";
-import { ALT_BASKET_DELIVERY_MODE } from "@/lib/signal/profitability-config";
+import { ALT_BASKET_DELIVERY_MODE, MAIN_STRATEGY_DELIVERY_MODE } from "@/lib/signal/profitability-config";
 import { evaluatePromotionGate } from "@/lib/signal/promotion-gate";
 import { applyReviewCandles } from "@/lib/signal/review";
 import { evaluateSchedulerHealth } from "@/lib/signal/scheduler-health";
-import { summarizeProfitability } from "@/lib/signal/profitability-analytics";
+import { buildBenchmarkSnapshotRows, summarizeBenchmarkSnapshots, summarizeProfitability } from "@/lib/signal/profitability-analytics";
+import { mainOpportunityId, shouldCreateRuntimeSignal } from "@/lib/signal/runtime-parity";
 import { MAIN_STRATEGY_V2 } from "@/lib/signal/strategy-config";
 import { canSendNotifications } from "@/lib/signal/delivery";
 import type { Candle, SignalEvaluation, TradingPlan } from "@/lib/signal/types";
@@ -33,6 +34,23 @@ describe("ALT Basket loss containment", () => {
     expect(migration).toContain("reject_shadow_signal_notification");
     expect(migration).toContain("signal.delivery_mode = 'shadow'");
     expect(migration).toContain("before insert or update on public.gpt_notifications");
+  });
+
+  test("archives legacy basket parents without fabricating settlement", () => {
+    const migration = fs.readFileSync(
+      path.resolve(process.cwd(), "supabase/migrations/20260815054901_backfill_alt_basket_components.sql"),
+      "utf8"
+    );
+    expect(migration).toContain("superseded_at = coalesce");
+    expect(migration).toContain("delivery_mode = 'shadow'");
+    expect(migration).not.toContain("set completed_at = coalesce");
+  });
+});
+
+describe("Main V2 loss containment", () => {
+  test("Main V2 Shadow cannot send production notification", () => {
+    expect(MAIN_STRATEGY_DELIVERY_MODE).toBe("shadow");
+    expect(canSendNotifications(MAIN_STRATEGY_DELIVERY_MODE)).toBe(false);
   });
 });
 
@@ -104,8 +122,30 @@ describe("open review MTM", () => {
     expect(summary.settled).toBe(1);
     expect(summary.open).toBe(1);
     expect(summary.realizedBenchmarkEquity).toBeCloseTo(110);
-    expect(summary.signalBenchmarkEquity).toBeCloseTo(104.5);
-    expect(summary.mtmMaxDrawdownPct).toBeCloseTo(5);
+    expect(summary.currentMtmAdjustedEquity).toBeCloseTo(104.5);
+    expect(summary).not.toHaveProperty("mtmMaxDrawdownPct");
+  });
+
+  test("computes MTM drawdown from time-series snapshots with concurrent open reviews", () => {
+    const first = buildBenchmarkSnapshotRows([
+      snapshotReview("SOLUSDT", 10),
+      snapshotReview("ETHUSDT", -5)
+    ], "2026-01-01T00:15:00Z")[0];
+    const second = { ...first, snapshotAt: "2026-01-01T00:30:00Z", benchmarkEquity: first.benchmarkEquity * 0.8 };
+    const summary = summarizeBenchmarkSnapshots([first, second]);
+
+    expect(first.openReviews).toBe(2);
+    expect(first.unrealizedMtmComponent).not.toBe(0);
+    expect(summary.mtmMaxDrawdownPct).toBeCloseTo(20);
+  });
+});
+
+describe("Backtest runtime parity primitives", () => {
+  test("uses the same opportunity identity and lifecycle dedupe as runtime", () => {
+    const candidate = signal("SOLUSDT", 90);
+    expect(mainOpportunityId(candidate, "v2")).toBe("SOLUSDT:LONG:trend_pullback:bull_trend:v2:15m");
+    expect(shouldCreateRuntimeSignal({ level: "A", lifecycleStatus: "planned" }, candidate)).toBe(false);
+    expect(shouldCreateRuntimeSignal({ level: "A", lifecycleStatus: "entered" }, candidate)).toBe(true);
   });
 });
 
@@ -183,7 +223,19 @@ function signal(symbol: string, score: number): SignalEvaluation {
   return {
     symbol, direction: "LONG", signalType: "trend_pullback", lifecycleStatus: "planned", level: "A", score,
     plan, btcState: "bull", marketRegime: "bull_trend", dataQualityScore: 100, relativeStrengthScore: 1,
-    reasons: [], invalidationRules: [], noChaseRule: { costCoverageRatio: score / 10 }, strategyVersion: "v2", deliveryMode: "production"
+    reasons: [], invalidationRules: [], noChaseRule: { costCoverageRatio: score / 10 }, strategyVersion: "v2", deliveryMode: "shadow"
+  };
+}
+
+function snapshotReview(symbol: string, unrealizedNetPnlPct: number) {
+  return {
+    deliveryMode: "shadow" as const,
+    status: "open" as const,
+    signalSentAt: "2026-01-01T00:00:00Z",
+    netPnlPct: null,
+    unrealizedNetPnlPct,
+    lastCheckedAt: "2026-01-01T00:14:59Z",
+    symbol
   };
 }
 

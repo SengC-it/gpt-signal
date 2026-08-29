@@ -5,7 +5,7 @@ import {
   ALT_BASKET_SHORT_CONFIG_V2,
   evaluateAltBasketShortStrategy
 } from "../src/lib/signal/alt-basket-strategy.ts";
-import { applyReviewCandles, DEFAULT_REVIEW_EXECUTION_POLICY } from "../src/lib/signal/review.ts";
+import { applyReviewCandles, createInitialReviewState, DEFAULT_REVIEW_EXECUTION_POLICY, isSettledReviewStatus } from "../src/lib/signal/review.ts";
 import { evaluateSignalCandidate, resolveBtcRegime } from "../src/lib/signal/engine.ts";
 import { calculateRelativeStrength } from "../src/lib/signal/indicators.ts";
 import { MAIN_ASYMMETRIC_CANDIDATES, MAIN_STRATEGY_V2, MAIN_VALIDATION_CANDIDATES } from "../src/lib/signal/strategy-config.ts";
@@ -13,6 +13,7 @@ import { evaluateValidationGate, mergeValidationTrades, summarizeValidationTrade
 import { COST_GATE_CANDIDATES } from "../src/lib/signal/profitability-config.ts";
 import { passesCostGate } from "../src/lib/signal/cost-edge.ts";
 import { evaluatePromotionGate } from "../src/lib/signal/promotion-gate.ts";
+import { mainOpportunityId, reviewStatusToLifecycle, shouldCreateRuntimeSignal } from "../src/lib/signal/runtime-parity.ts";
 
 const symbols = ["BTCUSDT", "ETHUSDT", "SOLUSDT", "BNBUSDT", "LINKUSDT", "AVAXUSDT", "DOGEUSDT"];
 const lookbackDirs = (process.env.HISTORICAL_SOURCE_DIRS || process.env.LOOKBACK_DIR || "452d")
@@ -30,7 +31,6 @@ const finalHoldoutDays = Number(process.env.WALK_FORWARD_HOLDOUT_DAYS || 60);
 const oneWayFee = Number(process.env.ONE_WAY_FEE || 0.001);
 const oneWaySlippage = Number(process.env.ONE_WAY_SLIPPAGE || 0.0005);
 const codeVersion = resolveCodeVersion();
-const signalCooldownBars = Number(process.env.WALK_FORWARD_SIGNAL_COOLDOWN_BARS || 0);
 const altSymbols = ["ETHUSDT", "SOLUSDT", "BNBUSDT", "LINKUSDT", "AVAXUSDT", "DOGEUSDT"];
 const tradeSymbols = process.env.WALK_FORWARD_ONLY_SYMBOL
   ? symbols.filter((symbol) => symbol === process.env.WALK_FORWARD_ONLY_SYMBOL)
@@ -235,7 +235,13 @@ const report = {
     expiry: DEFAULT_REVIEW_EXECUTION_POLICY.expiry,
     sameCandlePriority: DEFAULT_REVIEW_EXECUTION_POLICY.sameCandlePriority,
     feeRatePerSide: oneWayFee,
-    slippageRatePerSide: oneWaySlippage
+    slippageRatePerSide: oneWaySlippage,
+    runtimeParity: {
+      opportunityDedupe: "symbol+direction+signalType+marketRegime+strategyVersion+15m, then latest level+lifecycle",
+      sameSymbolOpenSignals: "concurrent_allowed_across_opportunities_and_lifecycle_transitions",
+      signalCooldown: "none",
+      candleTiming: "evaluate closed candle before current sync review settlement; review begins on a later closed candle"
+    }
   },
   walkForward: {
     trainDays,
@@ -294,13 +300,28 @@ if (!gate.passed) process.exitCode = 2;
 
 function simulateCandidate(candidate, fromIndex, toIndex) {
   const trades = [];
-  const nextAvailable = Object.fromEntries(tradeSymbols.map((symbol) => [symbol, fromIndex]));
-  const lastSignalKeys = Object.fromEntries(tradeSymbols.map((symbol) => [symbol, null]));
   for (const symbol of tradeSymbols) {
     const series = aligned[symbol];
+    const latestByOpportunity = new Map();
     for (let index = Math.max(startIndex, fromIndex); index < toIndex; index += 1) {
-      if (index < nextAvailable[symbol]) continue;
       const current = series[index];
+      for (const latest of latestByOpportunity.values()) {
+        // Runtime generates/dedupes before the current sync settles reviews. At
+        // decision time, lifecycle state therefore includes candles only through
+        // the previous completed sync, never the current evaluation candle.
+        if (!latest.plan || latest.createdIndex >= index - 1 || isSettledReviewStatus(latest.reviewState.finalStatus)) continue;
+        latest.reviewState = applyReviewCandles({
+          direction: latest.direction,
+          plan: latest.plan,
+          candles: [series[index - 1]],
+          state: latest.reviewState,
+          feeRate: oneWayFee,
+          slippageRate: oneWaySlippage,
+          executionPolicy: DEFAULT_REVIEW_EXECUTION_POLICY,
+          candlesAreSorted: true
+        });
+        latest.lifecycleStatus = reviewStatusToLifecycle(latest.reviewState.finalStatus);
+      }
       const momentumDirection = current.close >= series[index - 10].close ? "LONG" : "SHORT";
       const indicatorStart = Math.max(0, index - 60);
       const btc4hIndex = btc4hIndexByTime[index] ?? -1;
@@ -333,11 +354,18 @@ function simulateCandidate(candidate, fromIndex, toIndex) {
         oiChange15m: null,
         circuitBreakerActive: false
       });
-      if (process.env.WALK_FORWARD_LIVE_DEDUPE !== "0" && (signal.level === "A" || signal.level === "S")) {
-        const signalKey = [signal.direction, signal.signalType, signal.marketRegime, signal.level, signal.lifecycleStatus].join(":");
-        if (lastSignalKeys[symbol] === signalKey) continue;
-        lastSignalKeys[symbol] = signalKey;
-      }
+      if (signal.level !== "A" && signal.level !== "S") continue;
+      const opportunityId = mainOpportunityId(signal, candidate.version);
+      const existing = latestByOpportunity.get(opportunityId);
+      if (!shouldCreateRuntimeSignal(existing, signal)) continue;
+      latestByOpportunity.set(opportunityId, {
+        level: signal.level,
+        lifecycleStatus: signal.lifecycleStatus,
+        direction,
+        plan: signal.plan,
+        createdIndex: index,
+        reviewState: createInitialReviewState()
+      });
       if (signal.lifecycleStatus !== "planned" || !signal.plan) continue;
 
       const state = cachedReviewState({
@@ -365,15 +393,16 @@ function simulateCandidate(candidate, fromIndex, toIndex) {
         dataQualityScore: signal.dataQualityScore,
         costCoverageRatio: signal.costEdge?.costCoverageRatio ?? 0
       });
-      const exitIndex = state.exitTime === null ? toIndex : indexAtOrAfter(state.exitTime);
-      nextAvailable[symbol] = Math.max(index + 1, exitIndex + 1 + signalCooldownBars);
     }
   }
   return trades.sort((a, b) => a.signalTime - b.signalTime);
 }
 
 function cachedReviewState(input) {
-  const key = [input.symbol, input.index, input.toIndex, input.direction, input.targetR].join(":");
+  const key = [
+    input.symbol, input.index, input.toIndex, input.direction, input.targetR,
+    input.plan.entryLow, input.plan.entryHigh, input.plan.stopLoss, input.plan.tp1
+  ].join(":");
   const cached = outcomeCache.get(key);
   if (cached) return cached;
   const state = applyReviewCandles({
@@ -503,7 +532,7 @@ function buildCandidateComparisons(trades, baselineSummary) {
       "main-v2-current",
       "Main V2 current baseline",
       trades,
-      "Unchanged production parameters; comparison reference only."
+      "Fixed Main V2 parameters; Shadow Only comparison reference."
     ),
     costGateCandidates: COST_GATE_CANDIDATES.map((candidate) => describe(
       candidate.id,
