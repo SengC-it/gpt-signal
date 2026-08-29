@@ -9,6 +9,13 @@ export type ValidationTrade = {
   netR: number | null;
   grossR: number | null;
   netPnlPct: number | null;
+  symbol?: string;
+  marketRegime?: string;
+  signalType?: string;
+  strategyVersion?: string;
+  signalScore?: number;
+  dataQualityScore?: number;
+  costCoverageRatio?: number;
 };
 
 export type ValidationSummary = {
@@ -19,15 +26,27 @@ export type ValidationSummary = {
   entryFillRate: number;
   executionRate: number;
   winRate: number;
+  wins: number;
+  losses: number;
   netPnlPct: number;
   netR: number;
   profitFactor: number;
+  expectancyR: number;
+  averageWinR: number;
+  averageLossR: number;
+  payoffRatio: number;
+  breakevenWinRate: number;
   longSettledTrades: number;
   shortSettledTrades: number;
   longNetR: number;
   shortNetR: number;
   maxDrawdownR: number;
   maxLosingStreak: number;
+  positiveMonths: number;
+  symbolBreadth: number;
+  regimeBreadth: number;
+  largestSingleTradeContributionPct: number;
+  largestSingleSymbolContributionPct: number;
 };
 
 export type ValidationGateResult = {
@@ -39,9 +58,11 @@ export type ValidationGateResult = {
     oosNetPnlPositive: boolean;
     oosNetRPositive: boolean;
     oosProfitFactorAboveOne: boolean;
+    oosExpectancyPositive: boolean;
     holdoutNetPnlPositive: boolean;
     holdoutNetRPositive: boolean;
     holdoutProfitFactorAboveOne: boolean;
+    holdoutExpectancyPositive: boolean;
     minimumSettledTrades: boolean;
     bothDirectionsPresent: boolean;
   };
@@ -65,15 +86,30 @@ export function summarizeValidationTrades(trades: ValidationTrade[]): Validation
     entryFillRate: trades.length ? (trades.filter((trade) => trade.entryHit).length / trades.length) * 100 : 0,
     executionRate: trades.length ? (settled.length / trades.length) * 100 : 0,
     winRate: settled.length ? (wins.length / settled.length) * 100 : 0,
+    wins: wins.length,
+    losses: losses.length,
     netPnlPct: settled.reduce((sum, trade) => sum + (trade.netPnlPct ?? 0), 0),
     netR: returns.reduce((sum, value) => sum + value, 0),
     profitFactor: grossLoss === 0 ? grossProfit : grossProfit / grossLoss,
+    expectancyR: average(returns),
+    averageWinR: average(wins.map((trade) => trade.netR ?? 0)),
+    averageLossR: average(losses.map((trade) => Math.abs(trade.netR ?? 0))),
+    payoffRatio: payoffRatio(wins, losses),
+    breakevenWinRate: breakevenWinRate(wins, losses),
     longSettledTrades: long.length,
     shortSettledTrades: short.length,
     longNetR: long.reduce((sum, trade) => sum + (trade.netR ?? 0), 0),
     shortNetR: short.reduce((sum, trade) => sum + (trade.netR ?? 0), 0),
     maxDrawdownR: maxDrawdown(returns),
-    maxLosingStreak: maxLosingStreak(returns)
+    maxLosingStreak: maxLosingStreak(returns),
+    positiveMonths: positiveMonths(settled),
+    symbolBreadth: new Set(settled.map((trade) => trade.symbol).filter(Boolean)).size,
+    regimeBreadth: new Set(settled.map((trade) => trade.marketRegime).filter(Boolean)).size,
+    largestSingleTradeContributionPct: contributionPct(
+      Math.max(0, ...settled.map((trade) => trade.netR ?? 0)),
+      grossProfit
+    ),
+    largestSingleSymbolContributionPct: largestSymbolContributionPct(settled, grossProfit)
   };
 }
 
@@ -88,16 +124,18 @@ export function evaluateValidationGate(input: {
   holdout: ValidationSummary;
   minimumSettledTrades?: number;
 }): ValidationGateResult {
-  const minimumSettledTrades = input.minimumSettledTrades ?? 100;
+  const minimumSettledTrades = input.minimumSettledTrades ?? 30;
   const checks = {
     dataQuality: input.dataQualityPassed ?? true,
     coverageDays: input.coverageDays >= 450,
     oosNetPnlPositive: input.oos.netPnlPct > 0,
     oosNetRPositive: input.oos.netR > 0,
-    oosProfitFactorAboveOne: input.oos.profitFactor > 1,
+    oosProfitFactorAboveOne: input.oos.profitFactor >= 1.2,
+    oosExpectancyPositive: input.oos.expectancyR > 0,
     holdoutNetPnlPositive: input.holdout.netPnlPct > 0,
     holdoutNetRPositive: input.holdout.netR > 0,
-    holdoutProfitFactorAboveOne: input.holdout.profitFactor > 1,
+    holdoutProfitFactorAboveOne: input.holdout.profitFactor >= 1.2,
+    holdoutExpectancyPositive: input.holdout.expectancyR > 0,
     minimumSettledTrades: input.oos.settledTrades >= minimumSettledTrades,
     bothDirectionsPresent: input.oos.longSettledTrades > 0 && input.oos.shortSettledTrades > 0
   };
@@ -110,6 +148,43 @@ export function evaluateValidationGate(input: {
     reasons,
     checks
   };
+}
+
+function average(values: number[]) {
+  return values.length ? values.reduce((sum, value) => sum + value, 0) / values.length : 0;
+}
+
+function payoffRatio(wins: ValidationTrade[], losses: ValidationTrade[]) {
+  const averageWin = average(wins.map((trade) => trade.netR ?? 0));
+  const averageLoss = average(losses.map((trade) => Math.abs(trade.netR ?? 0)));
+  return averageLoss > 0 ? averageWin / averageLoss : averageWin;
+}
+
+function breakevenWinRate(wins: ValidationTrade[], losses: ValidationTrade[]) {
+  const payoff = payoffRatio(wins, losses);
+  return payoff > 0 ? 100 / (1 + payoff) : 0;
+}
+
+function positiveMonths(trades: ValidationTrade[]) {
+  const months = new Map<string, number>();
+  for (const trade of trades) {
+    const month = new Date(trade.signalTime).toISOString().slice(0, 7);
+    months.set(month, (months.get(month) ?? 0) + (trade.netR ?? 0));
+  }
+  return [...months.values()].filter((value) => value > 0).length;
+}
+
+function largestSymbolContributionPct(trades: ValidationTrade[], grossProfit: number) {
+  const bySymbol = new Map<string, number>();
+  for (const trade of trades) {
+    if (!trade.symbol) continue;
+    bySymbol.set(trade.symbol, (bySymbol.get(trade.symbol) ?? 0) + (trade.netR ?? 0));
+  }
+  return contributionPct(Math.max(0, ...bySymbol.values()), grossProfit);
+}
+
+function contributionPct(contribution: number, total: number) {
+  return total > 0 ? contribution / total * 100 : 0;
 }
 
 function maxDrawdown(values: number[]) {

@@ -47,6 +47,7 @@ export async function POST(request: Request) {
         oos,
         holdout: holdoutSummary,
         walkForward,
+        candidateComparisons: report.candidateComparisons ?? null,
         gate: report.gate ?? null,
         deploymentAllowed: report.deploymentAllowed ?? false
       },

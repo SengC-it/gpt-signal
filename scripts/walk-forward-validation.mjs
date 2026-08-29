@@ -8,8 +8,11 @@ import {
 import { applyReviewCandles, DEFAULT_REVIEW_EXECUTION_POLICY } from "../src/lib/signal/review.ts";
 import { evaluateSignalCandidate, resolveBtcRegime } from "../src/lib/signal/engine.ts";
 import { calculateRelativeStrength } from "../src/lib/signal/indicators.ts";
-import { MAIN_ASYMMETRIC_CANDIDATES, MAIN_VALIDATION_CANDIDATES } from "../src/lib/signal/strategy-config.ts";
+import { MAIN_ASYMMETRIC_CANDIDATES, MAIN_STRATEGY_V2, MAIN_VALIDATION_CANDIDATES } from "../src/lib/signal/strategy-config.ts";
 import { evaluateValidationGate, mergeValidationTrades, summarizeValidationTrades } from "../src/lib/signal/validation.ts";
+import { COST_GATE_CANDIDATES } from "../src/lib/signal/profitability-config.ts";
+import { passesCostGate } from "../src/lib/signal/cost-edge.ts";
+import { evaluatePromotionGate } from "../src/lib/signal/promotion-gate.ts";
 
 const symbols = ["BTCUSDT", "ETHUSDT", "SOLUSDT", "BNBUSDT", "LINKUSDT", "AVAXUSDT", "DOGEUSDT"];
 const lookbackDirs = (process.env.HISTORICAL_SOURCE_DIRS || process.env.LOOKBACK_DIR || "452d")
@@ -46,7 +49,7 @@ const relativeStrengthModeVariant = parseRelativeStrengthMode(process.env.WALK_F
 const setupModeVariant = parseSetupMode(process.env.WALK_FORWARD_SETUP_MODE);
 const allMainCandidates = process.env.WALK_FORWARD_ASYMMETRIC_ONLY === "1"
   ? MAIN_ASYMMETRIC_CANDIDATES
-  : MAIN_VALIDATION_CANDIDATES;
+  : [MAIN_STRATEGY_V2, ...MAIN_VALIDATION_CANDIDATES];
 const mainCandidatePool = process.env.WALK_FORWARD_FIXED_MAIN_VERSION
   ? allMainCandidates.filter((candidate) => candidate.version === process.env.WALK_FORWARD_FIXED_MAIN_VERSION)
   : process.env.WALK_FORWARD_CORE_ONLY === "1"
@@ -206,6 +209,7 @@ const gate = evaluateValidationGate({
   oos: oosSummary,
   holdout: holdoutSummary
 });
+const candidateComparisons = buildCandidateComparisons(oosTrades, mainOosSummary);
 
 const report = {
   generatedAt: new Date().toISOString(),
@@ -266,6 +270,7 @@ const report = {
     }
   },
   oos: oosSummary,
+  candidateComparisons,
   gate,
   deploymentAllowed: gate.passed
 };
@@ -351,7 +356,14 @@ function simulateCandidate(candidate, fromIndex, toIndex) {
         entryHit: state.entryHit,
         netR: state.netR,
         grossR: state.grossR,
-        netPnlPct: state.netPnlPct
+        netPnlPct: state.netPnlPct,
+        symbol,
+        marketRegime: signal.marketRegime,
+        signalType: signal.signalType,
+        strategyVersion: candidate.version,
+        signalScore: signal.score,
+        dataQualityScore: signal.dataQualityScore,
+        costCoverageRatio: signal.costEdge?.costCoverageRatio ?? 0
       });
       const exitIndex = state.exitTime === null ? toIndex : indexAtOrAfter(state.exitTime);
       nextAvailable[symbol] = Math.max(index + 1, exitIndex + 1 + signalCooldownBars);
@@ -421,7 +433,14 @@ function simulateAltBasket(candidate, fromIndex, toIndex) {
       entryHit: state.entryHit,
       netR: state.netR,
       grossR: state.grossR,
-      netPnlPct: state.netPnlPct
+      netPnlPct: state.netPnlPct,
+      symbol: "ALT_SHORT_BASKET",
+      marketRegime: signal.marketRegime,
+      signalType: signal.signalType,
+      strategyVersion: candidate.version,
+      signalScore: signal.score,
+      dataQualityScore: signal.dataQualityScore,
+      costCoverageRatio: signal.costEdge?.costCoverageRatio ?? 0
     });
 
     const exitIndex = state.exitTime === null ? toIndex : indexAtOrAfter(state.exitTime);
@@ -458,6 +477,65 @@ function buildSyntheticBasketCandles(fromIndex, toIndex, entryPrices) {
     });
   }
   return candles;
+}
+
+function buildCandidateComparisons(trades, baselineSummary) {
+  const baselineMaxDrawdownR = baselineSummary.maxDrawdownR;
+  const describe = (id, label, candidateTrades, rationale) => {
+    const summary = summarizeValidationTrades(candidateTrades);
+    return {
+      id,
+      label,
+      rationale,
+      summary,
+      promotion: evaluatePromotionGate({
+        candidate: summary,
+        baselineMaxDrawdownR,
+        noLookAheadBias: true,
+        noDataLeakage: true
+      })
+    };
+  };
+
+  return {
+    evidenceBoundary: "OOS only; signal inputs end at the evaluation candle and review candles begin strictly after it.",
+    currentBaseline: describe(
+      "main-v2-current",
+      "Main V2 current baseline",
+      trades,
+      "Unchanged production parameters; comparison reference only."
+    ),
+    costGateCandidates: COST_GATE_CANDIDATES.map((candidate) => describe(
+      candidate.id,
+      candidate.label,
+      trades.filter((trade) => passesCostGate({ costCoverageRatio: trade.costCoverageRatio ?? 0 }, candidate.minimumCoverageRatio)),
+      "Finite candidate threshold using the exact review fee/slippage model."
+    )),
+    concentrationCandidates: [1, 2, 3].map((maximum) => describe(
+      `concentration-top-${maximum}`,
+      `Same-window same-direction top ${maximum}`,
+      applyHistoricalConcentration(trades, maximum),
+      "Ranks signal score, net cost coverage, then data quality; shadow comparison only."
+    ))
+  };
+}
+
+function applyHistoricalConcentration(trades, maximum) {
+  const groups = new Map();
+  for (const trade of trades) {
+    const window = Math.floor(trade.signalTime / fifteenMinutes);
+    const key = `${window}:${trade.direction}`;
+    const group = groups.get(key) ?? [];
+    group.push(trade);
+    groups.set(key, group);
+  }
+  return [...groups.values()].flatMap((group) => [...group]
+    .sort((a, b) => (b.signalScore ?? 0) - (a.signalScore ?? 0)
+      || (b.costCoverageRatio ?? 0) - (a.costCoverageRatio ?? 0)
+      || (b.dataQualityScore ?? 0) - (a.dataQualityScore ?? 0)
+      || String(a.symbol ?? "").localeCompare(String(b.symbol ?? "")))
+    .slice(0, maximum))
+    .sort((a, b) => a.signalTime - b.signalTime);
 }
 
 function selectCandidate(results, minimumSettledTrades = 20) {

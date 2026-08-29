@@ -1,5 +1,5 @@
 import { describe, expect, test } from "vitest";
-import { buildSignalEmail, buildSignalSummaryEmail } from "@/lib/notifications/templates";
+import { buildAltBasketSummaryEmail, buildSignalEmail, buildSignalSummaryEmail } from "@/lib/notifications/templates";
 import { formatEmailMessage, resolveEmailSender, sendEmail } from "@/lib/notifications/mailer";
 import { filterStrongAlertSignals, shouldRunStrongAlertWindow, shouldSendStrongAlert } from "@/lib/notifications/policy";
 import type { SignalEvaluation } from "@/lib/signal/types";
@@ -72,12 +72,36 @@ describe("notification templates", () => {
 
     const email = buildSignalEmail(basketSignal);
 
-    expect(email.subject).toContain("BTC弱势做空山寨篮子提醒");
-    expect(email.subject).toContain("TP 6% / SL 5%");
-    expect(email.body).toContain("收到邮件后，用下一根 15m 开盘价附近建立等权空头篮子");
-    expect(email.body).toContain("篮子整体盈利 6% 止盈");
-    expect(email.body).toContain("篮子整体亏损 5% 止损");
-    expect(email.body).toContain("BTC 4h 收盘重新站回 SMA50");
+    expect(email.subject).toContain("做空计划｜6 个币");
+    expect(email.subject).toContain("每币止盈 6% / 止损 5%");
+    expect(email.body).toContain("ETHUSDT：入场 2500｜止盈 2350｜止损 2625");
+    expect(email.body).toContain("下一根 15 分钟 K 线开盘附近");
+    expect(email.body).toContain("某个币先碰到止盈或止损，只平掉这个币");
+    expect(email.body).toContain("BTC 4 小时收盘重新站上 SMA50");
+  });
+
+  test("builds one simple basket email with an executable row for every pair", () => {
+    const eth = {
+      ...signal,
+      symbol: "ETHUSDT",
+      direction: "SHORT" as const,
+      signalType: "alt_basket_short" as const,
+      noChaseRule: { takeProfitPct: 6, stopLossPct: 5, btc4hClose: 60000, btcSma50: 62000, weightPct: 50 },
+      plan: { ...signal.plan!, entryLow: 2500, entryHigh: 2500, tp1: 2350, tp2: 2350, tp3: 2350, stopLoss: 2625 }
+    };
+    const sol = {
+      ...eth,
+      symbol: "SOLUSDT",
+      noChaseRule: { ...eth.noChaseRule, weightPct: 50 },
+      plan: { ...eth.plan, entryLow: 150, entryHigh: 150, tp1: 141, tp2: 141, tp3: 141, stopLoss: 157.5 }
+    };
+
+    const email = buildAltBasketSummaryEmail([eth, sol]);
+
+    expect(email.subject).toContain("做空计划｜2 个币");
+    expect(email.body).toContain("ETHUSDT：卖出/做空｜入场 2500｜止盈 2350｜止损 2625");
+    expect(email.body).toContain("SOLUSDT：卖出/做空｜入场 150｜止盈 141｜止损 157.5");
+    expect(email.body).toContain("止盈 = 成交价 × 0.94；止损 = 成交价 × 1.05");
   });
 
   test("uses plain language that explains the action and risk", () => {

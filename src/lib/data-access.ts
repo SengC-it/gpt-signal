@@ -2,6 +2,7 @@ import "server-only";
 import { getSupabaseAdmin, hasSupabaseServerEnv } from "@/lib/supabase/server";
 import { sampleRadar, sampleSignals } from "@/lib/sample-data";
 import type { ReviewFinalStatus } from "@/lib/signal/review";
+import { evaluateSchedulerHealth } from "@/lib/signal/scheduler-health";
 import type { Direction, LifecycleStatus, SignalEvaluation, SignalLevel, SignalType } from "@/lib/signal/types";
 
 export type DisplaySignal = SignalEvaluation & {
@@ -19,11 +20,18 @@ export type RadarRow = {
   score: number;
 };
 
+export type DisplaySchedulerHealth = ReturnType<typeof evaluateSchedulerHealth> & {
+  lastSuccessfulSync: string | null;
+  lastCandleTimestamp: string | null;
+};
+
 export type DisplaySignalReview = {
   id: string;
   signalId: string;
   strategyVersion: string | null;
   strategyFamily: string | null;
+  signalType: string;
+  marketRegime: string;
   deliveryMode: "production" | "shadow";
   symbol: string;
   direction: Direction;
@@ -42,6 +50,10 @@ export type DisplaySignalReview = {
   exitPrice: number | null;
   grossPnlPct: number | null;
   netPnlPct: number | null;
+  currentReviewPrice: number | null;
+  unrealizedGrossPnlPct: number | null;
+  unrealizedNetPnlPct: number | null;
+  currentR: number | null;
   grossR: number | null;
   netR: number | null;
   mfe: number;
@@ -89,6 +101,7 @@ export async function getRecentSignals(limit = 20): Promise<DisplaySignal[]> {
     const { data, error } = await supabase
       .from("gpt_signals")
       .select("*")
+      .neq("symbol", "ALT_SHORT_BASKET")
       .order("created_at", { ascending: false })
       .limit(limit);
 
@@ -96,7 +109,9 @@ export async function getRecentSignals(limit = 20): Promise<DisplaySignal[]> {
       return sampleSignals.map((item) => toDisplaySignal(item, item.symbol, "样例"));
     }
 
-    return data.map((row) => signalFromRow(row as DbSignal));
+    return data
+      .map((row) => signalFromRow(row as DbSignal))
+      .sort((a, b) => dateSort(b.createdAt, a.createdAt) || a.symbol.localeCompare(b.symbol));
   } catch {
     return sampleSignals.map((item) => toDisplaySignal(item, item.symbol, "样例"));
   }
@@ -148,14 +163,70 @@ export async function getRecentSignalReviews(limit = 200): Promise<DisplaySignal
     const { data, error } = await supabase
       .from("gpt_signal_results")
       .select("*")
+      .neq("symbol", "ALT_SHORT_BASKET")
       .order("signal_sent_at", { ascending: false })
       .limit(limit);
 
     if (error || !data) return [];
-    return data.map((row) => reviewFromRow(row as Record<string, unknown>));
+    return data
+      .map((row) => reviewFromRow(row as Record<string, unknown>))
+      .sort((a, b) => dateSort(b.signalSentAt, a.signalSentAt) || a.symbol.localeCompare(b.symbol));
   } catch {
     return [];
   }
+}
+
+export async function getSchedulerHealth(): Promise<DisplaySchedulerHealth> {
+  if (!hasSupabaseServerEnv()) return schedulerHealthFromRows([], null);
+
+  try {
+    const supabase = getSupabaseAdmin();
+    const [eventsResult, candleResult] = await Promise.all([
+      supabase
+        .from("gpt_system_events")
+        .select("event_type, severity, created_at")
+        .in("event_type", ["market_sync", "market_sync_error"])
+        .order("created_at", { ascending: false })
+        .limit(50),
+      supabase
+        .from("gpt_candles")
+        .select("close_time")
+        .eq("interval", "15m")
+        .eq("is_closed", true)
+        .order("close_time", { ascending: false })
+        .limit(1)
+        .maybeSingle()
+    ]);
+    if (eventsResult.error || candleResult.error) return schedulerHealthFromRows([], null);
+    return schedulerHealthFromRows(
+      (eventsResult.data ?? []) as Array<{ event_type: string; severity: string; created_at: string }>,
+      nullableText((candleResult.data as Record<string, unknown> | null)?.close_time)
+    );
+  } catch {
+    return schedulerHealthFromRows([], null);
+  }
+}
+
+function schedulerHealthFromRows(
+  events: Array<{ event_type: string; severity: string; created_at: string }>,
+  lastCandleTimestamp: string | null
+): DisplaySchedulerHealth {
+  const lastSuccessfulSync = events.find((event) => event.event_type === "market_sync" && event.severity === "info")?.created_at ?? null;
+  let consecutiveSyncErrors = 0;
+  for (const event of events) {
+    if (event.event_type === "market_sync" && event.severity === "info") break;
+    if (event.event_type === "market_sync_error" || event.severity === "error") consecutiveSyncErrors += 1;
+  }
+  return {
+    ...evaluateSchedulerHealth({
+      now: Date.now(),
+      lastSuccessfulSync: dateNumber(lastSuccessfulSync),
+      lastCandleTimestamp: dateNumber(lastCandleTimestamp),
+      consecutiveSyncErrors
+    }),
+    lastSuccessfulSync,
+    lastCandleTimestamp
+  };
 }
 
 function signalFromRow(row: DbSignal): DisplaySignal {
@@ -205,6 +276,8 @@ function reviewFromRow(row: Record<string, unknown>): DisplaySignalReview {
     signalId: text(row.signal_id, "unknown"),
     strategyVersion: nullableText(row.strategy_version),
     strategyFamily: nullableText(row.strategy_family),
+    signalType: text(row.signal_type, "unknown"),
+    marketRegime: text(row.market_regime, "unknown"),
     deliveryMode: row.delivery_mode === "shadow" ? "shadow" : "production",
     symbol: text(row.symbol, "UNKNOWN"),
     direction: direction(row.direction),
@@ -223,6 +296,10 @@ function reviewFromRow(row: Record<string, unknown>): DisplaySignalReview {
     exitPrice: nullableNum(row.exit_price),
     grossPnlPct: nullableNum(row.gross_pnl_pct),
     netPnlPct: nullableNum(row.net_pnl_pct),
+    currentReviewPrice: nullableNum(row.current_review_price),
+    unrealizedGrossPnlPct: nullableNum(row.unrealized_gross_pnl_pct),
+    unrealizedNetPnlPct: nullableNum(row.unrealized_net_pnl_pct),
+    currentR: nullableNum(row.current_r),
     grossR: nullableNum(row.gross_r),
     netR: nullableNum(row.net_r ?? row.final_r),
     mfe: num(row.mfe),
@@ -315,5 +392,17 @@ function reviewStatus(value: unknown): ReviewFinalStatus {
 function level(value: unknown): SignalLevel {
   if (value === "S" || value === "A" || value === "B" || value === "C") return value;
   return "NONE";
+}
+
+function dateSort(left: string, right: string) {
+  const leftTime = new Date(left).getTime();
+  const rightTime = new Date(right).getTime();
+  return (Number.isFinite(leftTime) ? leftTime : 0) - (Number.isFinite(rightTime) ? rightTime : 0);
+}
+
+function dateNumber(value: string | null) {
+  if (!value) return null;
+  const result = new Date(value).getTime();
+  return Number.isFinite(result) ? result : null;
 }
 

@@ -30,6 +30,7 @@ type SignalRow = {
   strategy_version_id?: string | null;
   strategy_version?: string | null;
   signal_type?: string | null;
+  market_regime?: string | null;
   delivery_mode?: string | null;
 };
 
@@ -57,12 +58,18 @@ type ReviewRow = {
   net_r: number | string | null;
   gross_pnl_pct: number | string | null;
   net_pnl_pct: number | string | null;
+  current_review_price: number | string | null;
+  unrealized_gross_pnl_pct: number | string | null;
+  unrealized_net_pnl_pct: number | string | null;
+  current_r: number | string | null;
   exit_price: number | string | null;
   exit_time: string | null;
   completed_at: string | null;
   last_checked_at: string | null;
   strategy_version: string | null;
   strategy_family: string | null;
+  signal_type: string | null;
+  market_regime: string | null;
   delivery_mode: string | null;
 };
 
@@ -94,7 +101,7 @@ export async function ensureSignalReviewsForSentNotifications(
 
   const { data: signals, error: signalError } = await supabase
     .from("gpt_signals")
-    .select("id, symbol, direction, entry_low, entry_high, stop_loss, tp1, tp2, tp3, no_chase_rule, strategy_version_id, strategy_version, signal_type, delivery_mode")
+    .select("id, symbol, direction, entry_low, entry_high, stop_loss, tp1, tp2, tp3, no_chase_rule, strategy_version_id, strategy_version, signal_type, market_regime, delivery_mode")
     .in("id", signalIds);
 
   if (signalError) throw signalError;
@@ -131,7 +138,7 @@ export async function ensureSignalReviewsForSignals(
 
   const { data: signals, error } = await supabase
     .from("gpt_signals")
-    .select("id, symbol, direction, entry_low, entry_high, stop_loss, tp1, tp2, tp3, no_chase_rule, strategy_version_id, strategy_version, signal_type, delivery_mode")
+    .select("id, symbol, direction, entry_low, entry_high, stop_loss, tp1, tp2, tp3, no_chase_rule, strategy_version_id, strategy_version, signal_type, market_regime, delivery_mode")
     .in("id", ids);
 
   if (error) throw error;
@@ -178,7 +185,7 @@ export async function settleOpenSignalReviews(supabase: SupabaseAdmin) {
   for (const symbol of candleSymbols) {
     const { data: candleRows, error: candleError } = await supabase
       .from("gpt_candles")
-      .select("open_time, close_time, high, low, is_closed")
+      .select("open_time, close_time, high, low, close, is_closed")
       .eq("symbol", symbol)
       .eq("interval", "15m")
       .eq("is_closed", true)
@@ -241,6 +248,8 @@ function buildReviewRows(signals: SignalRow[], signalTime: (signal: SignalRow) =
       signal_id: signal.id,
       strategy_version: signal.strategy_version ?? null,
       strategy_family: signal.signal_type === "alt_basket_short" ? "alt_basket" : "main",
+      signal_type: signal.signal_type ?? "unknown",
+      market_regime: signal.market_regime ?? "unknown",
       delivery_mode: signal.delivery_mode === "shadow" ? "shadow" : "production",
       symbol: signal.symbol,
       direction: signal.direction,
@@ -298,6 +307,10 @@ function stateFromRow(row: ReviewRow): SignalReviewState {
     netR: numberOrNull(row.net_r ?? row.final_r),
     grossPnlPct: numberOrNull(row.gross_pnl_pct),
     netPnlPct: numberOrNull(row.net_pnl_pct),
+    currentReviewPrice: numberOrNull(row.current_review_price),
+    unrealizedGrossPnlPct: numberOrNull(row.unrealized_gross_pnl_pct),
+    unrealizedNetPnlPct: numberOrNull(row.unrealized_net_pnl_pct),
+    currentR: numberOrNull(row.current_r),
     mfe: numberValue(row.mfe),
     mae: numberValue(row.mae),
     lastCheckedAt: dateValue(row.last_checked_at)
@@ -317,6 +330,10 @@ function rowFromState(state: SignalReviewState) {
     net_r: state.netR,
     gross_pnl_pct: state.grossPnlPct,
     net_pnl_pct: state.netPnlPct,
+    current_review_price: state.currentReviewPrice,
+    unrealized_gross_pnl_pct: state.unrealizedGrossPnlPct,
+    unrealized_net_pnl_pct: state.unrealizedNetPnlPct,
+    current_r: state.currentR,
     exit_price: state.exitPrice,
     exit_time: iso(state.exitTime),
     completed_at: isSettledReviewStatus(state.finalStatus) ? iso(state.exitTime) : null,
@@ -349,6 +366,7 @@ function toReviewCandle(row: Record<string, unknown>): ReviewCandle {
     closeTime: dateValue(row.close_time) ?? 0,
     high: numberValue(row.high),
     low: numberValue(row.low),
+    close: numberValue(row.close),
     isClosed: row.is_closed === true
   };
 }
@@ -380,6 +398,7 @@ function reviewCandles(review: ReviewRow, candlesBySymbol: Map<string, ReviewCan
         closeTime,
         high: average(componentCandles.map(({ component, candle }) => (candle.high / component.entryPrice) * 100)),
         low: average(componentCandles.map(({ component, candle }) => (candle.low / component.entryPrice) * 100)),
+        close: average(componentCandles.map(({ component, candle }) => (candle.close / component.entryPrice) * 100)),
         isClosed: true
       };
     })
@@ -449,6 +468,7 @@ function numberValue(value: unknown) {
 }
 
 function numberOrNull(value: unknown) {
+  if (value === null || value === undefined || value === "") return null;
   const numeric = Number(value);
   return Number.isFinite(numeric) ? numeric : null;
 }

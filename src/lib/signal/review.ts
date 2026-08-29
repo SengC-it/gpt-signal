@@ -43,12 +43,16 @@ export type SignalReviewState = {
   netR: number | null;
   grossPnlPct: number | null;
   netPnlPct: number | null;
+  currentReviewPrice: number | null;
+  unrealizedGrossPnlPct: number | null;
+  unrealizedNetPnlPct: number | null;
+  currentR: number | null;
   mfe: number;
   mae: number;
   lastCheckedAt: number | null;
 };
 
-export type ReviewCandle = Pick<Candle, "openTime" | "closeTime" | "high" | "low" | "isClosed">;
+export type ReviewCandle = Pick<Candle, "openTime" | "closeTime" | "high" | "low" | "close" | "isClosed">;
 
 export type ReviewSimulationInput = {
   direction: Direction;
@@ -75,6 +79,10 @@ export function createInitialReviewState(): SignalReviewState {
     netR: null,
     grossPnlPct: null,
     netPnlPct: null,
+    currentReviewPrice: null,
+    unrealizedGrossPnlPct: null,
+    unrealizedNetPnlPct: null,
+    currentR: null,
     mfe: 0,
     mae: 0,
     lastCheckedAt: null
@@ -122,6 +130,7 @@ export function applyReviewCandles(input: ReviewSimulationInput): SignalReviewSt
     const adverse = input.direction === "LONG" ? state.entryPrice - candle.low : candle.high - state.entryPrice;
     state.mfe = Math.max(state.mfe, favorable / risk);
     state.mae = Math.max(state.mae, adverse / risk);
+    applyMarkToMarket(state, candle.close, input.direction, risk, feeRate, slippageRate);
 
     const hitSl = input.direction === "LONG" ? candle.low <= input.plan.stopLoss : candle.high >= input.plan.stopLoss;
     const hitTp1 = input.direction === "LONG" ? candle.high >= input.plan.tp1 : candle.low <= input.plan.tp1;
@@ -183,8 +192,35 @@ function settleReview(
     grossR: round(grossR),
     netR: round(grossR - costR),
     grossPnlPct: round(grossReturn * 100),
-    netPnlPct: round((grossReturn - roundTripCostPct) * 100)
+    netPnlPct: round((grossReturn - roundTripCostPct) * 100),
+    currentReviewPrice: exitPrice,
+    unrealizedGrossPnlPct: null,
+    unrealizedNetPnlPct: null,
+    currentR: null
   };
+}
+
+function applyMarkToMarket(
+  state: SignalReviewState,
+  currentPrice: number,
+  direction: Direction,
+  risk: number,
+  feeRate: number,
+  slippageRate: number
+) {
+  const entryPrice = state.entryPrice!;
+  const grossReturn = direction === "LONG"
+    ? (currentPrice - entryPrice) / entryPrice
+    : (entryPrice - currentPrice) / entryPrice;
+  const grossR = direction === "LONG"
+    ? (currentPrice - entryPrice) / risk
+    : (entryPrice - currentPrice) / risk;
+  const roundTripCostPct = (feeRate + slippageRate) * 2;
+  const costR = entryPrice > 0 ? roundTripCostPct / (risk / entryPrice) : 0;
+  state.currentReviewPrice = currentPrice;
+  state.unrealizedGrossPnlPct = round(grossReturn * 100);
+  state.unrealizedNetPnlPct = round((grossReturn - roundTripCostPct) * 100);
+  state.currentR = round(grossR - costR);
 }
 
 function round(value: number) {

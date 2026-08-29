@@ -104,5 +104,11 @@ export type SignalEvaluation = {
   deliveryMode?: DeliveryMode;
   strategyFamily?: StrategyFamily;
   strategyParameters?: Record<string, boolean | number | string>;
+  costEdge?: {
+    grossTp1ReturnPct: number;
+    estimatedRoundTripCostPct: number;
+    estimatedNetTp1ReturnPct: number;
+    costCoverageRatio: number;
+  };
 };
 

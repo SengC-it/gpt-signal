@@ -2,128 +2,170 @@ import Link from "next/link";
 import { AppShell } from "@/components/app-shell";
 import { MetricCard } from "@/components/metric-card";
 import { StatusBadge } from "@/components/status-badge";
-import { getRecentSignalReviews } from "@/lib/data-access";
+import { getRecentSignalReviews, getSchedulerHealth, type DisplaySignalReview } from "@/lib/data-access";
+import { buildEdgeEvidence } from "@/lib/signal/edge-evidence";
+import {
+  buildProfitabilityBreakdown,
+  summarizeProfitability,
+  type BreakdownKey
+} from "@/lib/signal/profitability-analytics";
 import { isSettledReviewStatus } from "@/lib/signal/review";
 
 export const dynamic = "force-dynamic";
 
+const BREAKDOWNS: Array<{ key: BreakdownKey; label: string }> = [
+  { key: "strategyVersion", label: "Strategy version" },
+  { key: "signalType", label: "Signal type" },
+  { key: "symbol", label: "Symbol" },
+  { key: "direction", label: "Direction" },
+  { key: "marketRegime", label: "Market regime" },
+  { key: "month", label: "Month" }
+];
+
 export default async function ReviewsPage() {
-  const reviews = await getRecentSignalReviews(500);
+  const [reviews, scheduler] = await Promise.all([getRecentSignalReviews(5000), getSchedulerHealth()]);
   const production = reviews.filter((review) => review.deliveryMode === "production");
   const shadow = reviews.filter((review) => review.deliveryMode === "shadow");
+  const evidence = buildEdgeEvidence(reviews.map((review) => ({
+    strategyVersion: review.strategyVersion ?? "legacy/unknown",
+    signalType: review.signalType,
+    symbol: review.symbol,
+    direction: review.direction,
+    marketRegime: review.marketRegime,
+    settled: isSettledReviewStatus(review.status),
+    netR: review.netR
+  })));
 
   return (
     <AppShell>
       <header className="page-header">
         <div>
-          <h1 className="page-title">已发复盘</h1>
+          <h1 className="page-title">盈利分析与信号复盘</h1>
           <p className="page-subtitle">
-            新信号全仓 TP1 结算；同 K 线 SL 优先；未触发 TP/SL 的信号持续持仓，不做时间到期平仓。
-            历史旧结果保留原始口径，影子策略不会发送邮件。
+            以下均为 Signal Review / Hypothetical Benchmark，不是用户真实账户、真实仓位或真实 PnL。
           </p>
         </div>
+        <StatusBadge value={scheduler.status} />
       </header>
 
-      <div className="grid metrics">
-        <ReviewMetrics title="生产基线" reviews={production} />
-        <ReviewMetrics title="影子候选" reviews={shadow} />
-      </div>
+      <section className="panel">
+        <h2>Scheduler Health</h2>
+        <div className="grid metrics">
+          <MetricCard label="状态" value={scheduler.status} note="同时检查同步与 candle freshness" />
+          <MetricCard label="最近成功同步" value={formatTime(scheduler.lastSuccessfulSync)} />
+          <MetricCard label="最新 candle" value={formatTime(scheduler.lastCandleTimestamp)} />
+          <MetricCard
+            label="同步延迟"
+            value={Number.isFinite(scheduler.syncLagMinutes) ? `${scheduler.syncLagMinutes.toFixed(1)}m` : "未知"}
+            note={`连续错误 ${scheduler.consecutiveSyncErrors}`}
+          />
+        </div>
+      </section>
 
-      <div className="table-wrap" style={{ marginTop: 16 }}>
-        <table>
-          <thead>
-            <tr>
-              <th>发送时间</th>
-              <th>运行模式</th>
-              <th>策略版本</th>
-              <th>信号</th>
-              <th>方向</th>
-              <th>状态</th>
-              <th>入场</th>
-              <th>SL</th>
-              <th>TP1 / TP2 / TP3</th>
-              <th>结算价</th>
-              <th>毛 / 净 P/L</th>
-              <th>净 R</th>
-              <th>最近检查</th>
-            </tr>
-          </thead>
-          <tbody>
-            {reviews.length === 0 ? (
+      <BenchmarkMetrics title="Production baseline" reviews={production} />
+      <BenchmarkMetrics title="Shadow candidates" reviews={shadow} />
+
+      <section className="panel" style={{ marginTop: 16 }}>
+        <h2>Breakdown — PF + Expectancy + DD</h2>
+        <div className="table-wrap">
+          <table>
+            <thead>
               <tr>
-                <td colSpan={13}>暂无复盘数据。运行一次同步后，这里会记录每笔信号的最终结果。</td>
+                <th>维度</th><th>值</th><th>Reviews</th><th>Settled</th><th>PF</th><th>Expectancy R</th><th>Net R</th><th>Realized DD</th><th>MTM DD</th>
               </tr>
-            ) : reviews.map((review) => (
-              <tr key={review.id}>
-                <td>{formatTime(review.signalSentAt)}</td>
-                <td><StatusBadge value={review.deliveryMode === "shadow" ? "影子" : "生产"} /></td>
-                <td>{review.strategyVersion ?? "legacy/unknown"}</td>
-                <td><Link href={`/signals/${review.signalId}`}>{review.symbol}</Link></td>
-                <td><StatusBadge value={review.direction} /></td>
-                <td><StatusBadge value={statusLabel(review.status)} /></td>
-                <td>{priceRange(review.entryLow, review.entryHigh)}</td>
-                <td>{review.stopLoss}</td>
-                <td>{review.tp1} / {review.tp2} / {review.tp3}</td>
-                <td>{review.exitPrice ?? "-"}</td>
-                <td style={{ color: pnlColor(review.netPnlPct) }}>
-                  {formatPnl(review.grossPnlPct)} / {formatPnl(review.netPnlPct)}
-                </td>
-                <td style={{ color: pnlColor(review.netR) }}>{formatPnl(review.netR, " R")}</td>
-                <td>{formatTime(review.lastCheckedAt)}</td>
+            </thead>
+            <tbody>
+              {BREAKDOWNS.flatMap(({ key, label }) => buildProfitabilityBreakdown(reviews, key).map((row) => (
+                <tr key={`${key}:${row.value}`}>
+                  <td>{label}</td><td>{row.value}</td><td>{row.totalReviews}</td><td>{row.settled}</td>
+                  <td>{formatRatio(row.profitFactor)}</td><td>{row.expectancyR.toFixed(4)}</td><td>{row.netR.toFixed(4)}</td>
+                  <td>{row.realizedMaxDrawdownPct.toFixed(2)}%</td><td>{row.mtmMaxDrawdownPct.toFixed(2)}%</td>
+                </tr>
+              )))}
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section className="panel" style={{ marginTop: 16 }}>
+        <h2>Signal Edge Evidence（五维严格隔离）</h2>
+        <p className="page-subtitle">旧 strategy version 的表现不会否决新版本；少于 30 笔 settled 一律 UNPROVEN。</p>
+        <div className="table-wrap" style={{ marginTop: 12 }}>
+          <table>
+            <thead>
+              <tr><th>状态</th><th>版本</th><th>类型</th><th>Symbol</th><th>方向</th><th>Regime</th><th>Settled</th><th>PF</th><th>Expectancy R</th></tr>
+            </thead>
+            <tbody>
+              {evidence.map((item) => (
+                <tr key={[item.strategyVersion, item.signalType, item.symbol, item.direction, item.marketRegime].join(":")}>
+                  <td><StatusBadge value={item.status} /></td><td>{item.strategyVersion}</td><td>{item.signalType}</td>
+                  <td>{item.symbol}</td><td>{item.direction}</td><td>{item.marketRegime}</td><td>{item.settledTrades}</td>
+                  <td>{formatRatio(item.profitFactor)}</td><td>{item.expectancyR.toFixed(4)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section className="panel" style={{ marginTop: 16 }}>
+        <h2>逐信号 review</h2>
+        <div className="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>信号时间</th><th>模式</th><th>版本</th><th>交易对</th><th>方向</th><th>状态</th><th>入场</th><th>止损</th><th>TP1</th>
+                <th>Review price</th><th>Realized gross/net</th><th>MTM gross/net</th><th>Realized / current R</th><th>MFE / MAE</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+            </thead>
+            <tbody>
+              {reviews.length === 0 ? <tr><td colSpan={14}>暂无复盘数据。</td></tr> : reviews.map((review) => (
+                <tr key={review.id}>
+                  <td>{formatTime(review.signalSentAt)}</td><td><StatusBadge value={review.deliveryMode} /></td><td>{review.strategyVersion ?? "legacy/unknown"}</td>
+                  <td><Link href={`/signals/${review.signalId}`}>{review.symbol}</Link></td><td><StatusBadge value={review.direction} /></td><td><StatusBadge value={statusLabel(review.status)} /></td>
+                  <td>{priceRange(review.entryLow, review.entryHigh)}</td><td>{review.stopLoss}</td><td>{review.tp1}</td><td>{review.currentReviewPrice ?? review.exitPrice ?? "-"}</td>
+                  <td>{formatPnl(review.grossPnlPct)} / {formatPnl(review.netPnlPct)}</td>
+                  <td>{formatPnl(review.unrealizedGrossPnlPct)} / {formatPnl(review.unrealizedNetPnlPct)}</td>
+                  <td>{formatPnl(review.netR, " R")} / {formatPnl(review.currentR, " R")}</td><td>{review.mfe.toFixed(3)} / {review.mae.toFixed(3)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </section>
     </AppShell>
   );
 }
 
-function ReviewMetrics({ title, reviews }: { title: string; reviews: Awaited<ReturnType<typeof getRecentSignalReviews>> }) {
-  const settled = reviews.filter((review) => isSettledReviewStatus(review.status));
-  const wins = settled.filter((review) => (review.netR ?? 0) > 0).length;
-  const losses = settled.filter((review) => (review.netR ?? 0) < 0).length;
-  const netR = settled.reduce((sum, review) => sum + (review.netR ?? 0), 0);
-  const netPnlPct = settled.reduce((sum, review) => sum + (review.netPnlPct ?? 0), 0);
-  const open = reviews.filter((review) => review.status === "open").length;
-  const waiting = reviews.filter((review) => review.status === "waiting_entry").length;
-
+function BenchmarkMetrics({ title, reviews }: { title: string; reviews: DisplaySignalReview[] }) {
+  const summary = summarizeProfitability(reviews);
   return (
-    <div>
-      <MetricCard label={`${title}信号`} value={reviews.length} note={`已结算 ${settled.length} · 持仓 ${open} · 待入场 ${waiting}`} />
-      <div className="grid metrics" style={{ marginTop: 12 }}>
-        <MetricCard label={`${title}净收益率`} value={`${netPnlPct.toFixed(4)}%`} note={`胜 ${wins} / 负 ${losses}`} />
-        <MetricCard label={`${title}净 R`} value={netR.toFixed(4)} note="未结算信号不计入" />
+    <section className="panel" style={{ marginTop: 16 }}>
+      <h2>{title} — Hypothetical Signal Benchmark</h2>
+      <div className="grid metrics">
+        <MetricCard label="Reviews / settled / open" value={`${summary.totalReviews} / ${summary.settled} / ${summary.open}`} note={`Wins ${summary.wins} · Losses ${summary.losses}`} />
+        <MetricCard label="Profit Factor" value={formatRatio(summary.profitFactor)} note="核心盈利质量指标" />
+        <MetricCard label="Expectancy" value={`${summary.expectancyR.toFixed(4)} R`} note={`Win rate ${summary.winRate.toFixed(2)}%`} />
+        <MetricCard label="Net R / PnL" value={`${summary.netR.toFixed(3)} R`} note={`${summary.netPnlPct.toFixed(3)}%（信号级合计）`} />
+        <MetricCard label="Avg win / loss" value={`${summary.averageWinR.toFixed(3)} / -${summary.averageLossR.toFixed(3)} R`} />
+        <MetricCard label="Payoff / BE win rate" value={`${formatRatio(summary.payoffRatio)} / ${summary.breakevenWinRate.toFixed(2)}%`} />
+        <MetricCard label="Realized max DD" value={`${summary.realizedMaxDrawdownPct.toFixed(2)}%`} note="复合 hypothetical equity" />
+        <MetricCard label="MTM max DD" value={`${summary.mtmMaxDrawdownPct.toFixed(2)}%`} note={`Equity ${summary.signalBenchmarkEquity.toFixed(2)}（起点 100）`} />
       </div>
-    </div>
+    </section>
   );
 }
 
 function statusLabel(status: string) {
-  const labels: Record<string, string> = {
-    waiting_entry: "待入场",
-    open: "持仓中",
-    hit_tp1: "TP1 结算",
-    hit_tp2: "TP2 结算（历史）",
-    hit_tp3: "TP3 结算（历史）",
-    hit_sl: "SL 结算"
-  };
-  return labels[status] ?? status;
+  return ({ waiting_entry: "待入场", open: "Open MTM", hit_tp1: "TP1", hit_tp2: "TP2 legacy", hit_tp3: "TP3 legacy", hit_sl: "SL" } as Record<string, string>)[status] ?? status;
 }
 
-function priceRange(low: number, high: number) {
-  return low === high ? String(low) : `${low} - ${high}`;
-}
+function priceRange(low: number, high: number) { return low === high ? String(low) : `${low} - ${high}`; }
 
 function formatTime(value: string | null) {
-  return value ? new Date(value).toLocaleString("zh-CN") : "-";
+  if (!value) return "-";
+  return new Intl.DateTimeFormat("zh-CN", { timeZone: "Asia/Shanghai", dateStyle: "short", timeStyle: "medium" }).format(new Date(value));
 }
 
-function formatPnl(value: number | null, suffix = "%") {
-  return value === null ? "-" : `${value >= 0 ? "+" : ""}${value.toFixed(4)}${suffix}`;
-}
-
-function pnlColor(value: number | null) {
-  if (value === null) return "var(--muted)";
-  return value >= 0 ? "var(--green)" : "var(--red)";
-}
+function formatPnl(value: number | null, suffix = "%") { return value === null ? "-" : `${value >= 0 ? "+" : ""}${value.toFixed(4)}${suffix}`; }
+function formatRatio(value: number) { return Number.isFinite(value) ? value.toFixed(3) : "∞"; }

@@ -1,12 +1,12 @@
 import { AppShell } from "@/components/app-shell";
 import { MetricCard } from "@/components/metric-card";
 import { StatusBadge } from "@/components/status-badge";
-import { getRadarRows, getRecentSignals } from "@/lib/data-access";
+import { getRadarRows, getRecentSignals, getSchedulerHealth } from "@/lib/data-access";
 
 export const dynamic = "force-dynamic";
 
 export default async function DashboardPage() {
-  const [signals, radar] = await Promise.all([getRecentSignals(10), getRadarRows()]);
+  const [signals, radar, scheduler] = await Promise.all([getRecentSignals(10), getRadarRows(), getSchedulerHealth()]);
   const planned = signals.filter((item) => item.lifecycleStatus === "planned");
   const latest = signals[0];
 
@@ -24,7 +24,11 @@ export default async function DashboardPage() {
         <MetricCard label="BTC 状态" value={latest?.btcState ?? "unknown"} note="来自最新信号快照" />
         <MetricCard label="市场模式" value={latest?.marketRegime ?? "unknown"} note="来自最新信号快照" />
         <MetricCard label="今日 A/S 信号" value={planned.length} note="已通过计划门槛" />
-        <MetricCard label="熔断状态" value="正常" note="未触发连续亏损降频" />
+        <MetricCard
+          label="Scheduler Health"
+          value={scheduler.status}
+          note={Number.isFinite(scheduler.syncLagMinutes) ? `lag ${scheduler.syncLagMinutes.toFixed(1)}m · errors ${scheduler.consecutiveSyncErrors}` : "缺少同步或 candle 数据"}
+        />
       </div>
 
       <div className="split" style={{ marginTop: 12 }}>

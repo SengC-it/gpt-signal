@@ -6,6 +6,7 @@ import {
   findStructure
 } from "./indicators.ts";
 import { levelFromScore, scoreSignal } from "./scoring.ts";
+import { calculateCostEdge } from "./cost-edge.ts";
 import { REVIEW_ROUND_TRIP_COST_PCT } from "./review.ts";
 import { resolveMainStrategyConfig, strategyParameters } from "./strategy-config.ts";
 import type { Direction, SignalCandidateInput, SignalEvaluation, TradingPlan } from "./types.ts";
@@ -133,6 +134,7 @@ export function evaluateSignalCandidate(input: SignalCandidateInput): SignalEval
     trendMatched &&
     !noChase &&
     !input.circuitBreakerActive;
+  const costEdge = plan ? calculateCostEdge(input.direction, plan) : undefined;
 
   return {
     symbol: input.symbol,
@@ -151,11 +153,13 @@ export function evaluateSignalCandidate(input: SignalCandidateInput): SignalEval
     noChaseRule: plan
       ? {
           direction: input.direction,
-          noChasePrice: plan.noChasePrice
+          noChasePrice: plan.noChasePrice,
+          ...(costEdge ?? {})
         }
       : {},
     strategyVersion,
-    strategyParameters: strategyParameters(strategyConfig)
+    strategyParameters: strategyParameters(strategyConfig),
+    costEdge
   };
 }
 
