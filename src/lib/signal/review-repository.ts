@@ -13,6 +13,8 @@ import {
   type SignalReviewState
 } from "@/lib/signal/review";
 import type { Direction, TradingPlan } from "@/lib/signal/types";
+import { buildBenchmarkSnapshotRows } from "@/lib/signal/profitability-analytics";
+import { reviewStatusToLifecycle } from "@/lib/signal/runtime-parity";
 
 type SupabaseAdmin = ReturnType<typeof getSupabaseAdmin>;
 
@@ -30,6 +32,7 @@ type SignalRow = {
   strategy_version_id?: string | null;
   strategy_version?: string | null;
   signal_type?: string | null;
+  market_regime?: string | null;
   delivery_mode?: string | null;
 };
 
@@ -57,12 +60,19 @@ type ReviewRow = {
   net_r: number | string | null;
   gross_pnl_pct: number | string | null;
   net_pnl_pct: number | string | null;
+  current_review_price: number | string | null;
+  unrealized_gross_pnl_pct: number | string | null;
+  unrealized_net_pnl_pct: number | string | null;
+  current_r: number | string | null;
   exit_price: number | string | null;
   exit_time: string | null;
   completed_at: string | null;
+  superseded_at: string | null;
   last_checked_at: string | null;
   strategy_version: string | null;
   strategy_family: string | null;
+  signal_type: string | null;
+  market_regime: string | null;
   delivery_mode: string | null;
 };
 
@@ -94,7 +104,7 @@ export async function ensureSignalReviewsForSentNotifications(
 
   const { data: signals, error: signalError } = await supabase
     .from("gpt_signals")
-    .select("id, symbol, direction, entry_low, entry_high, stop_loss, tp1, tp2, tp3, no_chase_rule, strategy_version_id, strategy_version, signal_type, delivery_mode")
+    .select("id, symbol, direction, entry_low, entry_high, stop_loss, tp1, tp2, tp3, no_chase_rule, strategy_version_id, strategy_version, signal_type, market_regime, delivery_mode")
     .in("id", signalIds);
 
   if (signalError) throw signalError;
@@ -131,7 +141,7 @@ export async function ensureSignalReviewsForSignals(
 
   const { data: signals, error } = await supabase
     .from("gpt_signals")
-    .select("id, symbol, direction, entry_low, entry_high, stop_loss, tp1, tp2, tp3, no_chase_rule, strategy_version_id, strategy_version, signal_type, delivery_mode")
+    .select("id, symbol, direction, entry_low, entry_high, stop_loss, tp1, tp2, tp3, no_chase_rule, strategy_version_id, strategy_version, signal_type, market_regime, delivery_mode")
     .in("id", ids);
 
   if (error) throw error;
@@ -152,6 +162,7 @@ export async function settleOpenSignalReviews(supabase: SupabaseAdmin) {
     .from("gpt_signal_results")
     .select("*")
     .is("completed_at", null)
+    .is("superseded_at", null)
     .order("signal_sent_at", { ascending: true })
     .limit(1000);
 
@@ -178,7 +189,7 @@ export async function settleOpenSignalReviews(supabase: SupabaseAdmin) {
   for (const symbol of candleSymbols) {
     const { data: candleRows, error: candleError } = await supabase
       .from("gpt_candles")
-      .select("open_time, close_time, high, low, is_closed")
+      .select("open_time, close_time, high, low, close, is_closed")
       .eq("symbol", symbol)
       .eq("interval", "15m")
       .eq("is_closed", true)
@@ -221,7 +232,7 @@ export async function settleOpenSignalReviews(supabase: SupabaseAdmin) {
     const { error: signalUpdateError } = await supabase
       .from("gpt_signals")
       .update({
-        lifecycle_status: lifecycleStatus(state.finalStatus),
+        lifecycle_status: reviewStatusToLifecycle(state.finalStatus),
         updated_at: new Date().toISOString()
       })
       .eq("id", review.signal_id);
@@ -231,7 +242,52 @@ export async function settleOpenSignalReviews(supabase: SupabaseAdmin) {
     if (!isSettledReviewStatus(before.finalStatus) && isSettledReviewStatus(state.finalStatus)) settled += 1;
   }
 
+  if (updated > 0) await recordBenchmarkSnapshots(supabase);
   return { updated, settled };
+}
+
+async function recordBenchmarkSnapshots(supabase: SupabaseAdmin) {
+  const snapshots = buildBenchmarkSnapshotRows(
+    (await fetchBenchmarkReviews(supabase)).map((row) => ({
+      deliveryMode: row.delivery_mode === "shadow" ? "shadow" : "production",
+      status: reviewStatus(row.final_status),
+      signalSentAt: String(row.signal_sent_at ?? ""),
+      netPnlPct: numberOrNull(row.net_pnl_pct),
+      unrealizedNetPnlPct: numberOrNull(row.unrealized_net_pnl_pct),
+      lastCheckedAt: row.last_checked_at ? String(row.last_checked_at) : null
+    }))
+  );
+  if (snapshots.length === 0) return;
+
+  const { error: insertError } = await supabase.from("gpt_signal_benchmark_snapshots").insert(
+    snapshots.map((snapshot) => ({
+      snapshot_at: snapshot.snapshotAt,
+      delivery_mode: snapshot.deliveryMode,
+      realized_component: snapshot.realizedComponent,
+      unrealized_mtm_component: snapshot.unrealizedMtmComponent,
+      benchmark_equity: snapshot.benchmarkEquity,
+      open_reviews: snapshot.openReviews,
+      source_candle_time: snapshot.sourceCandleTime
+    }))
+  );
+  if (insertError) throw insertError;
+}
+
+async function fetchBenchmarkReviews(supabase: SupabaseAdmin) {
+  const pageSize = 1000;
+  const rows: Array<Record<string, unknown>> = [];
+  for (let offset = 0; ; offset += pageSize) {
+    const { data, error } = await supabase
+      .from("gpt_signal_results")
+      .select("id, delivery_mode, final_status, signal_sent_at, net_pnl_pct, unrealized_net_pnl_pct, last_checked_at")
+      .is("superseded_at", null)
+      .order("signal_sent_at", { ascending: true })
+      .order("id", { ascending: true })
+      .range(offset, offset + pageSize - 1);
+    if (error) throw error;
+    rows.push(...((data ?? []) as Array<Record<string, unknown>>));
+    if ((data?.length ?? 0) < pageSize) return rows;
+  }
 }
 
 function buildReviewRows(signals: SignalRow[], signalTime: (signal: SignalRow) => string) {
@@ -241,6 +297,8 @@ function buildReviewRows(signals: SignalRow[], signalTime: (signal: SignalRow) =
       signal_id: signal.id,
       strategy_version: signal.strategy_version ?? null,
       strategy_family: signal.signal_type === "alt_basket_short" ? "alt_basket" : "main",
+      signal_type: signal.signal_type ?? "unknown",
+      market_regime: signal.market_regime ?? "unknown",
       delivery_mode: signal.delivery_mode === "shadow" ? "shadow" : "production",
       symbol: signal.symbol,
       direction: signal.direction,
@@ -298,6 +356,10 @@ function stateFromRow(row: ReviewRow): SignalReviewState {
     netR: numberOrNull(row.net_r ?? row.final_r),
     grossPnlPct: numberOrNull(row.gross_pnl_pct),
     netPnlPct: numberOrNull(row.net_pnl_pct),
+    currentReviewPrice: numberOrNull(row.current_review_price),
+    unrealizedGrossPnlPct: numberOrNull(row.unrealized_gross_pnl_pct),
+    unrealizedNetPnlPct: numberOrNull(row.unrealized_net_pnl_pct),
+    currentR: numberOrNull(row.current_r),
     mfe: numberValue(row.mfe),
     mae: numberValue(row.mae),
     lastCheckedAt: dateValue(row.last_checked_at)
@@ -317,6 +379,10 @@ function rowFromState(state: SignalReviewState) {
     net_r: state.netR,
     gross_pnl_pct: state.grossPnlPct,
     net_pnl_pct: state.netPnlPct,
+    current_review_price: state.currentReviewPrice,
+    unrealized_gross_pnl_pct: state.unrealizedGrossPnlPct,
+    unrealized_net_pnl_pct: state.unrealizedNetPnlPct,
+    current_r: state.currentR,
     exit_price: state.exitPrice,
     exit_time: iso(state.exitTime),
     completed_at: isSettledReviewStatus(state.finalStatus) ? iso(state.exitTime) : null,
@@ -349,6 +415,7 @@ function toReviewCandle(row: Record<string, unknown>): ReviewCandle {
     closeTime: dateValue(row.close_time) ?? 0,
     high: numberValue(row.high),
     low: numberValue(row.low),
+    close: numberValue(row.close),
     isClosed: row.is_closed === true
   };
 }
@@ -380,6 +447,7 @@ function reviewCandles(review: ReviewRow, candlesBySymbol: Map<string, ReviewCan
         closeTime,
         high: average(componentCandles.map(({ component, candle }) => (candle.high / component.entryPrice) * 100)),
         low: average(componentCandles.map(({ component, candle }) => (candle.low / component.entryPrice) * 100)),
+        close: average(componentCandles.map(({ component, candle }) => (candle.close / component.entryPrice) * 100)),
         isClosed: true
       };
     })
@@ -438,17 +506,13 @@ function hasProgress(before: SignalReviewState, after: SignalReviewState) {
     || before.exitTime !== after.exitTime;
 }
 
-function lifecycleStatus(status: ReviewFinalStatus) {
-  if (status === "open") return "entered";
-  return status;
-}
-
 function numberValue(value: unknown) {
   const numeric = Number(value);
   return Number.isFinite(numeric) ? numeric : 0;
 }
 
 function numberOrNull(value: unknown) {
+  if (value === null || value === undefined || value === "") return null;
   const numeric = Number(value);
   return Number.isFinite(numeric) ? numeric : null;
 }

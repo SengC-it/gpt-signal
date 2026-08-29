@@ -1,7 +1,8 @@
 import { describe, expect, test } from "vitest";
 import {
   ALT_BASKET_SHORT_CONFIG_V2,
-  evaluateAltBasketShortStrategy
+  evaluateAltBasketShortStrategy,
+  expandAltBasketSignal
 } from "@/lib/signal/alt-basket-strategy";
 import type { Candle } from "@/lib/signal/types";
 
@@ -44,7 +45,24 @@ describe("BTC weak alt basket short strategy", () => {
     expect(signal?.plan?.tp1).toBe(94);
     expect(signal?.plan?.stopLoss).toBe(105);
     expect(signal?.noChaseRule.basketSymbols).toContain("ETHUSDT");
-    expect(signal?.invalidationRules).toContain("BTC 4h close recovers above SMA50");
+    expect(signal?.invalidationRules).toContain("BTC 4 小时收盘重新站上 SMA50 时，平掉所有剩余仓位");
+  });
+
+  test("expands one basket alert into one executable signal per trading pair", () => {
+    const btcCandles = Array.from({ length: 49 }, (_, index) => candle("BTCUSDT", 100, index));
+    btcCandles.push(candle("BTCUSDT", 94, 49));
+    const basketCandles15m = Object.fromEntries(
+      basketSymbols.map((symbol, index) => [symbol, [candle(symbol, 10 + index, 1, "15m")]])
+    );
+    const basket = evaluateAltBasketShortStrategy({ btcCandles4h: btcCandles, basketCandles15m });
+    const signals = expandAltBasketSignal(basket!);
+
+    expect(signals).toHaveLength(6);
+    expect(signals.map((signal) => signal.symbol)).toEqual(basketSymbols);
+    expect(signals[0].plan?.entryLow).toBe(10);
+    expect(signals[0].plan?.tp1).toBe(9.4);
+    expect(signals[0].plan?.stopLoss).toBe(10.5);
+    expect(signals[0].noChaseRule.weightPct).toBe(16.67);
   });
 
   test("does not signal when BTC is not below SMA50", () => {

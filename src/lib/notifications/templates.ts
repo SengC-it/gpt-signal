@@ -37,36 +37,94 @@ export function buildSignalEmail(signal: SignalEvaluation) {
 function buildAltBasketShortEmail(signal: SignalEvaluation) {
   const plan = signal.plan;
   const basketSymbols = textField(signal.noChaseRule.basketSymbols, "ETHUSDT,SOLUSDT,BNBUSDT,LINKUSDT,AVAXUSDT,DOGEUSDT");
-  const entryPrices = textField(signal.noChaseRule.entryPrices, "see latest market prices");
-  const weights = textField(signal.noChaseRule.weights, "equal weight");
+  const entryPrices = parseSymbolValues(signal.noChaseRule.entryPrices);
   const tpPct = numberField(signal.noChaseRule.takeProfitPct, 6);
   const slPct = numberField(signal.noChaseRule.stopLossPct, 5);
   const btcClose = numberField(signal.noChaseRule.btc4hClose, 0);
   const btcSma50 = numberField(signal.noChaseRule.btcSma50, 0);
-  const fundingCost = numberField(signal.noChaseRule.expectedFundingCostPct, 0);
-  const subject = `BTC弱势做空山寨篮子提醒｜${signal.score}分｜TP ${tpPct}% / SL ${slPct}%`;
+  const symbols = basketSymbols.split(",").map((item) => item.trim()).filter(Boolean);
+
+  if (signal.symbol !== "ALT_SHORT_BASKET" && plan) {
+    const subject = `做空提醒｜${signal.symbol}｜入场 ${formatPrice(plan.entryLow)}｜止盈 ${formatPrice(plan.tp1)}｜止损 ${formatPrice(plan.stopLoss)}`;
+    const body = [
+      `交易对：${signal.symbol}`,
+      "方向：卖出 / 做空",
+      `参考入场价：${formatPrice(plan.entryLow)}`,
+      `止盈价：${formatPrice(plan.tp1)}（价格下跌 ${tpPct}%）`,
+      `止损价：${formatPrice(plan.stopLoss)}（价格上涨 ${slPct}%）`,
+      `计划仓位：整组资金的 ${numberField(signal.noChaseRule.weightPct, 100 / Math.max(symbols.length, 1)).toFixed(2)}%`,
+      "",
+      "怎么执行：",
+      "1. 收到提醒后，在下一根 15 分钟 K 线开盘附近选择“卖出/做空”。",
+      "2. 成交后马上设置止盈和止损；如果成交价与参考价不同，以实际成交价重新计算。",
+      `3. 做空止盈价 = 实际成交价 × ${(1 - tpPct / 100).toFixed(2)}；止损价 = 实际成交价 × ${(1 + slPct / 100).toFixed(2)}。`,
+      `4. ${signal.symbol} 碰到自己的止盈或止损价时，只平掉这一笔。`,
+      `5. 如果 BTC 4 小时收盘重新站上 SMA50${btcSma50 > 0 ? `（当前参考 ${formatPrice(btcSma50)}）` : ""}，平掉整组所有剩余仓位。`,
+      "",
+      "如果看到邮件时价格已经明显离开参考入场价，不要追单，等下一次提醒。",
+      "这不是自动交易或收益保证。合约风险很高，请使用自己能承受损失的小仓位。"
+    ].join("\n");
+
+    return { subject, body };
+  }
+
+  const subject = `做空计划｜${symbols.length} 个币｜每币止盈 ${tpPct}% / 止损 ${slPct}%`;
+  const orderLines = symbols.map((symbol) => {
+    const entry = entryPrices.get(symbol);
+    if (!entry) return `${symbol}：等待参考价格`;
+    return `${symbol}：入场 ${formatPrice(entry)}｜止盈 ${formatPrice(entry * (1 - tpPct / 100))}｜止损 ${formatPrice(entry * (1 + slPct / 100))}`;
+  });
 
   const body = [
-    "策略：BTC 4h 跌破 SMA50，做空山寨等权篮子。",
-    `方向：做空 ${basketSymbols}`,
-    `权重：${weights}`,
-    btcClose > 0 && btcSma50 > 0 ? `BTC状态：4h close ${btcClose} < SMA50 ${btcSma50}` : "BTC状态：4h close < SMA50",
+    `这是 1 组等权做空计划，共 ${symbols.length} 笔。把准备投入的总仓位平均分成 ${symbols.length} 份，每个币使用 1 份。`,
     "",
-    "严格执行计划：",
-    "1. 收到邮件后，用下一根 15m 开盘价附近建立等权空头篮子。",
-    `2. 篮子整体盈利 ${tpPct}% 止盈。`,
-    `3. 篮子整体亏损 ${slPct}% 止损。`,
-    "4. 如果 BTC 4h 收盘重新站回 SMA50，退出，不恋战。",
+    "下单清单：",
+    ...orderLines,
     "",
-    plan ? `指数化计划：entry ${plan.entryLow}，TP ${plan.tp1}，SL ${plan.stopLoss}。` : "指数化计划：等待确认。",
-    `参考入场价：${entryPrices}`,
-    `预估资金费率成本：${fundingCost}%`,
+    "怎么执行：",
+    "1. 收到提醒后，在下一根 15 分钟 K 线开盘附近，逐个选择“卖出/做空”。",
+    "2. 每一笔成交后，马上按清单设置自己的止盈价和止损价。",
+    `3. 如果实际成交价不同：止盈价 = 成交价 × ${(1 - tpPct / 100).toFixed(2)}；止损价 = 成交价 × ${(1 + slPct / 100).toFixed(2)}。`,
+    "4. 某个币先碰到止盈或止损，只平掉这个币，其他币继续持有。",
+    `5. 如果 BTC 4 小时收盘重新站上 SMA50${btcSma50 > 0 ? `（当前参考 ${formatPrice(btcSma50)}）` : ""}，立即平掉所有剩余仓位。`,
     "",
-    `为什么提醒：${plainReasons(signal.reasons)}`,
-    `什么情况放弃：${plainReasons(signal.invalidationRules)}`,
+    btcClose > 0 && btcSma50 > 0 ? `触发原因：BTC 4 小时收盘价 ${formatPrice(btcClose)} 低于 SMA50 ${formatPrice(btcSma50)}。` : "触发原因：BTC 4 小时收盘价低于 SMA50。",
+    "如果看到邮件时价格已经明显离开参考入场价，不要追单，等下一次提醒。",
     "",
-    "风险提醒：这是纸面验证后筛出的策略提醒，不是自动交易，也不保证盈利。先小仓或纸面跟踪，严格按邮件止盈止损复盘。"
+    "这不是自动交易或收益保证。合约风险很高，请使用自己能承受损失的小仓位。"
   ].join("\n");
+
+  return { subject, body };
+}
+
+export function buildAltBasketSummaryEmail(signals: SignalEvaluation[]) {
+  const components = signals.filter((signal) => signal.signalType === "alt_basket_short" && signal.plan);
+  if (components.length === 0) {
+    return { subject: "暂无可执行的做空计划", body: "本轮没有生成完整的逐币入场、止盈和止损价格。" };
+  }
+
+  const first = components[0];
+  const tpPct = numberField(first.noChaseRule.takeProfitPct, 6);
+  const slPct = numberField(first.noChaseRule.stopLossPct, 5);
+  const btcClose = numberField(first.noChaseRule.btc4hClose, 0);
+  const btcSma50 = numberField(first.noChaseRule.btcSma50, 0);
+  const subject = `做空计划｜${components.length} 个币｜每币止盈 ${tpPct}% / 止损 ${slPct}%`;
+  const body = [
+    `这是 1 组等权做空计划，共 ${components.length} 笔。把准备投入的总仓位平均分成 ${components.length} 份，每个币使用 1 份。`,
+    "",
+    "下单清单：",
+    ...components.map((signal) => `${signal.symbol}：卖出/做空｜入场 ${formatPrice(signal.plan!.entryLow)}｜止盈 ${formatPrice(signal.plan!.tp1)}｜止损 ${formatPrice(signal.plan!.stopLoss)}`),
+    "",
+    "执行规则：",
+    "1. 收到提醒后，在下一根 15 分钟 K 线开盘附近下单。",
+    "2. 每笔成交后立即设置自己的止盈和止损。",
+    `3. 实际成交价不同就重算：止盈 = 成交价 × ${(1 - tpPct / 100).toFixed(2)}；止损 = 成交价 × ${(1 + slPct / 100).toFixed(2)}。`,
+    "4. 单个币碰到止盈或止损，只平这一笔。",
+    `5. BTC 4 小时收盘重新站上 SMA50${btcSma50 > 0 ? `（当前参考 ${formatPrice(btcSma50)}）` : ""}时，平掉所有剩余仓位。`,
+    "",
+    btcClose > 0 && btcSma50 > 0 ? `触发时 BTC：${formatPrice(btcClose)}；SMA50：${formatPrice(btcSma50)}。` : "",
+    "价格已明显偏离参考入场价时不要追单。合约风险很高，请使用小仓位。"
+  ].filter(Boolean).join("\n");
 
   return { subject, body };
 }
@@ -126,4 +184,19 @@ function textField(value: unknown, fallback: string) {
 function numberField(value: unknown, fallback: number) {
   const numeric = Number(value);
   return Number.isFinite(numeric) ? numeric : fallback;
+}
+
+function parseSymbolValues(value: unknown) {
+  return new Map(
+    String(value ?? "")
+      .split(",")
+      .map((item) => item.split(":"))
+      .map(([symbol, raw]) => [symbol?.trim().toUpperCase(), Number(raw)] as const)
+      .filter(([symbol, numeric]) => Boolean(symbol) && Number.isFinite(numeric) && numeric > 0)
+  );
+}
+
+function formatPrice(value: number) {
+  const digits = value >= 1000 ? 2 : value >= 100 ? 3 : value >= 1 ? 4 : 6;
+  return String(Math.round(value * 10 ** digits) / 10 ** digits);
 }

@@ -15,7 +15,7 @@ export default async function SignalDetailPage({ params }: { params: Promise<{ i
       <header className="page-header">
         <div>
           <h1 className="page-title">{signal.symbol} 信号详情</h1>
-          <p className="page-subtitle">生命周期、交易计划、触发原因和通知模板。</p>
+          <p className="page-subtitle">这笔交易该怎么下单、在哪里止盈止损，以及什么时候退出。</p>
         </div>
         <StatusBadge value={signal.lifecycleStatus} />
       </header>
@@ -26,20 +26,20 @@ export default async function SignalDetailPage({ params }: { params: Promise<{ i
           <dl className="kv">
             <dt>方向</dt><dd><StatusBadge value={signal.direction} /></dd>
             <dt>等级/评分</dt><dd>{signal.level} / {signal.score}</dd>
-            <dt>市场模式</dt><dd>{signal.marketRegime}</dd>
-            <dt>入场模式</dt><dd>{signal.plan?.entryMode ?? "等待确认"}</dd>
-            <dt>入场区</dt><dd>{signal.plan ? `${signal.plan.entryLow} - ${signal.plan.entryHigh}` : "等待确认"}</dd>
-            <dt>止损</dt><dd>{signal.plan?.stopLoss ?? "等待确认"}</dd>
-            <dt>TP1/TP2/TP3</dt><dd>{signal.plan ? `${signal.plan.tp1} / ${signal.plan.tp2} / ${signal.plan.tp3}` : "等待确认"}</dd>
-            <dt>加权 RR</dt><dd>{signal.plan ? `1:${signal.plan.weightedRr.toFixed(1)}` : "等待确认"}</dd>
-            <dt>不追价</dt><dd>{signal.plan?.noChasePrice ?? "等待确认"}</dd>
+            <dt>策略</dt><dd>{signal.signalType === "alt_basket_short" ? "BTC 弱势等权做空" : "趋势回调"}</dd>
+            <dt>计划仓位</dt><dd>{weightLabel(signal.noChaseRule.weightPct)}</dd>
+            <dt>参考入场</dt><dd>{signal.plan ? priceRange(signal.plan.entryLow, signal.plan.entryHigh) : "等待确认"}</dd>
+            <dt>止盈价</dt><dd>{signal.plan?.tp1 ?? "等待确认"}</dd>
+            <dt>止损价</dt><dd>{signal.plan?.stopLoss ?? "等待确认"}</dd>
+            <dt>预计盈亏比</dt><dd>{signal.plan ? `1:${signal.plan.weightedRr.toFixed(1)}` : "等待确认"}</dd>
           </dl>
         </section>
 
         <section className="panel">
-          <h2>解释与通知</h2>
+          <h2>为什么提醒</h2>
           <p>{signal.reasons.join("；")}</p>
-          <p>失效条件：{signal.invalidationRules.join("；")}</p>
+          <h3>退出和平仓规则</h3>
+          <p>{signal.invalidationRules.join("；")}</p>
           <h3>邮件标题</h3>
           <p>{email.subject}</p>
           <h3>正文预览</h3>
@@ -48,4 +48,13 @@ export default async function SignalDetailPage({ params }: { params: Promise<{ i
       </div>
     </AppShell>
   );
+}
+
+function priceRange(low: number, high: number) {
+  return low === high ? String(low) : `${low} - ${high}`;
+}
+
+function weightLabel(value: unknown) {
+  const weight = Number(value);
+  return Number.isFinite(weight) && weight > 0 ? `整组计划的 ${weight.toFixed(2)}%` : "按个人风险控制";
 }

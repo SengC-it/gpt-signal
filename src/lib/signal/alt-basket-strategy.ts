@@ -1,5 +1,6 @@
 import type { Candle, SignalEvaluation, TradingPlan } from "./types.ts";
 import { REVIEW_ROUND_TRIP_COST_PCT } from "./review.ts";
+import { calculateCostEdge } from "./cost-edge.ts";
 
 export const ALT_BASKET_SHORT_SYMBOL = "ALT_SHORT_BASKET";
 
@@ -61,6 +62,7 @@ export function evaluateAltBasketShortStrategy(input: AltBasketShortInput): Sign
   if (expectedFundingCostPct > config.maxFundingCostPct) return null;
 
   const plan = buildIndexedPlan(config.takeProfitPct, config.stopLossPct, "SHORT");
+  const costEdge = calculateCostEdge("SHORT", plan);
   const btcWeaknessPct = ((btcSma - latestBtc.close) / btcSma) * 100;
   const score = Math.min(95, Math.round(78 + btcWeaknessPct * 5 + Math.max(0, config.maxFundingCostPct - expectedFundingCostPct) * 2));
   const level = score >= 88 ? "S" : "A";
@@ -80,15 +82,15 @@ export function evaluateAltBasketShortStrategy(input: AltBasketShortInput): Sign
     dataQualityScore: Math.round((basket.length / config.basketSymbols.length) * 100),
     relativeStrengthScore: -round(btcWeaknessPct, 2),
     reasons: [
-      `BTC 4h close ${round(latestBtc.close, 2)} is below SMA${config.btcSmaPeriod} ${round(btcSma, 2)}`,
-      `Short equal-weight alt basket: ${basket.map((item) => item.symbol).join(", ")}`,
-      `Strict email plan: TP ${config.takeProfitPct}%, SL ${config.stopLossPct}%`,
-      `Estimated funding cost over expected hold: ${round(expectedFundingCostPct, 2)}%`
+      `BTC 4 小时收盘价 ${round(latestBtc.close, 2)} 低于 SMA${config.btcSmaPeriod} ${round(btcSma, 2)}`,
+      `等权做空 ${basket.map((item) => item.symbol).join(", ")}`,
+      `每个币分别设置止盈 ${config.takeProfitPct}%、止损 ${config.stopLossPct}%`,
+      `预计持仓期间资金费率成本 ${round(expectedFundingCostPct, 2)}%`
     ],
     invalidationRules: [
-      `Basket stop loss: +${config.stopLossPct}% from entry after costs`,
-      `Basket take profit: -${config.takeProfitPct}% from entry after costs`,
-      `BTC 4h close recovers above SMA${config.btcSmaPeriod}`
+      `每个币从实际成交价上涨 ${config.stopLossPct}% 时止损`,
+      `每个币从实际成交价下跌 ${config.takeProfitPct}% 时止盈`,
+      `BTC 4 小时收盘重新站上 SMA${config.btcSmaPeriod} 时，平掉所有剩余仓位`
     ],
     noChaseRule: {
       strategy: "btc_weak_alt_basket_short",
@@ -100,9 +102,51 @@ export function evaluateAltBasketShortStrategy(input: AltBasketShortInput): Sign
       takeProfitPct: config.takeProfitPct,
       stopLossPct: config.stopLossPct,
       maxFundingCostPct: config.maxFundingCostPct,
-      expectedFundingCostPct: round(expectedFundingCostPct, 2)
-    }
+      expectedFundingCostPct: round(expectedFundingCostPct, 2),
+      ...costEdge
+    },
+    costEdge
   };
+}
+
+export function expandAltBasketSignal(signal: SignalEvaluation): SignalEvaluation[] {
+  if (signal.signalType !== "alt_basket_short") return [signal];
+
+  const entryPrices = parseSymbolValues(signal.noChaseRule.entryPrices);
+  const symbols = String(signal.noChaseRule.basketSymbols ?? "")
+    .split(",")
+    .map((item) => item.trim().toUpperCase())
+    .filter(Boolean);
+  const takeProfitPct = numberField(signal.noChaseRule.takeProfitPct, 6);
+  const stopLossPct = numberField(signal.noChaseRule.stopLossPct, 5);
+  const weightPct = symbols.length > 0 ? round(100 / symbols.length, 2) : 0;
+  const basketGroup = `${signal.marketRegime}:${String(signal.noChaseRule.btc4hClose ?? "unknown")}`;
+
+  return symbols.flatMap((symbol) => {
+    const entryPrice = entryPrices.get(symbol);
+    if (!entryPrice) return [];
+
+    const plan = buildPricePlan(entryPrice, takeProfitPct, stopLossPct);
+    const costEdge = calculateCostEdge("SHORT", plan);
+    return [{
+      ...signal,
+      symbol,
+      plan,
+      costEdge,
+      reasons: [
+        ...signal.reasons,
+        `${symbol} 是本次等权篮子的其中一份，参考入场价 ${formatPrice(entryPrice)}`
+      ],
+      noChaseRule: {
+        ...signal.noChaseRule,
+        basketGroup,
+        basketComponent: symbol,
+        referenceEntryPrice: entryPrice,
+        weightPct,
+        ...costEdge
+      }
+    }];
+  });
 }
 
 function resolveConfig(config: AltBasketShortConfig = {}) {
@@ -135,6 +179,55 @@ function buildIndexedPlan(takeProfitPct: number, stopLossPct: number, direction:
     slAtrRatio: 0,
     noChasePrice: round(stopLoss, 4)
   };
+}
+
+function buildPricePlan(entryPrice: number, takeProfitPct: number, stopLossPct: number): TradingPlan {
+  const tp = priceRound(entryPrice * (1 - takeProfitPct / 100));
+  const stopLoss = priceRound(entryPrice * (1 + stopLossPct / 100));
+  const grossR = takeProfitPct / stopLossPct;
+  const costR = stopLossPct > 0 ? REVIEW_ROUND_TRIP_COST_PCT / (stopLossPct / 100) : 0;
+  const entry = priceRound(entryPrice);
+
+  return {
+    entryMode: "confirmation_wait",
+    entryLow: entry,
+    entryHigh: entry,
+    stopLoss,
+    tp1: tp,
+    tp2: tp,
+    tp3: tp,
+    theoreticalRr: round(grossR, 4),
+    weightedRr: round(grossR, 4),
+    costAdjustedRr: round(grossR - costR, 4),
+    slDistancePct: stopLossPct,
+    slAtrRatio: 0,
+    noChasePrice: stopLoss
+  };
+}
+
+function parseSymbolValues(value: unknown) {
+  const entries = String(value ?? "")
+    .split(",")
+    .map((item) => item.split(":"))
+    .map(([symbol, raw]) => [symbol?.trim().toUpperCase(), Number(raw)] as const)
+    .filter(([symbol, numeric]) => Boolean(symbol) && Number.isFinite(numeric) && numeric > 0);
+  return new Map(entries);
+}
+
+function numberField(value: unknown, fallback: number) {
+  const numeric = Number(value);
+  return Number.isFinite(numeric) ? numeric : fallback;
+}
+
+function priceRound(value: number) {
+  if (value >= 1000) return round(value, 2);
+  if (value >= 100) return round(value, 3);
+  if (value >= 1) return round(value, 4);
+  return round(value, 6);
+}
+
+function formatPrice(value: number) {
+  return String(priceRound(value));
 }
 
 function estimateFundingCostPct(fundingRates: Array<number | null>) {
