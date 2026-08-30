@@ -437,7 +437,7 @@ export function summarizeEntryEvents(events: EntryEvent[], labelKey: "labelOneR"
     positiveMonths: [...byMonth.values()].filter((value) => value > 0).length,
     symbolBreadth: new Set(events.filter((event) => event[labelKey].netR !== null).map((event) => event.symbol)).size,
     largestSymbolContributionPct: Math.max(0, ...bySymbol.values()) / positiveTotal * 100,
-    largestSingleTradeContributionPct: Math.max(0, ...returns) / positiveTotal * 100
+    largestSingleTradeContributionPct: (returns.length ? Math.max(0, returns.reduce((maximum, value) => Math.max(maximum, value), 0)) : 0) / positiveTotal * 100
   };
 }
 

@@ -4,7 +4,7 @@
 - Discovery boundary: 2025-05-09T23:45:00.000Z → 2026-08-02T03:15:00.000Z; cutoff 2026-08-02T03:15:00.000Z
 - Entry events: 105307; features tested: 38; symbols: BTCUSDT, ETHUSDT, SOLUSDT, BNBUSDT, LINKUSDT, AVAXUSDT, DOGEUSDT
 - Protected Final Unseen: 2026-08-02T03:30:00.000Z → 2026-08-29T23:45:00.000Z; holdout executions: 0
-- Status counts: ROBUST=25, WEAK=9, UNSTABLE=2, NO_EDGE=2
+- Status counts: ROBUST=25, WEAK=11, UNSTABLE=1, NO_EDGE=1
 
 ## Setup-family baseline
 
@@ -20,32 +20,32 @@
 | Feature | Lift | Positive folds | Symbol breadth | Violations |
 |---|---:|---:|---:|---:|
 | trend_return_15m | 0.139 | 3/3 | 6 | 1 |
-| trend_return_1h | 0.187 | 3/3 | 6 | 1 |
-| trend_return_4h | 0.529 | 3/3 | 6 | 0 |
-| trend_return_12h | 0.265 | 3/3 | 6 | 1 |
-| trend_slope_short | 0.222 | 3/3 | 6 | 1 |
-| trend_slope_medium | 0.341 | 3/3 | 6 | 1 |
-| trend_alignment_long | 0.040 | 3/3 | 6 | 1 |
-| structure_distance_rolling_low | 0.646 | 3/3 | 6 | 0 |
-| retracement_ratio | 0.073 | 2/3 | 6 | 2 |
-| atr_pct | 0.922 | 3/3 | 6 | 0 |
-| atr_percentile | 0.530 | 3/3 | 6 | 0 |
-| compression_ratio | 0.312 | 3/3 | 6 | 0 |
+| trend_return_1h | 0.133 | 3/3 | 6 | 1 |
+| trend_return_4h | 0.531 | 3/3 | 6 | 0 |
+| trend_return_12h | 0.322 | 3/3 | 6 | 1 |
+| trend_slope_short | 0.174 | 3/3 | 6 | 1 |
+| trend_slope_medium | 0.353 | 3/3 | 6 | 1 |
+| trend_alignment_long | 0.084 | 3/3 | 6 | 1 |
+| structure_distance_rolling_low | 0.748 | 3/3 | 6 | 0 |
+| atr_pct | 0.988 | 3/3 | 6 | 0 |
+| atr_percentile | 0.451 | 3/3 | 6 | 0 |
+| recent_range_atr | 0.012 | 3/3 | 6 | 2 |
+| compression_ratio | 0.246 | 3/3 | 6 | 0 |
 
 ## NO_EDGE / UNSTABLE / WEAK features
 
-- **WEAK** structure_distance_rolling_high: lift 0.388, folds 3/3, symbols 6.
-- **UNSTABLE** breakout_distance_atr: lift -0.045, folds 1/3, symbols 6.
-- **WEAK** pullback_depth_atr: lift 0.125, folds 3/3, symbols 6.
-- **WEAK** structure_age: lift 0.151, folds 3/3, symbols 6.
-- **NO_EDGE** recent_range_atr: lift -0.015, folds 0/3, symbols 6.
-- **WEAK** expansion_ratio: lift 0.162, folds 3/3, symbols 6.
-- **WEAK** body_range_ratio: lift 0.092, folds 3/3, symbols 6.
-- **UNSTABLE** upper_wick_ratio: lift 0.023, folds 1/3, symbols 6.
-- **WEAK** close_location_value: lift 0.040, folds 3/3, symbols 6.
-- **WEAK** volume_ratio: lift 0.091, folds 3/3, symbols 6.
-- **WEAK** quote_volume_ratio: lift 0.093, folds 3/3, symbols 6.
-- **WEAK** volume_expansion: lift 0.180, folds 3/3, symbols 6.
+- **WEAK** structure_distance_rolling_high: lift 0.322, folds 3/3, symbols 6.
+- **UNSTABLE** breakout_distance_atr: lift -0.004, folds 1/3, symbols 6.
+- **WEAK** pullback_depth_atr: lift 0.149, folds 3/3, symbols 6.
+- **WEAK** retracement_ratio: lift 0.139, folds 3/3, symbols 6.
+- **WEAK** structure_age: lift 0.153, folds 3/3, symbols 6.
+- **WEAK** expansion_ratio: lift 0.110, folds 3/3, symbols 6.
+- **WEAK** lower_wick_ratio: lift 0.004, folds 2/3, symbols 6.
+- **WEAK** close_location_value: lift 0.021, folds 3/3, symbols 6.
+- **WEAK** volume_ratio: lift 0.090, folds 3/3, symbols 6.
+- **WEAK** quote_volume_ratio: lift 0.089, folds 3/3, symbols 6.
+- **WEAK** volume_expansion: lift 0.161, folds 3/3, symbols 6.
+- **WEAK** breadth_bullish_pct: lift 0.056, folds 3/3, symbols 6.
 - **NO_EDGE** estimated_round_trip_cost_pct: lift 0.000, folds 0/3, symbols 6.
 
 ## Ablation
@@ -63,7 +63,7 @@
 ## Entry Edge Score
 
 - Status: **CALIBRATED**
-- Selected features: atr_pct, sl_distance_pct, cost_coverage_ratio, btc_volatility_state, structure_distance_rolling_low, relative_strength_4h, atr_percentile, trend_return_4h
+- Selected features: atr_pct, sl_distance_pct, cost_coverage_ratio, structure_distance_rolling_low, btc_volatility_state, trend_return_4h, relative_strength_4h, atr_percentile
 - Spearman: 0.485; monotonic violations: 0
 
 | Decile | Trades | Settled | Win rate | PF | Expectancy R | Avg win | Avg loss | Payoff |
@@ -83,6 +83,6 @@
 
 - Candidate count: 4; Internal Gate: **FAIL** (netRPositive, profitFactor, expectancy, payoff, positiveFolds, positiveMonths).
 - Final Unseen: executed=false; status=NO_CANDIDATE_FOR_FINAL_HOLDOUT; holdout executions=0.
-- Reproducibility: base 78104f72b8cbd486a9844839c3fc807cef57643a; source 78104f72b8cbd486a9844839c3fc807cef57643a; script 25b878016b8606cafa6e4eea844ecee6ac89062dd0db24704d1eddb55cf64d8a; module 6c559e77a2ba64ac87b2485c636d95f92139ec20a650a456e1d205a5eb397411; freeze 165f3ef8868287ed4026e57c99bb4a0577dd1a490fd906315984b8f1908cada1; dataset c2b482d6171596aa297133a9959c50b5faaea4655036f6f17e27c41c55dcfec9.
+- Reproducibility: base 78104f72b8cbd486a9844839c3fc807cef57643a; source 203225ec540a8ecde3e50822b4bbecfdab1c7695; script b0eefa414b2bb71672cdc2340923bc4d2e0255300912bd1cec0d3b1c2d785c50; module c818edc93add0d8a8459149634d76252fc8a46ab145be695a922e18787e03b29; freeze 27a1bfb88b420cdecb9478cd4bb6794bce4d0780387db1612011c12135887137; dataset c2b482d6171596aa297133a9959c50b5faaea4655036f6f17e27c41c55dcfec9.
 
 Research-only boundary: Main V2 and ALT Basket remain Shadow; `PRODUCTION_SIGNAL_STRATEGIES=[]`; no automatic trading or private Binance API.

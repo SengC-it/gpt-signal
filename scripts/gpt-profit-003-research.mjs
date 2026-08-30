@@ -95,10 +95,7 @@ const robustFeatures = featureDiagnostics
 const selectedFeatures = robustFeatures.slice(0, 8);
 const scoreSpec = selectedFeatures.length ? fitEntryEdgeScoreSpec(trainUniverse, selectedFeatures) : { features: [], formula: "unavailable: no ROBUST features" };
 const scoreCalibration = evaluateScoreCalibration(scoreSpec, selectedFeatures);
-const scoreCalibrated = selectedFeatures.length > 0
-  && scoreCalibration.spearman >= 0.05
-  && scoreCalibration.monotonicViolations <= 3
-  && scoreCalibration.highestBucketExpectancyR > scoreCalibration.baselineExpectancyR;
+const scoreCalibrated = selectedFeatures.length > 0 && scoreCalibration.training.status === "CALIBRATED";
 
 const candidates = scoreCalibrated ? buildCandidates(scoreSpec, selectedFeatures, trainUniverse) : [];
 const freezeDefinition = {
@@ -311,7 +308,8 @@ function createEvent(symbol, setupFamily, direction, decisionIndex, features, se
 
 function diagnoseFeature(feature) {
   const foldReports = foldEventSets.map(({ fold, train, test }) => {
-    const calibration = calibrateFeature({ events: test, fitEvents: train, feature, bins: 5 });
+    const trainCalibration = calibrateFeature({ events: train, fitEvents: train, feature, bins: 5 });
+    const testCalibration = calibrateFeature({ events: test, fitEvents: train, feature, bins: 5 });
     const trainValues = train.map((event) => event.features[feature]);
     const trainOutcomes = train.map((event) => event.labelOneR.netR);
     const testValues = test.map((event) => event.features[feature]);
@@ -321,27 +319,34 @@ function diagnoseFeature(feature) {
     const trainSpearman = calculateSpearman(trainPairs.map((pair) => pair.value), trainPairs.map((pair) => pair.outcome));
     const testSpearman = calculateSpearman(testPairs.map((pair) => pair.value), testPairs.map((pair) => pair.outcome));
     const orientation = trainSpearman >= 0 ? 1 : -1;
-    const endpoints = calibration.buckets.filter((bucket) => bucket.settled > 0);
-    const first = endpoints[0]?.expectancyR ?? 0;
-    const last = endpoints.at(-1)?.expectancyR ?? 0;
-    const orientedLift = (last - first) * orientation;
+    const trainEndpoints = trainCalibration.buckets.filter((bucket) => bucket.settled > 0);
+    const testEndpoints = testCalibration.buckets.filter((bucket) => bucket.settled > 0);
+    const trainFirst = trainEndpoints[0]?.expectancyR ?? 0;
+    const trainLast = trainEndpoints.at(-1)?.expectancyR ?? 0;
+    const testFirst = testEndpoints[0]?.expectancyR ?? 0;
+    const testLast = testEndpoints.at(-1)?.expectancyR ?? 0;
     return {
       fold: fold.fold,
       trainSample: train.length,
       testSample: test.length,
       trainSpearman,
       testSpearman,
-      orientedLift,
-      monotonicViolations: calibration.monotonicViolations,
-      buckets: calibration.buckets
+      trainDirectionalLift: (trainLast - trainFirst) * orientation,
+      oosDirectionalLift: (testLast - testFirst) * orientation,
+      trainMonotonicViolations: trainCalibration.monotonicViolations,
+      oosMonotonicViolations: testCalibration.monotonicViolations,
+      trainBuckets: trainCalibration.buckets,
+      oosBuckets: testCalibration.buckets
     };
   });
   const sample = events.length;
   const settledEvents = events.filter((event) => event.labelOneR.netR !== null);
   const symbolBreadth = new Set(settledEvents.map((event) => event.symbol)).size;
-  const positiveFolds = foldReports.filter((fold) => fold.orientedLift > 0).length;
-  const directionalLift = average(foldReports.map((fold) => fold.orientedLift));
-  const monotonicViolations = Math.round(average(foldReports.map((fold) => fold.monotonicViolations)));
+  const positiveFolds = foldReports.filter((fold) => fold.trainDirectionalLift > 0).length;
+  const directionalLift = average(foldReports.map((fold) => fold.trainDirectionalLift));
+  const oosDirectionalLift = average(foldReports.map((fold) => fold.oosDirectionalLift));
+  const monotonicViolations = Math.round(average(foldReports.map((fold) => fold.trainMonotonicViolations)));
+  const oosMonotonicViolations = Math.round(average(foldReports.map((fold) => fold.oosMonotonicViolations)));
   const status = classifyFeatureStatus({
     sample,
     symbolBreadth,
@@ -360,7 +365,9 @@ function diagnoseFeature(feature) {
     positiveFolds,
     folds: foldReports.length,
     directionalLift,
+    oosDirectionalLift,
     monotonicViolations,
+    oosMonotonicViolations,
     bootstrapConfidenceInterval: allCalibration.buckets.map((bucket) => ({ bucket: bucket.bucket, interval: bucket.confidenceInterval })),
     calibration: allCalibration
   };
@@ -368,10 +375,19 @@ function diagnoseFeature(feature) {
 
 function evaluateScoreCalibration(spec, selected) {
   if (!selected.length) return emptyScoreCalibration();
-  const scored = foldEventSets.flatMap(({ train, test, fold }) => {
+  const foldScores = foldEventSets.map(({ train, test, fold }) => {
     const foldSpec = fitEntryEdgeScoreSpec(train, selected);
-    return test.map((event) => ({ event, score: calculateEntryEdgeScore(event, foldSpec), fold: fold.fold }));
+    return {
+      train: train.map((event) => ({ event, score: calculateEntryEdgeScore(event, foldSpec), fold: fold.fold })),
+      test: test.map((event) => ({ event, score: calculateEntryEdgeScore(event, foldSpec), fold: fold.fold }))
+    };
   });
+  const training = summarizeScoreCalibration(foldScores.flatMap((item) => item.train));
+  const oos = summarizeScoreCalibration(foldScores.flatMap((item) => item.test));
+  return { ...oos, training, oos };
+}
+
+function summarizeScoreCalibration(scored) {
   const values = scored.map((item) => item.score);
   const outcomes = scored.map((item) => item.event.labelOneR.netR ?? 0);
   const edges = quantileEdges(values, 10);
@@ -404,7 +420,7 @@ function evaluateScoreCalibration(spec, selected) {
     spearman: calculateSpearman(values, outcomes),
     monotonicViolations: countMonotonicViolations(expectancy),
     monotonicDefinition: "higher entry_edge_score should not reduce realized label expectancy",
-    status: selected.length && calculateSpearman(values, outcomes) >= 0.05 && countMonotonicViolations(expectancy) <= 3 ? "CALIBRATED" : "ENTRY_SCORE_NOT_CALIBRATED"
+    status: scored.length > 0 && calculateSpearman(values, outcomes) >= 0.05 && countMonotonicViolations(expectancy) <= 3 ? "CALIBRATED" : "ENTRY_SCORE_NOT_CALIBRATED"
   };
 }
 
@@ -690,7 +706,8 @@ function quantile(values, fraction) {
 }
 
 function emptyScoreCalibration() {
-  return { deciles: [], trades: 0, settled: 0, baselineExpectancyR: 0, highestBucketExpectancyR: 0, spearman: 0, monotonicViolations: 0, monotonicDefinition: "higher entry_edge_score should not reduce realized label expectancy", status: "ENTRY_SCORE_NOT_CALIBRATED" };
+  const empty = { deciles: [], trades: 0, settled: 0, baselineExpectancyR: 0, highestBucketExpectancyR: 0, spearman: 0, monotonicViolations: 0, monotonicDefinition: "higher entry_edge_score should not reduce realized label expectancy", status: "ENTRY_SCORE_NOT_CALIBRATED" };
+  return { ...empty, training: empty, oos: empty };
 }
 
 function average(values) {

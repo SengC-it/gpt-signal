@@ -1,15 +1,15 @@
 {
   "task": "GPT-PROFIT-003",
-  "generatedAt": "2026-08-30T03:47:34.267Z",
+  "generatedAt": "2026-08-30T04:01:50.763Z",
   "result": "NO ENTRY EDGE FOUND",
-  "codeVersion": "78104f72b8cbd486a9844839c3fc807cef57643a",
+  "codeVersion": "203225ec540a8ecde3e50822b4bbecfdab1c7695",
   "provenance": {
     "mainBaseSha": "78104f72b8cbd486a9844839c3fc807cef57643a",
-    "branchHeadSha": "78104f72b8cbd486a9844839c3fc807cef57643a",
-    "sourceParentSha": "65893c1a9f77674e2248191e20f6ad324c0c27ef",
-    "researchScriptSha256": "25b878016b8606cafa6e4eea844ecee6ac89062dd0db24704d1eddb55cf64d8a",
-    "entryEdgeModuleSha256": "6c559e77a2ba64ac87b2485c636d95f92139ec20a650a456e1d205a5eb397411",
-    "candidateFreezeSha256": "165f3ef8868287ed4026e57c99bb4a0577dd1a490fd906315984b8f1908cada1",
+    "branchHeadSha": "203225ec540a8ecde3e50822b4bbecfdab1c7695",
+    "sourceParentSha": "78104f72b8cbd486a9844839c3fc807cef57643a",
+    "researchScriptSha256": "b0eefa414b2bb71672cdc2340923bc4d2e0255300912bd1cec0d3b1c2d785c50",
+    "entryEdgeModuleSha256": "c818edc93add0d8a8459149634d76252fc8a46ab145be695a922e18787e03b29",
+    "candidateFreezeSha256": "27a1bfb88b420cdecb9478cd4bb6794bce4d0780387db1612011c12135887137",
     "datasetManifestSha256": "c2b482d6171596aa297133a9959c50b5faaea4655036f6f17e27c41c55dcfec9"
   },
   "safety": {
@@ -273,8 +273,10 @@
         "symbolBreadth": 6,
         "positiveFolds": 3,
         "folds": 3,
-        "directionalLift": 0.1391952886350917,
+        "directionalLift": 0.13914675544941682,
+        "oosDirectionalLift": 0.1391952886350917,
         "monotonicViolations": 1,
+        "oosMonotonicViolations": 1,
         "bootstrapConfidenceInterval": [
           {
             "bucket": 0,
@@ -439,8 +441,10 @@
         "symbolBreadth": 6,
         "positiveFolds": 3,
         "folds": 3,
-        "directionalLift": 0.18702346209519413,
+        "directionalLift": 0.13319994551645412,
+        "oosDirectionalLift": 0.18702346209519413,
         "monotonicViolations": 1,
+        "oosMonotonicViolations": 1,
         "bootstrapConfidenceInterval": [
           {
             "bucket": 0,
@@ -605,8 +609,10 @@
         "symbolBreadth": 6,
         "positiveFolds": 3,
         "folds": 3,
-        "directionalLift": 0.5288177657232872,
+        "directionalLift": 0.5313748882348069,
+        "oosDirectionalLift": 0.5288177657232872,
         "monotonicViolations": 0,
+        "oosMonotonicViolations": 0,
         "bootstrapConfidenceInterval": [
           {
             "bucket": 0,
@@ -771,8 +777,10 @@
         "symbolBreadth": 6,
         "positiveFolds": 3,
         "folds": 3,
-        "directionalLift": 0.2648584115347355,
+        "directionalLift": 0.3215207424372539,
+        "oosDirectionalLift": 0.2648584115347355,
         "monotonicViolations": 1,
+        "oosMonotonicViolations": 1,
         "bootstrapConfidenceInterval": [
           {
             "bucket": 0,
@@ -937,8 +945,10 @@
         "symbolBreadth": 6,
         "positiveFolds": 3,
         "folds": 3,
-        "directionalLift": 0.2217777849111863,
+        "directionalLift": 0.1741660369752914,
+        "oosDirectionalLift": 0.2217777849111863,
         "monotonicViolations": 1,
+        "oosMonotonicViolations": 1,
         "bootstrapConfidenceInterval": [
           {
             "bucket": 0,
@@ -1103,8 +1113,10 @@
         "symbolBreadth": 6,
         "positiveFolds": 3,
         "folds": 3,
-        "directionalLift": 0.3414286667013968,
+        "directionalLift": 0.3529816087221025,
+        "oosDirectionalLift": 0.3414286667013968,
         "monotonicViolations": 1,
+        "oosMonotonicViolations": 1,
         "bootstrapConfidenceInterval": [
           {
             "bucket": 0,
@@ -1269,8 +1281,10 @@
         "symbolBreadth": 6,
         "positiveFolds": 3,
         "folds": 3,
-        "directionalLift": 0.04013811746580579,
+        "directionalLift": 0.08438595897332295,
+        "oosDirectionalLift": 0.04013811746580579,
         "monotonicViolations": 1,
+        "oosMonotonicViolations": 1,
         "bootstrapConfidenceInterval": [
           {
             "bucket": 0,
@@ -1377,8 +1391,10 @@
         "symbolBreadth": 6,
         "positiveFolds": 3,
         "folds": 3,
-        "directionalLift": 0.6463553333007422,
+        "directionalLift": 0.7481013063200236,
+        "oosDirectionalLift": 0.6463553333007422,
         "monotonicViolations": 0,
+        "oosMonotonicViolations": 0,
         "bootstrapConfidenceInterval": [
           {
             "bucket": 0,
@@ -1536,172 +1552,6 @@
         }
       },
       {
-        "feature": "retracement_ratio",
-        "status": "ROBUST",
-        "sample": 105307,
-        "settled": 105281,
-        "symbolBreadth": 6,
-        "positiveFolds": 2,
-        "folds": 3,
-        "directionalLift": 0.07338065746785764,
-        "monotonicViolations": 2,
-        "bootstrapConfidenceInterval": [
-          {
-            "bucket": 0,
-            "interval": [
-              -0.7170704967413837,
-              -0.6904801433790868
-            ]
-          },
-          {
-            "bucket": 1,
-            "interval": [
-              -0.7497242612856527,
-              -0.7223296008699823
-            ]
-          },
-          {
-            "bucket": 2,
-            "interval": [
-              -0.7676904779082386,
-              -0.7380958365633928
-            ]
-          },
-          {
-            "bucket": 3,
-            "interval": [
-              -0.7640911127271123,
-              -0.7370339456809648
-            ]
-          },
-          {
-            "bucket": 4,
-            "interval": [
-              -0.8322663963163449,
-              -0.8024679106853563
-            ]
-          }
-        ],
-        "calibration": {
-          "feature": "retracement_ratio",
-          "edges": [
-            0.09579253770838567,
-            0.1885125184094262,
-            0.2972972972972978,
-            0.46521739130434914
-          ],
-          "buckets": [
-            {
-              "bucket": 0,
-              "lower": null,
-              "upper": 0.09579253770838567,
-              "sample": 20256,
-              "settled": 20254,
-              "wins": 8515,
-              "winProbability": 0.42041078305519897,
-              "profitFactor": 0.20498580242579184,
-              "expectancyR": -0.705581250814654,
-              "netR": -14290.842654,
-              "averageWinR": 0.4327350601291848,
-              "averageLossR": 1.5312702692733628,
-              "liftVsBaseline": 0.04813470277621046,
-              "confidenceInterval": [
-                -0.7170704967413837,
-                -0.6904801433790868
-              ],
-              "symbolBreadth": 6,
-              "positiveMonths": 0
-            },
-            {
-              "bucket": 1,
-              "lower": 0.09579253770838567,
-              "upper": 0.1885125184094262,
-              "sample": 20696,
-              "settled": 20690,
-              "wins": 8493,
-              "winProbability": 0.41048815853069115,
-              "profitFactor": 0.18747194831631842,
-              "expectancyR": -0.7371290113581463,
-              "netR": -15251.199245000049,
-              "averageWinR": 0.4143246766749094,
-              "averageLossR": 1.5389078235631783,
-              "liftVsBaseline": 0.01658694223271806,
-              "confidenceInterval": [
-                -0.7497242612856527,
-                -0.7223296008699823
-              ],
-              "symbolBreadth": 6,
-              "positiveMonths": 0
-            },
-            {
-              "bucket": 2,
-              "lower": 0.1885125184094262,
-              "upper": 0.2972972972972978,
-              "sample": 21211,
-              "settled": 21207,
-              "wins": 8428,
-              "winProbability": 0.39741594756448345,
-              "profitFactor": 0.17751834626576576,
-              "expectancyR": -0.753861718913566,
-              "netR": -15987.145472999995,
-              "averageWinR": 0.4094146924537258,
-              "averageLossR": 1.5210652242742018,
-              "liftVsBaseline": -0.00014576532270160758,
-              "confidenceInterval": [
-                -0.7676904779082386,
-                -0.7380958365633928
-              ],
-              "symbolBreadth": 6,
-              "positiveMonths": 0
-            },
-            {
-              "bucket": 3,
-              "lower": 0.2972972972972978,
-              "upper": 0.46521739130434914,
-              "sample": 21529,
-              "settled": 21521,
-              "wins": 8633,
-              "winProbability": 0.4011430695599647,
-              "profitFactor": 0.17770433194804716,
-              "expectancyR": -0.751039771432555,
-              "netR": -16163.126921000015,
-              "averageWinR": 0.4046072447584847,
-              "averageLossR": 1.5251475221135977,
-              "liftVsBaseline": 0.002676182158309448,
-              "confidenceInterval": [
-                -0.7640911127271123,
-                -0.7370339456809648
-              ],
-              "symbolBreadth": 6,
-              "positiveMonths": 0
-            },
-            {
-              "bucket": 4,
-              "lower": 0.46521739130434914,
-              "upper": null,
-              "sample": 21615,
-              "settled": 21609,
-              "wins": 8187,
-              "winProbability": 0.378869915313064,
-              "profitFactor": 0.14752362593419302,
-              "expectancyR": -0.8172361061131982,
-              "netR": -17659.6550170001,
-              "averageWinR": 0.37328165897154186,
-              "averageLossR": 1.5434146892415481,
-              "liftVsBaseline": -0.06352015252233378,
-              "confidenceInterval": [
-                -0.8322663963163449,
-                -0.8024679106853563
-              ],
-              "symbolBreadth": 6,
-              "positiveMonths": 0
-            }
-          ],
-          "baselineExpectancyR": -0.7537159535908644,
-          "monotonicViolations": 3
-        }
-      },
-      {
         "feature": "atr_pct",
         "status": "ROBUST",
         "sample": 105307,
@@ -1709,8 +1559,10 @@
         "symbolBreadth": 6,
         "positiveFolds": 3,
         "folds": 3,
-        "directionalLift": 0.9223893100070768,
+        "directionalLift": 0.9879450349007092,
+        "oosDirectionalLift": 0.9223893100070768,
         "monotonicViolations": 0,
+        "oosMonotonicViolations": 0,
         "bootstrapConfidenceInterval": [
           {
             "bucket": 0,
@@ -1875,8 +1727,10 @@
         "symbolBreadth": 6,
         "positiveFolds": 3,
         "folds": 3,
-        "directionalLift": 0.530432194611535,
+        "directionalLift": 0.45126866921680797,
+        "oosDirectionalLift": 0.530432194611535,
         "monotonicViolations": 0,
+        "oosMonotonicViolations": 0,
         "bootstrapConfidenceInterval": [
           {
             "bucket": 0,
@@ -2034,6 +1888,174 @@
         }
       },
       {
+        "feature": "recent_range_atr",
+        "status": "ROBUST",
+        "sample": 105307,
+        "settled": 105281,
+        "symbolBreadth": 6,
+        "positiveFolds": 3,
+        "folds": 3,
+        "directionalLift": 0.0120252586992875,
+        "oosDirectionalLift": -0.015296973627374885,
+        "monotonicViolations": 2,
+        "oosMonotonicViolations": 3,
+        "bootstrapConfidenceInterval": [
+          {
+            "bucket": 0,
+            "interval": [
+              -0.7127066281550619,
+              -0.6827149741403934
+            ]
+          },
+          {
+            "bucket": 1,
+            "interval": [
+              -0.7888169329271176,
+              -0.7567945263483612
+            ]
+          },
+          {
+            "bucket": 2,
+            "interval": [
+              -0.8141118075959156,
+              -0.7834579879024492
+            ]
+          },
+          {
+            "bucket": 3,
+            "interval": [
+              -0.8154873282342449,
+              -0.7848518194359688
+            ]
+          },
+          {
+            "bucket": 4,
+            "interval": [
+              -0.7109548549747868,
+              -0.6817081235330177
+            ]
+          }
+        ],
+        "calibration": {
+          "feature": "recent_range_atr",
+          "edges": [
+            0.8735022252653232,
+            0.9528682374127703,
+            1.0226357450354078,
+            1.1110662358642962
+          ],
+          "buckets": [
+            {
+              "bucket": 0,
+              "lower": null,
+              "upper": 0.8735022252653232,
+              "sample": 21011,
+              "settled": 20998,
+              "wins": 8907,
+              "winProbability": 0.42418325554814745,
+              "profitFactor": 0.20968028688101467,
+              "expectancyR": -0.6984737847414051,
+              "netR": -14666.552532000025,
+              "averageWinR": 0.43686914954530115,
+              "averageLossR": 1.5348396366719133,
+              "liftVsBaseline": 0.05524216884945932,
+              "confidenceInterval": [
+                -0.7127066281550619,
+                -0.6827149741403934
+              ],
+              "symbolBreadth": 6,
+              "positiveMonths": 0
+            },
+            {
+              "bucket": 1,
+              "lower": 0.8735022252653232,
+              "upper": 0.9528682374127703,
+              "sample": 21007,
+              "settled": 21007,
+              "wins": 8231,
+              "winProbability": 0.3918217736944828,
+              "profitFactor": 0.16451097937114623,
+              "expectancyR": -0.7752082999476361,
+              "netR": -16284.80075699999,
+              "averageWinR": 0.38956863929048674,
+              "averageLossR": 1.5256214955385128,
+              "liftVsBaseline": -0.021492346356771663,
+              "confidenceInterval": [
+                -0.7888169329271176,
+                -0.7567945263483612
+              ],
+              "symbolBreadth": 6,
+              "positiveMonths": 0
+            },
+            {
+              "bucket": 2,
+              "lower": 0.9528682374127703,
+              "upper": 1.0226357450354078,
+              "sample": 20748,
+              "settled": 20748,
+              "wins": 7937,
+              "winProbability": 0.3825428957007904,
+              "profitFactor": 0.15653809588816633,
+              "expectancyR": -0.8000160042413811,
+              "netR": -16598.732056000175,
+              "averageWinR": 0.38812633287136195,
+              "averageLossR": 1.5361244836468728,
+              "liftVsBaseline": -0.04630005065051668,
+              "confidenceInterval": [
+                -0.8141118075959156,
+                -0.7834579879024492
+              ],
+              "symbolBreadth": 6,
+              "positiveMonths": 0
+            },
+            {
+              "bucket": 3,
+              "lower": 1.0226357450354078,
+              "upper": 1.1110662358642962,
+              "sample": 21311,
+              "settled": 21311,
+              "wins": 8251,
+              "winProbability": 0.3871709445826099,
+              "profitFactor": 0.15683968621560407,
+              "expectancyR": -0.7999740924405232,
+              "netR": -17048.24788399999,
+              "averageWinR": 0.3843429969700672,
+              "averageLossR": 1.5481976992343027,
+              "liftVsBaseline": -0.04625813884965879,
+              "confidenceInterval": [
+                -0.8154873282342449,
+                -0.7848518194359688
+              ],
+              "symbolBreadth": 6,
+              "positiveMonths": 0
+            },
+            {
+              "bucket": 4,
+              "lower": 1.1110662358642962,
+              "upper": null,
+              "sample": 21230,
+              "settled": 21217,
+              "wins": 8930,
+              "winProbability": 0.4208889098364519,
+              "profitFactor": 0.20710525392555726,
+              "expectancyR": -0.6953686233209222,
+              "netR": -14753.636081000006,
+              "averageWinR": 0.4315421134378509,
+              "averageLossR": 1.5143897740701555,
+              "liftVsBaseline": 0.05834733026994221,
+              "confidenceInterval": [
+                -0.7109548549747868,
+                -0.6817081235330177
+              ],
+              "symbolBreadth": 6,
+              "positiveMonths": 0
+            }
+          ],
+          "baselineExpectancyR": -0.7537159535908644,
+          "monotonicViolations": 2
+        }
+      },
+      {
         "feature": "compression_ratio",
         "status": "ROBUST",
         "sample": 105307,
@@ -2041,8 +2063,10 @@
         "symbolBreadth": 6,
         "positiveFolds": 3,
         "folds": 3,
-        "directionalLift": 0.31226897203534515,
+        "directionalLift": 0.2456080965553004,
+        "oosDirectionalLift": 0.31226897203534515,
         "monotonicViolations": 0,
+        "oosMonotonicViolations": 0,
         "bootstrapConfidenceInterval": [
           {
             "bucket": 0,
@@ -2200,162 +2224,332 @@
         }
       },
       {
-        "feature": "lower_wick_ratio",
+        "feature": "body_range_ratio",
         "status": "ROBUST",
         "sample": 105307,
         "settled": 105281,
         "symbolBreadth": 6,
-        "positiveFolds": 2,
+        "positiveFolds": 3,
         "folds": 3,
-        "directionalLift": 0.03585582840764242,
+        "directionalLift": 0.05174095818761648,
+        "oosDirectionalLift": 0.09182707776937844,
         "monotonicViolations": 2,
+        "oosMonotonicViolations": 3,
         "bootstrapConfidenceInterval": [
           {
             "bucket": 0,
             "interval": [
-              -0.8020342003860846,
-              -0.7689612269880884
+              -0.7331765959778844,
+              -0.7060977599599718
             ]
           },
           {
             "bucket": 1,
             "interval": [
-              -0.7559085006493228,
-              -0.724370238276175
+              -0.7407888779497859,
+              -0.7121334518123488
             ]
           },
           {
             "bucket": 2,
             "interval": [
-              -0.749054273880125,
-              -0.7225216206181606
+              -0.7594868274390257,
+              -0.7279837286585401
             ]
           },
           {
             "bucket": 3,
             "interval": [
-              -0.7620262064384956,
-              -0.7297362405691586
+              -0.8015353826714867,
+              -0.7764334122648742
             ]
           },
           {
             "bucket": 4,
             "interval": [
-              -0.7749294873115525,
-              -0.7402591468770523
+              -0.8049374113902731,
+              -0.7757950842455555
             ]
           }
         ],
         "calibration": {
-          "feature": "lower_wick_ratio",
+          "feature": "body_range_ratio",
           "edges": [
-            0.07076923076923637,
-            0.16666666666674096,
-            0.28549382716049654,
-            0.4421978021977998
+            -0.5774278215223896,
+            -0.23008849557525185,
+            0.20600858369099131,
+            0.5671641791044734
           ],
           "buckets": [
             {
               "bucket": 0,
               "lower": null,
-              "upper": 0.07076923076923637,
-              "sample": 21244,
-              "settled": 21239,
-              "wins": 8242,
-              "winProbability": 0.3880597014925373,
-              "profitFactor": 0.16554884080628862,
-              "expectancyR": -0.786127712368756,
-              "netR": -16696.56648300001,
-              "averageWinR": 0.40190164401844175,
-              "averageLossR": 1.5395121822728284,
-              "liftVsBaseline": -0.0324117587778916,
+              "upper": -0.5774278215223896,
+              "sample": 20988,
+              "settled": 20984,
+              "wins": 8665,
+              "winProbability": 0.4129336637438048,
+              "profitFactor": 0.19087476392311198,
+              "expectancyR": -0.7211898344452937,
+              "netR": -15133.447486000045,
+              "averageWinR": 0.4120046078476633,
+              "averageLossR": 1.5182618242552195,
+              "liftVsBaseline": 0.03252611914557069,
               "confidenceInterval": [
-                -0.8020342003860846,
-                -0.7689612269880884
+                -0.7331765959778844,
+                -0.7060977599599718
               ],
               "symbolBreadth": 6,
               "positiveMonths": 0
             },
             {
               "bucket": 1,
-              "lower": 0.07076923076923637,
-              "upper": 0.16666666666674096,
-              "sample": 20795,
-              "settled": 20791,
-              "wins": 8431,
-              "winProbability": 0.40551200038478186,
-              "profitFactor": 0.18219977561168074,
-              "expectancyR": -0.7416948464720307,
-              "netR": -15420.577552999988,
-              "averageWinR": 0.40749488613450513,
-              "averageLossR": 1.5255798493527595,
-              "liftVsBaseline": 0.012021107118833751,
+              "lower": -0.5774278215223896,
+              "upper": -0.23008849557525185,
+              "sample": 21197,
+              "settled": 21188,
+              "wins": 8743,
+              "winProbability": 0.4126392297526902,
+              "profitFactor": 0.1886364939120408,
+              "expectancyR": -0.7269702175287889,
+              "netR": -15403.044968999979,
+              "averageWinR": 0.40959660745739657,
+              "averageLossR": 1.5254438013660085,
+              "liftVsBaseline": 0.02674573606207553,
               "confidenceInterval": [
-                -0.7559085006493228,
-                -0.724370238276175
+                -0.7407888779497859,
+                -0.7121334518123488
               ],
               "symbolBreadth": 6,
               "positiveMonths": 0
             },
             {
               "bucket": 2,
-              "lower": 0.16666666666674096,
-              "upper": 0.28549382716049654,
-              "sample": 20744,
-              "settled": 20739,
-              "wins": 8465,
-              "winProbability": 0.40816818554414386,
-              "profitFactor": 0.1853616896014828,
-              "expectancyR": -0.7360686872558951,
-              "netR": -15265.328505000009,
-              "averageWinR": 0.41033101228588376,
-              "averageLossR": 1.526705273260554,
-              "liftVsBaseline": 0.01764726633496927,
+              "lower": -0.23008849557525185,
+              "upper": 0.20600858369099131,
+              "sample": 21325,
+              "settled": 21320,
+              "wins": 8644,
+              "winProbability": 0.40544090056285176,
+              "profitFactor": 0.18371110036700708,
+              "expectancyR": -0.7441874887429656,
+              "netR": -15866.077260000025,
+              "averageWinR": 0.4130915527533555,
+              "averageLossR": 1.5333575766803496,
+              "liftVsBaseline": 0.009528464847898821,
               "confidenceInterval": [
-                -0.749054273880125,
-                -0.7225216206181606
+                -0.7594868274390257,
+                -0.7279837286585401
               ],
               "symbolBreadth": 6,
               "positiveMonths": 0
             },
             {
               "bucket": 3,
-              "lower": 0.28549382716049654,
-              "upper": 0.4421978021977998,
-              "sample": 21158,
-              "settled": 21154,
-              "wins": 8566,
-              "winProbability": 0.4049352368346412,
-              "profitFactor": 0.18118123466066624,
-              "expectancyR": -0.7449105597995659,
-              "netR": -15757.837982000017,
-              "averageWinR": 0.40704646602848543,
-              "averageLossR": 1.5288050532252964,
-              "liftVsBaseline": 0.008805393791298521,
+              "lower": 0.20600858369099131,
+              "upper": 0.5671641791044734,
+              "sample": 21058,
+              "settled": 21052,
+              "wins": 8191,
+              "winProbability": 0.38908417252517574,
+              "profitFactor": 0.16625023142599218,
+              "expectancyR": -0.7871191876306318,
+              "netR": -16570.433138000062,
+              "averageWinR": 0.4033884572091321,
+              "averageLossR": 1.5453376868828268,
+              "liftVsBaseline": -0.033403234039767415,
               "confidenceInterval": [
-                -0.7620262064384956,
-                -0.7297362405691586
+                -0.8015353826714867,
+                -0.7764334122648742
               ],
               "symbolBreadth": 6,
               "positiveMonths": 0
             },
             {
               "bucket": 4,
-              "lower": 0.4421978021977998,
+              "lower": 0.5671641791044734,
               "upper": null,
-              "sample": 21366,
-              "settled": 21358,
-              "wins": 8552,
-              "winProbability": 0.40041202359771516,
-              "profitFactor": 0.17734713211819478,
-              "expectancyR": -0.7590438611761451,
-              "netR": -16211.658787000108,
-              "averageWinR": 0.4086648793264743,
-              "averageLossR": 1.538853727549595,
-              "liftVsBaseline": -0.005327907585280678,
+              "sample": 20739,
+              "settled": 20737,
+              "wins": 8013,
+              "winProbability": 0.38641076336982205,
+              "profitFactor": 0.1624626181267855,
+              "expectancyR": -0.7898426222211511,
+              "netR": -16378.96645700001,
+              "averageWinR": 0.39649763247223324,
+              "averageLossR": 1.5369460850361598,
+              "liftVsBaseline": -0.036126668630286685,
               "confidenceInterval": [
-                -0.7749294873115525,
-                -0.7402591468770523
+                -0.8049374113902731,
+                -0.7757950842455555
+              ],
+              "symbolBreadth": 6,
+              "positiveMonths": 0
+            }
+          ],
+          "baselineExpectancyR": -0.7537159535908644,
+          "monotonicViolations": 4
+        }
+      },
+      {
+        "feature": "upper_wick_ratio",
+        "status": "ROBUST",
+        "sample": 105307,
+        "settled": 105281,
+        "symbolBreadth": 6,
+        "positiveFolds": 3,
+        "folds": 3,
+        "directionalLift": 0.012905120580115356,
+        "oosDirectionalLift": 0.023398291560790468,
+        "monotonicViolations": 1,
+        "oosMonotonicViolations": 2,
+        "bootstrapConfidenceInterval": [
+          {
+            "bucket": 0,
+            "interval": [
+              -0.7844307932509517,
+              -0.7579755281844118
+            ]
+          },
+          {
+            "bucket": 1,
+            "interval": [
+              -0.7814645577098014,
+              -0.7465202273445352
+            ]
+          },
+          {
+            "bucket": 2,
+            "interval": [
+              -0.7493395498970004,
+              -0.7197113763234821
+            ]
+          },
+          {
+            "bucket": 3,
+            "interval": [
+              -0.7518254419725131,
+              -0.7236226137641131
+            ]
+          },
+          {
+            "bucket": 4,
+            "interval": [
+              -0.7770739040735936,
+              -0.7462115562230119
+            ]
+          }
+        ],
+        "calibration": {
+          "feature": "upper_wick_ratio",
+          "edges": [
+            0.0631970260223306,
+            0.1607142857142404,
+            0.27692307692308954,
+            0.43434343434343725
+          ],
+          "buckets": [
+            {
+              "bucket": 0,
+              "lower": null,
+              "upper": 0.0631970260223306,
+              "sample": 21045,
+              "settled": 21040,
+              "wins": 8288,
+              "winProbability": 0.39391634980988594,
+              "profitFactor": 0.17062156493239283,
+              "expectancyR": -0.7708415669676875,
+              "netR": -16218.506569000145,
+              "averageWinR": 0.4025708278233597,
+              "averageLossR": 1.5334860092534484,
+              "liftVsBaseline": -0.017125613376823057,
+              "confidenceInterval": [
+                -0.7844307932509517,
+                -0.7579755281844118
+              ],
+              "symbolBreadth": 6,
+              "positiveMonths": 0
+            },
+            {
+              "bucket": 1,
+              "lower": 0.0631970260223306,
+              "upper": 0.1607142857142404,
+              "sample": 20893,
+              "settled": 20889,
+              "wins": 8294,
+              "winProbability": 0.3970510795155345,
+              "profitFactor": 0.17639807645223846,
+              "expectancyR": -0.7615321129302508,
+              "netR": -15907.64430700001,
+              "averageWinR": 0.4107885532915374,
+              "averageLossR": 1.5335231892020729,
+              "liftVsBaseline": -0.007816159339386397,
+              "confidenceInterval": [
+                -0.7814645577098014,
+                -0.7465202273445352
+              ],
+              "symbolBreadth": 6,
+              "positiveMonths": 0
+            },
+            {
+              "bucket": 2,
+              "lower": 0.1607142857142404,
+              "upper": 0.27692307692308954,
+              "sample": 20875,
+              "settled": 20873,
+              "wins": 8524,
+              "winProbability": 0.4083744550376084,
+              "profitFactor": 0.1845476767377287,
+              "expectancyR": -0.7363440384228439,
+              "netR": -15369.709114000021,
+              "averageWinR": 0.4080676950962001,
+              "averageLossR": 1.5262837595756764,
+              "liftVsBaseline": 0.017371915168020502,
+              "confidenceInterval": [
+                -0.7493395498970004,
+                -0.7197113763234821
+              ],
+              "symbolBreadth": 6,
+              "positiveMonths": 0
+            },
+            {
+              "bucket": 3,
+              "lower": 0.27692307692308954,
+              "upper": 0.43434343434343725,
+              "sample": 21180,
+              "settled": 21171,
+              "wins": 8667,
+              "winProbability": 0.4093807566954797,
+              "profitFactor": 0.18376492367776232,
+              "expectancyR": -0.7367547370931926,
+              "netR": -15597.834538999981,
+              "averageWinR": 0.40517522049151855,
+              "averageLossR": 1.5282700075975753,
+              "liftVsBaseline": 0.016961216497671794,
+              "confidenceInterval": [
+                -0.7518254419725131,
+                -0.7236226137641131
+              ],
+              "symbolBreadth": 6,
+              "positiveMonths": 0
+            },
+            {
+              "bucket": 4,
+              "lower": 0.43434343434343725,
+              "upper": null,
+              "sample": 21314,
+              "settled": 21308,
+              "wins": 8483,
+              "winProbability": 0.39811338464426504,
+              "profitFactor": 0.17587158994867963,
+              "expectancyR": -0.763012707950064,
+              "netR": -16258.274780999966,
+              "averageWinR": 0.4090023433926693,
+              "averageLossR": 1.5382332678362638,
+              "liftVsBaseline": -0.009296754359199633,
+              "confidenceInterval": [
+                -0.7770739040735936,
+                -0.7462115562230119
               ],
               "symbolBreadth": 6,
               "positiveMonths": 0
@@ -2373,8 +2567,10 @@
         "symbolBreadth": 6,
         "positiveFolds": 3,
         "folds": 3,
-        "directionalLift": 0.1541809854681769,
+        "directionalLift": 0.11260986387708201,
+        "oosDirectionalLift": 0.1541809854681769,
         "monotonicViolations": 0,
+        "oosMonotonicViolations": 0,
         "bootstrapConfidenceInterval": [
           {
             "bucket": 0,
@@ -2539,8 +2735,10 @@
         "symbolBreadth": 6,
         "positiveFolds": 3,
         "folds": 3,
-        "directionalLift": 0.14266776385685848,
+        "directionalLift": 0.11060832294284932,
+        "oosDirectionalLift": 0.14266776385685848,
         "monotonicViolations": 1,
+        "oosMonotonicViolations": 1,
         "bootstrapConfidenceInterval": [
           {
             "bucket": 0,
@@ -2705,8 +2903,10 @@
         "symbolBreadth": 6,
         "positiveFolds": 3,
         "folds": 3,
-        "directionalLift": 0.5323377118341378,
+        "directionalLift": 0.4752573346054017,
+        "oosDirectionalLift": 0.5323377118341378,
         "monotonicViolations": 0,
+        "oosMonotonicViolations": 0,
         "bootstrapConfidenceInterval": [
           {
             "bucket": 0,
@@ -2871,8 +3071,10 @@
         "symbolBreadth": 6,
         "positiveFolds": 3,
         "folds": 3,
-        "directionalLift": 0.25967097272527995,
+        "directionalLift": 0.25103492599189825,
+        "oosDirectionalLift": 0.25967097272527995,
         "monotonicViolations": 1,
+        "oosMonotonicViolations": 1,
         "bootstrapConfidenceInterval": [
           {
             "bucket": 0,
@@ -3037,8 +3239,10 @@
         "symbolBreadth": 6,
         "positiveFolds": 3,
         "folds": 3,
-        "directionalLift": 0.1364540772394291,
+        "directionalLift": 0.0992903167875404,
+        "oosDirectionalLift": 0.1364540772394291,
         "monotonicViolations": 2,
+        "oosMonotonicViolations": 2,
         "bootstrapConfidenceInterval": [
           {
             "bucket": 0,
@@ -3203,8 +3407,10 @@
         "symbolBreadth": 6,
         "positiveFolds": 3,
         "folds": 3,
-        "directionalLift": 0.2753079885040077,
+        "directionalLift": 0.32535501818809315,
+        "oosDirectionalLift": 0.2753079885040077,
         "monotonicViolations": 1,
+        "oosMonotonicViolations": 1,
         "bootstrapConfidenceInterval": [
           {
             "bucket": 0,
@@ -3369,8 +3575,10 @@
         "symbolBreadth": 6,
         "positiveFolds": 3,
         "folds": 3,
-        "directionalLift": 0.812982821530659,
+        "directionalLift": 0.6601049569868706,
+        "oosDirectionalLift": 0.812982821530659,
         "monotonicViolations": 0,
+        "oosMonotonicViolations": 0,
         "bootstrapConfidenceInterval": [
           {
             "bucket": 0,
@@ -3528,172 +3736,6 @@
         }
       },
       {
-        "feature": "breadth_bullish_pct",
-        "status": "ROBUST",
-        "sample": 105307,
-        "settled": 105281,
-        "symbolBreadth": 6,
-        "positiveFolds": 2,
-        "folds": 3,
-        "directionalLift": 0.05142838671691045,
-        "monotonicViolations": 2,
-        "bootstrapConfidenceInterval": [
-          {
-            "bucket": 0,
-            "interval": [
-              0,
-              0
-            ]
-          },
-          {
-            "bucket": 1,
-            "interval": [
-              -0.69427678560682,
-              -0.673112452314599
-            ]
-          },
-          {
-            "bucket": 2,
-            "interval": [
-              -0.8650560871785317,
-              -0.8337436347219681
-            ]
-          },
-          {
-            "bucket": 3,
-            "interval": [
-              -0.8567005934963303,
-              -0.8314105918922888
-            ]
-          },
-          {
-            "bucket": 4,
-            "interval": [
-              -0.7478302150736627,
-              -0.7230316033022539
-            ]
-          }
-        ],
-        "calibration": {
-          "feature": "breadth_bullish_pct",
-          "edges": [
-            0,
-            33.33333333333333,
-            66.66666666666666,
-            100
-          ],
-          "buckets": [
-            {
-              "bucket": 0,
-              "lower": null,
-              "upper": 0,
-              "sample": 0,
-              "settled": 0,
-              "wins": 0,
-              "winProbability": 0,
-              "profitFactor": 0,
-              "expectancyR": 0,
-              "netR": 0,
-              "averageWinR": 0,
-              "averageLossR": 0,
-              "liftVsBaseline": 0,
-              "confidenceInterval": [
-                0,
-                0
-              ],
-              "symbolBreadth": 0,
-              "positiveMonths": 0
-            },
-            {
-              "bucket": 1,
-              "lower": 0,
-              "upper": 33.33333333333333,
-              "sample": 40562,
-              "settled": 40547,
-              "wins": 17404,
-              "winProbability": 0.4292302759760278,
-              "profitFactor": 0.21103884641222181,
-              "expectancyR": -0.6832130735442848,
-              "netR": -27702.240493000118,
-              "averageWinR": 0.4257675952654552,
-              "averageLossR": 1.5171887707298033,
-              "liftVsBaseline": 0.07050288004657956,
-              "confidenceInterval": [
-                -0.69427678560682,
-                -0.673112452314599
-              ],
-              "symbolBreadth": 6,
-              "positiveMonths": 0
-            },
-            {
-              "bucket": 2,
-              "lower": 33.33333333333333,
-              "upper": 66.66666666666666,
-              "sample": 16061,
-              "settled": 16059,
-              "wins": 5838,
-              "winProbability": 0.3635344666542126,
-              "profitFactor": 0.13766545359637086,
-              "expectancyR": -0.8494474188928315,
-              "netR": -13641.276099999981,
-              "averageWinR": 0.37302685063377966,
-              "averageLossR": 1.5476965907445428,
-              "liftVsBaseline": -0.09573146530196708,
-              "confidenceInterval": [
-                -0.8650560871785317,
-                -0.8337436347219681
-              ],
-              "symbolBreadth": 6,
-              "positiveMonths": 0
-            },
-            {
-              "bucket": 3,
-              "lower": 66.66666666666666,
-              "upper": 100,
-              "sample": 20573,
-              "settled": 20573,
-              "wins": 7512,
-              "winProbability": 0.36513877412142126,
-              "profitFactor": 0.139056989121959,
-              "expectancyR": -0.843379699217428,
-              "netR": -17350.850552000145,
-              "averageWinR": 0.37306422710329973,
-              "averageLossR": 1.5430142428604394,
-              "liftVsBaseline": -0.08966374562656354,
-              "confidenceInterval": [
-                -0.8567005934963303,
-                -0.8314105918922888
-              ],
-              "symbolBreadth": 6,
-              "positiveMonths": 0
-            },
-            {
-              "bucket": 4,
-              "lower": 100,
-              "upper": null,
-              "sample": 28111,
-              "settled": 28102,
-              "wins": 11502,
-              "winProbability": 0.4092947121201338,
-              "profitFactor": 0.18896066442866435,
-              "expectancyR": -0.7350936646857898,
-              "netR": -20657.602165000066,
-              "averageWinR": 0.4184427381325002,
-              "averageLossR": 1.5343693095783104,
-              "liftVsBaseline": 0.018622288905074558,
-              "confidenceInterval": [
-                -0.7478302150736627,
-                -0.7230316033022539
-              ],
-              "symbolBreadth": 6,
-              "positiveMonths": 0
-            }
-          ],
-          "baselineExpectancyR": -0.7537159535908644,
-          "monotonicViolations": 2
-        }
-      },
-      {
         "feature": "breadth_bearish_pct",
         "status": "ROBUST",
         "sample": 105307,
@@ -3701,8 +3743,10 @@
         "symbolBreadth": 6,
         "positiveFolds": 3,
         "folds": 3,
-        "directionalLift": 0.1204084398400614,
+        "directionalLift": 0.10984225523337528,
+        "oosDirectionalLift": 0.1204084398400614,
         "monotonicViolations": 2,
+        "oosMonotonicViolations": 2,
         "bootstrapConfidenceInterval": [
           {
             "bucket": 0,
@@ -3867,8 +3911,10 @@
         "symbolBreadth": 6,
         "positiveFolds": 3,
         "folds": 3,
-        "directionalLift": 0.4043430922243374,
+        "directionalLift": 0.3820250200170113,
+        "oosDirectionalLift": 0.4043430922243374,
         "monotonicViolations": 0,
+        "oosMonotonicViolations": 0,
         "bootstrapConfidenceInterval": [
           {
             "bucket": 0,
@@ -4033,8 +4079,10 @@
         "symbolBreadth": 6,
         "positiveFolds": 3,
         "folds": 3,
-        "directionalLift": 0.9223893100070768,
+        "directionalLift": 0.9879450349007092,
+        "oosDirectionalLift": 0.9223893100070768,
         "monotonicViolations": 0,
+        "oosMonotonicViolations": 0,
         "bootstrapConfidenceInterval": [
           {
             "bucket": 0,
@@ -4199,8 +4247,10 @@
         "symbolBreadth": 6,
         "positiveFolds": 3,
         "folds": 3,
-        "directionalLift": 0.9223893100070768,
+        "directionalLift": 0.9879450349007092,
+        "oosDirectionalLift": 0.9223893100070768,
         "monotonicViolations": 0,
+        "oosMonotonicViolations": 0,
         "bootstrapConfidenceInterval": [
           {
             "bucket": 0,
@@ -4367,8 +4417,10 @@
         "symbolBreadth": 6,
         "positiveFolds": 3,
         "folds": 3,
-        "directionalLift": 0.1391952886350917,
+        "directionalLift": 0.13914675544941682,
+        "oosDirectionalLift": 0.1391952886350917,
         "monotonicViolations": 1,
+        "oosMonotonicViolations": 1,
         "bootstrapConfidenceInterval": [
           {
             "bucket": 0,
@@ -4533,8 +4585,10 @@
         "symbolBreadth": 6,
         "positiveFolds": 3,
         "folds": 3,
-        "directionalLift": 0.18702346209519413,
+        "directionalLift": 0.13319994551645412,
+        "oosDirectionalLift": 0.18702346209519413,
         "monotonicViolations": 1,
+        "oosMonotonicViolations": 1,
         "bootstrapConfidenceInterval": [
           {
             "bucket": 0,
@@ -4699,8 +4753,10 @@
         "symbolBreadth": 6,
         "positiveFolds": 3,
         "folds": 3,
-        "directionalLift": 0.5288177657232872,
+        "directionalLift": 0.5313748882348069,
+        "oosDirectionalLift": 0.5288177657232872,
         "monotonicViolations": 0,
+        "oosMonotonicViolations": 0,
         "bootstrapConfidenceInterval": [
           {
             "bucket": 0,
@@ -4865,8 +4921,10 @@
         "symbolBreadth": 6,
         "positiveFolds": 3,
         "folds": 3,
-        "directionalLift": 0.2648584115347355,
+        "directionalLift": 0.3215207424372539,
+        "oosDirectionalLift": 0.2648584115347355,
         "monotonicViolations": 1,
+        "oosMonotonicViolations": 1,
         "bootstrapConfidenceInterval": [
           {
             "bucket": 0,
@@ -5031,8 +5089,10 @@
         "symbolBreadth": 6,
         "positiveFolds": 3,
         "folds": 3,
-        "directionalLift": 0.2217777849111863,
+        "directionalLift": 0.1741660369752914,
+        "oosDirectionalLift": 0.2217777849111863,
         "monotonicViolations": 1,
+        "oosMonotonicViolations": 1,
         "bootstrapConfidenceInterval": [
           {
             "bucket": 0,
@@ -5197,8 +5257,10 @@
         "symbolBreadth": 6,
         "positiveFolds": 3,
         "folds": 3,
-        "directionalLift": 0.3414286667013968,
+        "directionalLift": 0.3529816087221025,
+        "oosDirectionalLift": 0.3414286667013968,
         "monotonicViolations": 1,
+        "oosMonotonicViolations": 1,
         "bootstrapConfidenceInterval": [
           {
             "bucket": 0,
@@ -5363,8 +5425,10 @@
         "symbolBreadth": 6,
         "positiveFolds": 3,
         "folds": 3,
-        "directionalLift": 0.04013811746580579,
+        "directionalLift": 0.08438595897332295,
+        "oosDirectionalLift": 0.04013811746580579,
         "monotonicViolations": 1,
+        "oosMonotonicViolations": 1,
         "bootstrapConfidenceInterval": [
           {
             "bucket": 0,
@@ -5471,8 +5535,10 @@
         "symbolBreadth": 6,
         "positiveFolds": 3,
         "folds": 3,
-        "directionalLift": 0.38825787887020446,
+        "directionalLift": 0.32185478939694195,
+        "oosDirectionalLift": 0.38825787887020446,
         "monotonicViolations": 4,
+        "oosMonotonicViolations": 4,
         "bootstrapConfidenceInterval": [
           {
             "bucket": 0,
@@ -5637,8 +5703,10 @@
         "symbolBreadth": 6,
         "positiveFolds": 3,
         "folds": 3,
-        "directionalLift": 0.6463553333007422,
+        "directionalLift": 0.7481013063200236,
+        "oosDirectionalLift": 0.6463553333007422,
         "monotonicViolations": 0,
+        "oosMonotonicViolations": 0,
         "bootstrapConfidenceInterval": [
           {
             "bucket": 0,
@@ -5803,8 +5871,10 @@
         "symbolBreadth": 6,
         "positiveFolds": 1,
         "folds": 3,
-        "directionalLift": -0.04466906438773829,
-        "monotonicViolations": 3,
+        "directionalLift": -0.0037987681423996187,
+        "oosDirectionalLift": -0.04466906438773829,
+        "monotonicViolations": 2,
+        "oosMonotonicViolations": 3,
         "bootstrapConfidenceInterval": [
           {
             "bucket": 0,
@@ -5969,8 +6039,10 @@
         "symbolBreadth": 6,
         "positiveFolds": 3,
         "folds": 3,
-        "directionalLift": 0.12511481218104115,
+        "directionalLift": 0.14924766524415845,
+        "oosDirectionalLift": 0.12511481218104115,
         "monotonicViolations": 3,
+        "oosMonotonicViolations": 3,
         "bootstrapConfidenceInterval": [
           {
             "bucket": 0,
@@ -6129,14 +6201,16 @@
       },
       {
         "feature": "retracement_ratio",
-        "status": "ROBUST",
+        "status": "WEAK",
         "sample": 105307,
         "settled": 105281,
         "symbolBreadth": 6,
-        "positiveFolds": 2,
+        "positiveFolds": 3,
         "folds": 3,
-        "directionalLift": 0.07338065746785764,
-        "monotonicViolations": 2,
+        "directionalLift": 0.13879440637975585,
+        "oosDirectionalLift": 0.07338065746785764,
+        "monotonicViolations": 3,
+        "oosMonotonicViolations": 2,
         "bootstrapConfidenceInterval": [
           {
             "bucket": 0,
@@ -6301,8 +6375,10 @@
         "symbolBreadth": 6,
         "positiveFolds": 3,
         "folds": 3,
-        "directionalLift": 0.15137848581932578,
+        "directionalLift": 0.15264877911812721,
+        "oosDirectionalLift": 0.15137848581932578,
         "monotonicViolations": 3,
+        "oosMonotonicViolations": 3,
         "bootstrapConfidenceInterval": [
           {
             "bucket": 0,
@@ -6467,8 +6543,10 @@
         "symbolBreadth": 6,
         "positiveFolds": 3,
         "folds": 3,
-        "directionalLift": 0.9223893100070768,
+        "directionalLift": 0.9879450349007092,
+        "oosDirectionalLift": 0.9223893100070768,
         "monotonicViolations": 0,
+        "oosMonotonicViolations": 0,
         "bootstrapConfidenceInterval": [
           {
             "bucket": 0,
@@ -6633,8 +6711,10 @@
         "symbolBreadth": 6,
         "positiveFolds": 3,
         "folds": 3,
-        "directionalLift": 0.530432194611535,
+        "directionalLift": 0.45126866921680797,
+        "oosDirectionalLift": 0.530432194611535,
         "monotonicViolations": 0,
+        "oosMonotonicViolations": 0,
         "bootstrapConfidenceInterval": [
           {
             "bucket": 0,
@@ -6793,14 +6873,16 @@
       },
       {
         "feature": "recent_range_atr",
-        "status": "NO_EDGE",
+        "status": "ROBUST",
         "sample": 105307,
         "settled": 105281,
         "symbolBreadth": 6,
-        "positiveFolds": 0,
+        "positiveFolds": 3,
         "folds": 3,
-        "directionalLift": -0.015296973627374885,
-        "monotonicViolations": 3,
+        "directionalLift": 0.0120252586992875,
+        "oosDirectionalLift": -0.015296973627374885,
+        "monotonicViolations": 2,
+        "oosMonotonicViolations": 3,
         "bootstrapConfidenceInterval": [
           {
             "bucket": 0,
@@ -6965,8 +7047,10 @@
         "symbolBreadth": 6,
         "positiveFolds": 3,
         "folds": 3,
-        "directionalLift": 0.31226897203534515,
+        "directionalLift": 0.2456080965553004,
+        "oosDirectionalLift": 0.31226897203534515,
         "monotonicViolations": 0,
+        "oosMonotonicViolations": 0,
         "bootstrapConfidenceInterval": [
           {
             "bucket": 0,
@@ -7131,8 +7215,10 @@
         "symbolBreadth": 6,
         "positiveFolds": 3,
         "folds": 3,
-        "directionalLift": 0.16239198173320527,
+        "directionalLift": 0.11038071867701842,
+        "oosDirectionalLift": 0.16239198173320527,
         "monotonicViolations": 4,
+        "oosMonotonicViolations": 4,
         "bootstrapConfidenceInterval": [
           {
             "bucket": 0,
@@ -7291,14 +7377,16 @@
       },
       {
         "feature": "body_range_ratio",
-        "status": "WEAK",
+        "status": "ROBUST",
         "sample": 105307,
         "settled": 105281,
         "symbolBreadth": 6,
         "positiveFolds": 3,
         "folds": 3,
-        "directionalLift": 0.09182707776937844,
-        "monotonicViolations": 3,
+        "directionalLift": 0.05174095818761648,
+        "oosDirectionalLift": 0.09182707776937844,
+        "monotonicViolations": 2,
+        "oosMonotonicViolations": 3,
         "bootstrapConfidenceInterval": [
           {
             "bucket": 0,
@@ -7457,14 +7545,16 @@
       },
       {
         "feature": "upper_wick_ratio",
-        "status": "UNSTABLE",
+        "status": "ROBUST",
         "sample": 105307,
         "settled": 105281,
         "symbolBreadth": 6,
-        "positiveFolds": 1,
+        "positiveFolds": 3,
         "folds": 3,
-        "directionalLift": 0.023398291560790468,
-        "monotonicViolations": 2,
+        "directionalLift": 0.012905120580115356,
+        "oosDirectionalLift": 0.023398291560790468,
+        "monotonicViolations": 1,
+        "oosMonotonicViolations": 2,
         "bootstrapConfidenceInterval": [
           {
             "bucket": 0,
@@ -7623,14 +7713,16 @@
       },
       {
         "feature": "lower_wick_ratio",
-        "status": "ROBUST",
+        "status": "WEAK",
         "sample": 105307,
         "settled": 105281,
         "symbolBreadth": 6,
         "positiveFolds": 2,
         "folds": 3,
-        "directionalLift": 0.03585582840764242,
+        "directionalLift": 0.004146033204198892,
+        "oosDirectionalLift": 0.03585582840764242,
         "monotonicViolations": 2,
+        "oosMonotonicViolations": 2,
         "bootstrapConfidenceInterval": [
           {
             "bucket": 0,
@@ -7795,8 +7887,10 @@
         "symbolBreadth": 6,
         "positiveFolds": 3,
         "folds": 3,
-        "directionalLift": 0.04016068017573604,
+        "directionalLift": 0.021235211855091512,
+        "oosDirectionalLift": 0.04016068017573604,
         "monotonicViolations": 3,
+        "oosMonotonicViolations": 3,
         "bootstrapConfidenceInterval": [
           {
             "bucket": 0,
@@ -7961,8 +8055,10 @@
         "symbolBreadth": 6,
         "positiveFolds": 3,
         "folds": 3,
-        "directionalLift": 0.0907808501258468,
+        "directionalLift": 0.0895478722793452,
+        "oosDirectionalLift": 0.0907808501258468,
         "monotonicViolations": 3,
+        "oosMonotonicViolations": 3,
         "bootstrapConfidenceInterval": [
           {
             "bucket": 0,
@@ -8127,8 +8223,10 @@
         "symbolBreadth": 6,
         "positiveFolds": 3,
         "folds": 3,
-        "directionalLift": 0.09299076313691901,
+        "directionalLift": 0.08899052108796812,
+        "oosDirectionalLift": 0.09299076313691901,
         "monotonicViolations": 3,
+        "oosMonotonicViolations": 3,
         "bootstrapConfidenceInterval": [
           {
             "bucket": 0,
@@ -8293,8 +8391,10 @@
         "symbolBreadth": 6,
         "positiveFolds": 3,
         "folds": 3,
-        "directionalLift": 0.1541809854681769,
+        "directionalLift": 0.11260986387708201,
+        "oosDirectionalLift": 0.1541809854681769,
         "monotonicViolations": 0,
+        "oosMonotonicViolations": 0,
         "bootstrapConfidenceInterval": [
           {
             "bucket": 0,
@@ -8459,8 +8559,10 @@
         "symbolBreadth": 6,
         "positiveFolds": 3,
         "folds": 3,
-        "directionalLift": 0.179550356203218,
+        "directionalLift": 0.16085396629859625,
+        "oosDirectionalLift": 0.179550356203218,
         "monotonicViolations": 4,
+        "oosMonotonicViolations": 4,
         "bootstrapConfidenceInterval": [
           {
             "bucket": 0,
@@ -8625,8 +8727,10 @@
         "symbolBreadth": 6,
         "positiveFolds": 3,
         "folds": 3,
-        "directionalLift": 0.14266776385685848,
+        "directionalLift": 0.11060832294284932,
+        "oosDirectionalLift": 0.14266776385685848,
         "monotonicViolations": 1,
+        "oosMonotonicViolations": 1,
         "bootstrapConfidenceInterval": [
           {
             "bucket": 0,
@@ -8791,8 +8895,10 @@
         "symbolBreadth": 6,
         "positiveFolds": 3,
         "folds": 3,
-        "directionalLift": 0.5323377118341378,
+        "directionalLift": 0.4752573346054017,
+        "oosDirectionalLift": 0.5323377118341378,
         "monotonicViolations": 0,
+        "oosMonotonicViolations": 0,
         "bootstrapConfidenceInterval": [
           {
             "bucket": 0,
@@ -8957,8 +9063,10 @@
         "symbolBreadth": 6,
         "positiveFolds": 3,
         "folds": 3,
-        "directionalLift": 0.25967097272527995,
+        "directionalLift": 0.25103492599189825,
+        "oosDirectionalLift": 0.25967097272527995,
         "monotonicViolations": 1,
+        "oosMonotonicViolations": 1,
         "bootstrapConfidenceInterval": [
           {
             "bucket": 0,
@@ -9123,8 +9231,10 @@
         "symbolBreadth": 6,
         "positiveFolds": 3,
         "folds": 3,
-        "directionalLift": 0.1364540772394291,
+        "directionalLift": 0.0992903167875404,
+        "oosDirectionalLift": 0.1364540772394291,
         "monotonicViolations": 2,
+        "oosMonotonicViolations": 2,
         "bootstrapConfidenceInterval": [
           {
             "bucket": 0,
@@ -9289,8 +9399,10 @@
         "symbolBreadth": 6,
         "positiveFolds": 3,
         "folds": 3,
-        "directionalLift": 0.2753079885040077,
+        "directionalLift": 0.32535501818809315,
+        "oosDirectionalLift": 0.2753079885040077,
         "monotonicViolations": 1,
+        "oosMonotonicViolations": 1,
         "bootstrapConfidenceInterval": [
           {
             "bucket": 0,
@@ -9455,8 +9567,10 @@
         "symbolBreadth": 6,
         "positiveFolds": 3,
         "folds": 3,
-        "directionalLift": 0.812982821530659,
+        "directionalLift": 0.6601049569868706,
+        "oosDirectionalLift": 0.812982821530659,
         "monotonicViolations": 0,
+        "oosMonotonicViolations": 0,
         "bootstrapConfidenceInterval": [
           {
             "bucket": 0,
@@ -9615,14 +9729,16 @@
       },
       {
         "feature": "breadth_bullish_pct",
-        "status": "ROBUST",
+        "status": "WEAK",
         "sample": 105307,
         "settled": 105281,
         "symbolBreadth": 6,
-        "positiveFolds": 2,
+        "positiveFolds": 3,
         "folds": 3,
-        "directionalLift": 0.05142838671691045,
-        "monotonicViolations": 2,
+        "directionalLift": 0.05585724156860553,
+        "oosDirectionalLift": 0.05142838671691045,
+        "monotonicViolations": 3,
+        "oosMonotonicViolations": 2,
         "bootstrapConfidenceInterval": [
           {
             "bucket": 0,
@@ -9787,8 +9903,10 @@
         "symbolBreadth": 6,
         "positiveFolds": 3,
         "folds": 3,
-        "directionalLift": 0.1204084398400614,
+        "directionalLift": 0.10984225523337528,
+        "oosDirectionalLift": 0.1204084398400614,
         "monotonicViolations": 2,
+        "oosMonotonicViolations": 2,
         "bootstrapConfidenceInterval": [
           {
             "bucket": 0,
@@ -9953,8 +10071,10 @@
         "symbolBreadth": 6,
         "positiveFolds": 3,
         "folds": 3,
-        "directionalLift": 0.4043430922243374,
+        "directionalLift": 0.3820250200170113,
+        "oosDirectionalLift": 0.4043430922243374,
         "monotonicViolations": 0,
+        "oosMonotonicViolations": 0,
         "bootstrapConfidenceInterval": [
           {
             "bucket": 0,
@@ -10119,8 +10239,10 @@
         "symbolBreadth": 6,
         "positiveFolds": 3,
         "folds": 3,
-        "directionalLift": 0.9223893100070768,
+        "directionalLift": 0.9879450349007092,
+        "oosDirectionalLift": 0.9223893100070768,
         "monotonicViolations": 0,
+        "oosMonotonicViolations": 0,
         "bootstrapConfidenceInterval": [
           {
             "bucket": 0,
@@ -10286,7 +10408,9 @@
         "positiveFolds": 0,
         "folds": 3,
         "directionalLift": 0,
+        "oosDirectionalLift": 0,
         "monotonicViolations": 1,
+        "oosMonotonicViolations": 1,
         "bootstrapConfidenceInterval": [
           {
             "bucket": 0,
@@ -10364,8 +10488,10 @@
         "symbolBreadth": 6,
         "positiveFolds": 3,
         "folds": 3,
-        "directionalLift": 0.9223893100070768,
+        "directionalLift": 0.9879450349007092,
+        "oosDirectionalLift": 0.9223893100070768,
         "monotonicViolations": 0,
+        "oosMonotonicViolations": 0,
         "bootstrapConfidenceInterval": [
           {
             "bucket": 0,
@@ -10531,14 +10657,15 @@
         "structure_distance_rolling_high",
         "breakout_distance_atr",
         "pullback_depth_atr",
+        "retracement_ratio",
         "structure_age",
         "expansion_ratio",
-        "body_range_ratio",
-        "upper_wick_ratio",
+        "lower_wick_ratio",
         "close_location_value",
         "volume_ratio",
         "quote_volume_ratio",
-        "volume_expansion"
+        "volume_expansion",
+        "breadth_bullish_pct"
       ]
     }
   },
@@ -10764,11 +10891,11 @@
       "atr_pct",
       "sl_distance_pct",
       "cost_coverage_ratio",
-      "btc_volatility_state",
       "structure_distance_rolling_low",
+      "btc_volatility_state",
+      "trend_return_4h",
       "relative_strength_4h",
-      "atr_percentile",
-      "trend_return_4h"
+      "atr_percentile"
     ],
     "formula": "50 + 25 * tanh(sum(weight * orientation * (feature - train_mean) / train_sd))",
     "calibration": {
@@ -10911,7 +11038,291 @@
       "spearman": 0.48535525706897326,
       "monotonicViolations": 0,
       "monotonicDefinition": "higher entry_edge_score should not reduce realized label expectancy",
-      "status": "CALIBRATED"
+      "status": "CALIBRATED",
+      "training": {
+        "deciles": [
+          {
+            "decile": 1,
+            "lower": null,
+            "upper": 33.11693933529034,
+            "trades": 16392,
+            "settled": 16392,
+            "winRate": 4.6242069302098585,
+            "profitFactor": 0.0023242688136003707,
+            "expectancyR": -1.5350411632503638,
+            "averageWinR": 0.07733564511873348,
+            "averageLossR": 1.6132157584111533,
+            "payoff": 0.04793881085993165
+          },
+          {
+            "decile": 2,
+            "lower": 33.11693933529034,
+            "upper": 36.071711185651736,
+            "trades": 16393,
+            "settled": 16393,
+            "winRate": 30.28731775757946,
+            "profitFactor": 0.039221746391112075,
+            "expectancyR": -1.0011996208137701,
+            "averageWinR": 0.13494712145015073,
+            "averageLossR": 1.4948090516275916,
+            "payoff": 0.09027716369740763
+          },
+          {
+            "decile": 3,
+            "lower": 36.071711185651736,
+            "upper": 39.08894708756809,
+            "trades": 16392,
+            "settled": 16392,
+            "winRate": 44.60712542703758,
+            "profitFactor": 0.10322845448538795,
+            "expectancyR": -0.8291164885309906,
+            "averageWinR": 0.2139581924234141,
+            "averageLossR": 1.6690902844713646,
+            "payoff": 0.12818850748459007
+          },
+          {
+            "decile": 4,
+            "lower": 39.08894708756809,
+            "upper": 42.381662316622595,
+            "trades": 16394,
+            "settled": 16394,
+            "winRate": 48.749542515554474,
+            "profitFactor": 0.16647533507170947,
+            "expectancyR": -0.7211297546663445,
+            "averageWinR": 0.2954434139139146,
+            "averageLossR": 1.6880962820757035,
+            "payoff": 0.17501573639545834
+          },
+          {
+            "decile": 5,
+            "lower": 42.381662316622595,
+            "upper": 46.17433342411316,
+            "trades": 16393,
+            "settled": 16391,
+            "winRate": 49.98474772741138,
+            "profitFactor": 0.2257686272760395,
+            "expectancyR": -0.6312445831858993,
+            "averageWinR": 0.36825867545465546,
+            "averageLossR": 1.6301382399365667,
+            "payoff": 0.22590640869144046
+          },
+          {
+            "decile": 6,
+            "lower": 46.17433342411316,
+            "upper": 50.6502765784697,
+            "trades": 16393,
+            "settled": 16393,
+            "winRate": 49.911547611785515,
+            "profitFactor": 0.2761675913193546,
+            "expectancyR": -0.5680501673275168,
+            "averageWinR": 0.4342305190662421,
+            "averageLossR": 1.5667909511630764,
+            "payoff": 0.27714643025216584
+          },
+          {
+            "decile": 7,
+            "lower": 50.6502765784697,
+            "upper": 55.91931083346475,
+            "trades": 16393,
+            "settled": 16393,
+            "winRate": 50.53986457634356,
+            "profitFactor": 0.3361190737755902,
+            "expectancyR": -0.49415887915573525,
+            "averageWinR": 0.4950345334942663,
+            "averageLossR": 1.5049466719289595,
+            "payoff": 0.3289382559049469
+          },
+          {
+            "decile": 8,
+            "lower": 55.91931083346475,
+            "upper": 61.97854789238757,
+            "trades": 16393,
+            "settled": 16391,
+            "winRate": 52.144469525959366,
+            "profitFactor": 0.4185250974016057,
+            "expectancyR": -0.402296275883108,
+            "averageWinR": 0.5553007884637915,
+            "averageLossR": 1.4457157186384455,
+            "payoff": 0.3841009551910841
+          },
+          {
+            "decile": 9,
+            "lower": 61.97854789238757,
+            "upper": 68.96831777259355,
+            "trades": 16393,
+            "settled": 16392,
+            "winRate": 52.25719863347975,
+            "profitFactor": 0.49217851655994527,
+            "expectancyR": -0.3345759718155208,
+            "averageWinR": 0.6205263192855444,
+            "averageLossR": 1.3799894941221582,
+            "payoff": 0.44966017634813576
+          },
+          {
+            "decile": 10,
+            "lower": 68.96831777259355,
+            "upper": null,
+            "trades": 16393,
+            "settled": 16374,
+            "winRate": 49.98167827042873,
+            "profitFactor": 0.5573469317301102,
+            "expectancyR": -0.28377523347990613,
+            "averageWinR": 0.7148678910068459,
+            "averageLossR": 1.2816867512820465,
+            "payoff": 0.557755543850147
+          }
+        ],
+        "trades": 163929,
+        "settled": 163905,
+        "baselineExpectancyR": -0.6801049689332246,
+        "highestBucketExpectancyR": 0,
+        "spearman": 0.5013704105653718,
+        "monotonicViolations": 0,
+        "monotonicDefinition": "higher entry_edge_score should not reduce realized label expectancy",
+        "status": "CALIBRATED"
+      },
+      "oos": {
+        "deciles": [
+          {
+            "decile": 1,
+            "lower": null,
+            "upper": 31.726688124897233,
+            "trades": 7715,
+            "settled": 7715,
+            "winRate": 1.7368762151652624,
+            "profitFactor": 0.0006299413103926701,
+            "expectancyR": -1.6070169710952655,
+            "averageWinR": 0.058321052238805945,
+            "averageLossR": 1.6364531002506228,
+            "payoff": 0.03563869458273755
+          },
+          {
+            "decile": 2,
+            "lower": 31.726688124897233,
+            "upper": 33.90844672551192,
+            "trades": 7716,
+            "settled": 7716,
+            "winRate": 12.130637636080872,
+            "profitFactor": 0.009021799835776658,
+            "expectancyR": -1.1708369254795212,
+            "averageWinR": 0.08787025106837601,
+            "averageLossR": 1.3446053498525075,
+            "payoff": 0.06535021675915144
+          },
+          {
+            "decile": 3,
+            "lower": 33.90844672551192,
+            "upper": 36.10355175663271,
+            "trades": 7715,
+            "settled": 7715,
+            "winRate": 30.123136746597538,
+            "profitFactor": 0.035969648902412256,
+            "expectancyR": -0.9912816082955245,
+            "averageWinR": 0.12278416092943174,
+            "averageLossR": 1.471542941569276,
+            "payoff": 0.08343906077147353
+          },
+          {
+            "decile": 4,
+            "lower": 36.10355175663271,
+            "upper": 38.737583912990615,
+            "trades": 7716,
+            "settled": 7716,
+            "winRate": 42.66459305339554,
+            "profitFactor": 0.08091925691771117,
+            "expectancyR": -0.8734138750647986,
+            "averageWinR": 0.18023980072904044,
+            "averageLossR": 1.6574617730560577,
+            "payoff": 0.10874446919925705
+          },
+          {
+            "decile": 5,
+            "lower": 38.737583912990615,
+            "upper": 41.86187432536912,
+            "trades": 7715,
+            "settled": 7714,
+            "winRate": 48.39253305677988,
+            "profitFactor": 0.1363299404377261,
+            "expectancyR": -0.7611989382940122,
+            "averageWinR": 0.24829227002410922,
+            "averageLossR": 1.7078029776438133,
+            "payoff": 0.1453869522857186
+          },
+          {
+            "decile": 6,
+            "lower": 41.86187432536912,
+            "upper": 45.8183482153473,
+            "trades": 7716,
+            "settled": 7711,
+            "winRate": 50.23991700168591,
+            "profitFactor": 0.19781325281129938,
+            "expectancyR": -0.6661794100635444,
+            "averageWinR": 0.326980756324213,
+            "averageLossR": 1.6689165704977829,
+            "payoff": 0.1959239677431481
+          },
+          {
+            "decile": 7,
+            "lower": 45.8183482153473,
+            "upper": 51.18289154356819,
+            "trades": 7716,
+            "settled": 7714,
+            "winRate": 49.079595540575575,
+            "profitFactor": 0.243625410411202,
+            "expectancyR": -0.6147332078039929,
+            "averageWinR": 0.40343293766508265,
+            "averageLossR": 1.5960919213340126,
+            "payoff": 0.2527629720272587
+          },
+          {
+            "decile": 8,
+            "lower": 51.18289154356819,
+            "upper": 58.348524024435804,
+            "trades": 7715,
+            "settled": 7713,
+            "winRate": 48.86555166601841,
+            "profitFactor": 0.30620495570339823,
+            "expectancyR": -0.5376893271100749,
+            "averageWinR": 0.48563461156805354,
+            "averageLossR": 1.515607157961457,
+            "payoff": 0.32042248482202246
+          },
+          {
+            "decile": 9,
+            "lower": 58.348524024435804,
+            "upper": 67.48084082797112,
+            "trades": 7716,
+            "settled": 7714,
+            "winRate": 49.28701063002334,
+            "profitFactor": 0.39063364725678307,
+            "expectancyR": -0.44139191457091015,
+            "averageWinR": 0.5740940870594421,
+            "averageLossR": 1.428323861963194,
+            "payoff": 0.4019355150101355
+          },
+          {
+            "decile": 10,
+            "lower": 67.48084082797112,
+            "upper": null,
+            "trades": 7716,
+            "settled": 7702,
+            "winRate": 50.07790184367696,
+            "profitFactor": 0.5379055253544515,
+            "expectancyR": -0.3002060712801885,
+            "averageWinR": 0.6978282971221158,
+            "averageLossR": 1.3013552413524005,
+            "payoff": 0.5362319795146139
+          }
+        ],
+        "trades": 77156,
+        "settled": 77130,
+        "baselineExpectancyR": -0.796505184662247,
+        "highestBucketExpectancyR": 0,
+        "spearman": 0.48535525706897326,
+        "monotonicViolations": 0,
+        "monotonicDefinition": "higher entry_edge_score should not reduce realized label expectancy",
+        "status": "CALIBRATED"
+      }
     }
   },
   "candidates": {
@@ -10924,11 +11335,11 @@
           "atr_pct",
           "sl_distance_pct",
           "cost_coverage_ratio",
-          "btc_volatility_state",
           "structure_distance_rolling_low",
+          "btc_volatility_state",
+          "trend_return_4h",
           "relative_strength_4h",
-          "atr_percentile",
-          "trend_return_4h"
+          "atr_percentile"
         ],
         "scoreThreshold": 57.446752,
         "rationale": "Interpretable calibrated entry_edge_score for A. Trend Pullback Continuation; selected only after train-fold robustness review.",
@@ -11033,11 +11444,11 @@
           "atr_pct",
           "sl_distance_pct",
           "cost_coverage_ratio",
-          "btc_volatility_state",
           "structure_distance_rolling_low",
+          "btc_volatility_state",
+          "trend_return_4h",
           "relative_strength_4h",
-          "atr_percentile",
-          "trend_return_4h"
+          "atr_percentile"
         ],
         "scoreThreshold": 52.359791,
         "rationale": "Interpretable calibrated entry_edge_score for B. Breakout + Retest; selected only after train-fold robustness review.",
@@ -11142,11 +11553,11 @@
           "atr_pct",
           "sl_distance_pct",
           "cost_coverage_ratio",
-          "btc_volatility_state",
           "structure_distance_rolling_low",
+          "btc_volatility_state",
+          "trend_return_4h",
           "relative_strength_4h",
-          "atr_percentile",
-          "trend_return_4h"
+          "atr_percentile"
         ],
         "scoreThreshold": 48.541349,
         "rationale": "Interpretable calibrated entry_edge_score for C. Volatility Compression → Expansion; selected only after train-fold robustness review.",
@@ -11251,11 +11662,11 @@
           "atr_pct",
           "sl_distance_pct",
           "cost_coverage_ratio",
-          "btc_volatility_state",
           "structure_distance_rolling_low",
+          "btc_volatility_state",
+          "trend_return_4h",
           "relative_strength_4h",
-          "atr_percentile",
-          "trend_return_4h"
+          "atr_percentile"
         ],
         "scoreThreshold": 56.227202,
         "rationale": "Interpretable calibrated entry_edge_score for D. Relative Strength Continuation; selected only after train-fold robustness review.",
@@ -11361,11 +11772,11 @@
         "atr_pct",
         "sl_distance_pct",
         "cost_coverage_ratio",
-        "btc_volatility_state",
         "structure_distance_rolling_low",
+        "btc_volatility_state",
+        "trend_return_4h",
         "relative_strength_4h",
-        "atr_percentile",
-        "trend_return_4h"
+        "atr_percentile"
       ],
       "scoreThreshold": 57.446752,
       "rationale": "Interpretable calibrated entry_edge_score for A. Trend Pullback Continuation; selected only after train-fold robustness review.",
@@ -11512,11 +11923,11 @@
           "atr_pct",
           "sl_distance_pct",
           "cost_coverage_ratio",
-          "btc_volatility_state",
           "structure_distance_rolling_low",
+          "btc_volatility_state",
+          "trend_return_4h",
           "relative_strength_4h",
-          "atr_percentile",
-          "trend_return_4h"
+          "atr_percentile"
         ],
         "scoreThreshold": 57.446752,
         "rationale": "Interpretable calibrated entry_edge_score for A. Trend Pullback Continuation; selected only after train-fold robustness review.",
@@ -11621,11 +12032,11 @@
           "atr_pct",
           "sl_distance_pct",
           "cost_coverage_ratio",
-          "btc_volatility_state",
           "structure_distance_rolling_low",
+          "btc_volatility_state",
+          "trend_return_4h",
           "relative_strength_4h",
-          "atr_percentile",
-          "trend_return_4h"
+          "atr_percentile"
         ],
         "scoreThreshold": 52.359791,
         "rationale": "Interpretable calibrated entry_edge_score for B. Breakout + Retest; selected only after train-fold robustness review.",
@@ -11730,11 +12141,11 @@
           "atr_pct",
           "sl_distance_pct",
           "cost_coverage_ratio",
-          "btc_volatility_state",
           "structure_distance_rolling_low",
+          "btc_volatility_state",
+          "trend_return_4h",
           "relative_strength_4h",
-          "atr_percentile",
-          "trend_return_4h"
+          "atr_percentile"
         ],
         "scoreThreshold": 48.541349,
         "rationale": "Interpretable calibrated entry_edge_score for C. Volatility Compression → Expansion; selected only after train-fold robustness review.",
@@ -11839,11 +12250,11 @@
           "atr_pct",
           "sl_distance_pct",
           "cost_coverage_ratio",
-          "btc_volatility_state",
           "structure_distance_rolling_low",
+          "btc_volatility_state",
+          "trend_return_4h",
           "relative_strength_4h",
-          "atr_percentile",
-          "trend_return_4h"
+          "atr_percentile"
         ],
         "scoreThreshold": 56.227202,
         "rationale": "Interpretable calibrated entry_edge_score for D. Relative Strength Continuation; selected only after train-fold robustness review.",
@@ -11973,8 +12384,8 @@
   },
   "candidateFreeze": {
     "path": "reports/GPT-PROFIT-003-CANDIDATE-FREEZE.json",
-    "sha256": "165f3ef8868287ed4026e57c99bb4a0577dd1a490fd906315984b8f1908cada1",
-    "created": false
+    "sha256": "27a1bfb88b420cdecb9478cd4bb6794bce4d0780387db1612011c12135887137",
+    "created": true
   },
   "finalUnseen": {
     "executed": false,
