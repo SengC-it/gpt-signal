@@ -243,19 +243,22 @@ export function buildDerivativeAblation(input: {
       input.historyDays < 90 ? "INSUFFICIENT_DERIVATIVES_HISTORY" : rows.length ? "EVALUATED" : "NO_DATA"
     );
   });
-  const combinedRows = input.events.flatMap((event) => {
+  const permittedFamilies = families.filter((summary) => summary.status === "EVALUATED"
+    && (summary.deltaNetExpectancyR ?? -Infinity) > 0
+    && (summary.deltaProfitFactor ?? -Infinity) > 0);
+  const combinedRows = permittedFamilies.length ? input.events.flatMap((event) => {
     const metrics = selectSortedMetricAsOf(metricsBySymbol.get(event.symbol) ?? [], event.eventTime);
     if (!metrics) return [];
-    const scores = DERIVATIVE_FAMILIES.map((family) => derivativeFamilyScore(family, metrics, event.direction));
+    const scores = permittedFamilies.map((summary) => derivativeFamilyScore(summary.family as DerivativeFamily, metrics, event.direction));
     if (scores.some((score) => score === null)) return [];
     return [{ event, score: mean(scores as number[]) }];
-  });
+  }) : [];
   const combinedBaseline = summarizeDerivativeFamily("price_only", combinedRows.map((row) => ({ event: row.event, score: null })));
   const combined = summarizeDerivativeFamily(
     "combined_permitted",
     combinedRows,
     combinedBaseline,
-    input.historyDays < 90 ? "INSUFFICIENT_DERIVATIVES_HISTORY" : "NOT_PERMITTED"
+    input.historyDays < 90 ? "INSUFFICIENT_DERIVATIVES_HISTORY" : permittedFamilies.length ? "EVALUATED" : "NOT_PERMITTED"
   );
   return { baseline, families, combined };
 }

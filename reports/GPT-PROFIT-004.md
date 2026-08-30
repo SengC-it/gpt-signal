@@ -17,7 +17,7 @@ Price-only diagnostic events: 4110; label horizon: 96 bars; costs: fee 0.001 + s
 | basis | 4110 | 4110 | 0.010219 | -1.116132 | 0.079921 | 0.034066 | 0.000000 | 0.000000 | 6 | 2 | 0/3 | INSUFFICIENT_DERIVATIVES_HISTORY |
 | taker_flow | 4110 | 4110 | 0.010219 | -1.116132 | 0.079921 | 0.033983 | 0.000000 | 0.000000 | 6 | 2 | 0/3 | INSUFFICIENT_DERIVATIVES_HISTORY |
 | positioning | 4110 | 4110 | 0.010219 | -1.116132 | 0.079921 | -0.005879 | 0.000000 | 0.000000 | 6 | 2 | 0/3 | INSUFFICIENT_DERIVATIVES_HISTORY |
-| combined_permitted | 4080 | 4080 | 0.012745 | -1.115252 | 0.080339 | 0.037161 | 0.000000 | 0.000000 | 6 | 2 | 0/3 | INSUFFICIENT_DERIVATIVES_HISTORY |
+| combined_permitted | 0 | 0 | n/a | n/a | n/a | n/a | n/a | n/a | 0 | 0 | 0/0 | INSUFFICIENT_DERIVATIVES_HISTORY |
 
 Best incremental family: **none**. No candidate search was run (candidates generated: 0).
 
