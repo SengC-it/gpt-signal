@@ -11,6 +11,7 @@ import {
   type BreakdownKey
 } from "@/lib/signal/profitability-analytics";
 import { isSettledReviewStatus } from "@/lib/signal/review";
+import { PRODUCTION_SIGNAL_STRATEGIES } from "@/lib/signal/profitability-config";
 
 export const dynamic = "force-dynamic";
 
@@ -31,7 +32,10 @@ export default async function ReviewsPage() {
   ]);
   const production = reviews.filter((review) => review.deliveryMode === "production");
   const shadow = reviews.filter((review) => review.deliveryMode === "shadow");
-  const evidence = buildEdgeEvidence(reviews.map((review) => ({
+  const historicalDelivery = reviews.filter((review) => review.runtimeStrategyState === "historical_delivery");
+  const evidence = buildEdgeEvidence(reviews
+    .filter((review) => review.runtimeStrategyState !== "historical_delivery")
+    .map((review) => ({
     strategyVersion: review.strategyVersion ?? "legacy/unknown",
     signalType: review.signalType,
     symbol: review.symbol,
@@ -39,7 +43,7 @@ export default async function ReviewsPage() {
     marketRegime: review.marketRegime,
     settled: isSettledReviewStatus(review.status),
     netR: review.netR
-  })));
+    })));
 
   return (
     <AppShell>
@@ -65,9 +69,12 @@ export default async function ReviewsPage() {
             note={`连续错误 ${scheduler.consecutiveSyncErrors}`}
           />
         </div>
+        <p className="page-subtitle" style={{ marginTop: 12 }}>
+          Current runtime Production strategies: <strong>{PRODUCTION_SIGNAL_STRATEGIES.length} (expected)</strong> · historical production-delivery rows: {historicalDelivery.length}. Historical rows remain visible for audit and are excluded from current Edge Evidence.
+        </p>
       </section>
 
-      <BenchmarkMetrics title="Production baseline" reviews={production} timeSeries={benchmarkSummaries.production} />
+      <BenchmarkMetrics title="Production delivery history (audit only)" reviews={production} timeSeries={benchmarkSummaries.production} />
       <BenchmarkMetrics title="Shadow candidates" reviews={shadow} timeSeries={benchmarkSummaries.shadow} />
 
       <section className="panel" style={{ marginTop: 16 }}>
@@ -119,14 +126,14 @@ export default async function ReviewsPage() {
           <table>
             <thead>
               <tr>
-                <th>信号时间</th><th>模式</th><th>版本</th><th>交易对</th><th>方向</th><th>状态</th><th>入场</th><th>止损</th><th>TP1</th>
+                <th>信号时间</th><th>模式</th><th>运行时状态</th><th>版本</th><th>交易对</th><th>方向</th><th>状态</th><th>入场</th><th>止损</th><th>TP1</th>
                 <th>Review price</th><th>Realized gross/net</th><th>MTM gross/net</th><th>Realized / current R</th><th>MFE / MAE</th>
               </tr>
             </thead>
             <tbody>
-              {reviews.length === 0 ? <tr><td colSpan={14}>暂无复盘数据。</td></tr> : reviews.map((review) => (
+              {reviews.length === 0 ? <tr><td colSpan={15}>暂无复盘数据。</td></tr> : reviews.map((review) => (
                 <tr key={review.id}>
-                  <td>{formatTime(review.signalSentAt)}</td><td><StatusBadge value={review.deliveryMode} /></td><td>{review.strategyVersion ?? "legacy/unknown"}</td>
+                  <td>{formatTime(review.signalSentAt)}</td><td><StatusBadge value={review.deliveryMode} /></td><td>{runtimeStateLabel(review.runtimeStrategyState)}</td><td>{review.strategyVersion ?? "legacy/unknown"}</td>
                   <td><Link href={`/signals/${review.signalId}`}>{review.symbol}</Link></td><td><StatusBadge value={review.direction} /></td><td><StatusBadge value={statusLabel(review.status)} /></td>
                   <td>{priceRange(review.entryLow, review.entryHigh)}</td><td>{review.stopLoss}</td><td>{review.tp1}</td><td>{review.currentReviewPrice ?? review.exitPrice ?? "-"}</td>
                   <td>{formatPnl(review.grossPnlPct)} / {formatPnl(review.netPnlPct)}</td>
@@ -176,6 +183,10 @@ function BenchmarkMetrics({
 
 function statusLabel(status: string) {
   return ({ waiting_entry: "待入场", open: "Open MTM", hit_tp1: "TP1", hit_tp2: "TP2 legacy", hit_tp3: "TP3 legacy", hit_sl: "SL" } as Record<string, string>)[status] ?? status;
+}
+
+function runtimeStateLabel(value: DisplaySignalReview["runtimeStrategyState"]) {
+  return value === "current_runtime_production" ? "current runtime Production" : value === "shadow_candidate" ? "Shadow candidate" : "historical delivery";
 }
 
 function priceRange(low: number, high: number) { return low === high ? String(low) : `${low} - ${high}`; }

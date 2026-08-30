@@ -1,5 +1,23 @@
 import type { DeliveryMode } from "./types.ts";
 
+// Empty by design while Main V2 and ALT Basket remain Shadow Only. Historical
+// rows may still carry delivery_mode=production and must not be mistaken for
+// an enabled strategy in current runtime dashboards.
+export const PRODUCTION_SIGNAL_STRATEGIES = Object.freeze([] as string[]);
+
+export type RuntimeStrategyState = "current_runtime_production" | "shadow_candidate" | "historical_delivery";
+
+export function classifyRuntimeStrategy(input: {
+  deliveryMode: DeliveryMode;
+  strategyVersion: string | null;
+  signalType: string;
+}): RuntimeStrategyState {
+  if (input.deliveryMode === "shadow") return "shadow_candidate";
+  return input.strategyVersion && PRODUCTION_SIGNAL_STRATEGIES.includes(input.strategyVersion)
+    ? "current_runtime_production"
+    : "historical_delivery";
+}
+
 export const MAIN_STRATEGY_DELIVERY_MODE: DeliveryMode = "shadow";
 export const ALT_BASKET_DELIVERY_MODE: DeliveryMode = "shadow";
 
