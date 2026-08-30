@@ -1,6 +1,6 @@
 {
   "task": "GPT-PROFIT-004 — Derivatives Edge Data Foundation",
-  "generatedAt": "2026-08-30T16:46:28.833Z",
+  "generatedAt": "2026-08-30T16:59:30.262Z",
   "result": "INSUFFICIENT_DERIVATIVES_HISTORY",
   "boundary": {
     "researchCutoff": "2026-08-30T00:00:00.000Z",
@@ -550,11 +550,11 @@
     "productionEnabled": false
   },
   "provenance": {
-    "mainBaseSha": null,
-    "branchHeadSha": null,
+    "mainBaseSha": "dccf086485409e1cd94d8942697a030fac6271dc",
+    "branchHeadSha": "bfff7cb6d6e05a5ba119e93e3790d8077fa439ae",
     "sourceParentSha": null,
     "dataManifestSha256": "b2b835dc4fbae5c4e6335e87270c5ff39ff6c7016d74b3b2dac9c079d1340a72",
-    "researchScriptSha256": "3420385a5e9d9f5e8939ecb1566e8a4a405c40caf9b8e566d7cf67f4424397c0",
+    "researchScriptSha256": "47dc7ccd604777b6fd765ec6b508216aa917291ec24f8812a01632678b62db72",
     "researchModuleSha256": "397152a9830c6fb077b2bd59baa3ae43cbc207c83b9e356043a8bba89d97ba3f",
     "derivativesCollectorSha256": "9f378963eb071dd9397a609ee1e45836403fabc49e132aeec7baedd35c382fd7",
     "liquidationForwardCollectorSha256": "b8b499c2434cad0525d1d58129d24c9ab00b3f9a21f98aad40bcc7c166e3533a"

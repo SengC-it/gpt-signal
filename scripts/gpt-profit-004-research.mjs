@@ -272,8 +272,39 @@ function averageRange(candles, index, period) {
 function readJson(filePath) { try { return JSON.parse(fs.readFileSync(filePath, "utf8")); } catch { return null; } }
 function fileHash(filePath) { return fs.existsSync(filePath) ? crypto.createHash("sha256").update(fs.readFileSync(filePath)).digest("hex") : null; }
 function readShaSidecar(filePath) { if (!fs.existsSync(filePath)) return null; return fs.readFileSync(filePath, "utf8").trim().split(/\s+/)[0] || null; }
-function resolveRef(ref) { try { return execFileSync("git", ["rev-parse", ref], { encoding: "utf8" }).trim(); } catch { return null; } }
-function resolveParentSha() { try { return resolveRef("HEAD^"); } catch { return null; } }
+function resolveRef(ref) {
+  try { return execFileSync("git", ["rev-parse", ref], { encoding: "utf8" }).trim(); } catch {
+    // Some restricted runners disallow child processes even though the
+    // repository is readable. Resolve ordinary refs from .git as a
+    // deterministic provenance fallback rather than emitting null hashes.
+    if (ref.endsWith("^")) return null;
+    const headPath = path.join(process.cwd(), ".git", "HEAD");
+    let normalized = ref;
+    try {
+      if (ref === "HEAD") {
+        const head = fs.readFileSync(headPath, "utf8").trim();
+        normalized = head.startsWith("ref: ") ? head.slice(5) : head;
+      } else if (ref === "origin/main") {
+        normalized = "refs/remotes/origin/main";
+      } else if (ref === "main") {
+        normalized = "refs/heads/main";
+      } else if (!ref.startsWith("refs/")) {
+        normalized = `refs/${ref}`;
+      }
+      const refPath = path.join(process.cwd(), ".git", normalized);
+      if (fs.existsSync(refPath)) return fs.readFileSync(refPath, "utf8").trim() || null;
+      const packedPath = path.join(process.cwd(), ".git", "packed-refs");
+      if (fs.existsSync(packedPath)) {
+        const line = fs.readFileSync(packedPath, "utf8").split(/\r?\n/).find((item) => item.endsWith(` ${normalized}`));
+        if (line) return line.split(" ")[0] ?? null;
+      }
+    } catch { /* provenance remains nullable if the git metadata is unavailable */ }
+    return null;
+  }
+}
+function resolveParentSha() {
+  try { return resolveRef("HEAD^"); } catch { return null; }
+}
 function renderMarkdown(report) {
   const lines = [
     "# GPT-PROFIT-004 — Derivatives Edge Data Foundation",
