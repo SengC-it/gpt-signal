@@ -186,6 +186,32 @@ describe("GPT-PROFIT-004 public derivatives foundation", () => {
     expect(metric.dataQualityFlags.staleFamilies).toContain("basis");
   });
 
+  test("closed 5m price reference drives derivatives divergences", () => {
+    const decision = Date.parse("2026-08-30T12:00:00.000Z");
+    const metric = buildDerivativesMetric({
+      symbol: "BTCUSDT",
+      now: decision + 4 * 60 * 1000,
+      priceReference: {
+        current: 105,
+        previous: 100,
+        interval: "5m",
+        currentTime: decision,
+        previousTime: decision - 5 * 60 * 1000
+      },
+      openInterestHistory: [],
+      premiumIndex: { symbol: "BTCUSDT", markPrice: 101, indexPrice: 100, fundingRate: 0.0001, nextFundingTime: decision + 60_000, timestamp: decision - 10 * 60 * 1000 },
+      fundingHistory: [{ symbol: "BTCUSDT", fundingRate: 0.0001, fundingTime: decision - 10 * 60 * 1000, markPrice: 101 }],
+      basisHistory: [{ pair: "BTCUSDT", basis: 0.2, basisRate: 0.002, indexPrice: 100, futuresPrice: 100.2, timestamp: decision - 5 * 60 * 1000 }],
+      takerHistory: [{ buySellRatio: 1.2, buyVolume: 120, sellVolume: 100, timestamp: decision - 5 * 60 * 1000 }],
+      globalLongShortHistory: []
+    });
+    expect(metric.priceChange5m).toBe(5);
+    expect(metric.priceFundingDivergence).toBe(0.0005);
+    expect(metric.priceBasisDivergence).toBe(100);
+    expect(metric.aggressiveFlowDivergence).toBeCloseTo(0.454545, 6);
+    expect(metric.dataQualityFlags.priceReference).toMatchObject({ interval: "5m", valid: true });
+  });
+
   test("collector is fail-soft and still emits a quality row when endpoints fail", async () => {
     const fetchImpl = vi.fn(async (input: RequestInfo | URL) => {
       const pathname = new URL(String(input)).pathname;
