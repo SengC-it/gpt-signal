@@ -83,6 +83,6 @@
 
 - Candidate count: 4; Internal Gate: **FAIL** (netRPositive, profitFactor, expectancy, payoff, positiveFolds, positiveMonths).
 - Final Unseen: executed=false; status=NO_CANDIDATE_FOR_FINAL_HOLDOUT; holdout executions=0.
-- Reproducibility: base 78104f72b8cbd486a9844839c3fc807cef57643a; source 203225ec540a8ecde3e50822b4bbecfdab1c7695; script b0eefa414b2bb71672cdc2340923bc4d2e0255300912bd1cec0d3b1c2d785c50; module c818edc93add0d8a8459149634d76252fc8a46ab145be695a922e18787e03b29; freeze 27a1bfb88b420cdecb9478cd4bb6794bce4d0780387db1612011c12135887137; dataset c2b482d6171596aa297133a9959c50b5faaea4655036f6f17e27c41c55dcfec9.
+- Reproducibility: base 78104f72b8cbd486a9844839c3fc807cef57643a; source 8cab611705578bf364dea22c3f7765af0d38ed02; script 90ce4454b9c8b58c4652c6faa65261842c9e774dc9c86e40b87fc444c992d2c6; module c818edc93add0d8a8459149634d76252fc8a46ab145be695a922e18787e03b29; freeze 27a1bfb88b420cdecb9478cd4bb6794bce4d0780387db1612011c12135887137; dataset c2b482d6171596aa297133a9959c50b5faaea4655036f6f17e27c41c55dcfec9.
 
 Research-only boundary: Main V2 and ALT Basket remain Shadow; `PRODUCTION_SIGNAL_STRATEGIES=[]`; no automatic trading or private Binance API.

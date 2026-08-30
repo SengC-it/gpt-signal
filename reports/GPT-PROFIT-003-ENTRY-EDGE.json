@@ -1,13 +1,13 @@
 {
   "task": "GPT-PROFIT-003",
-  "generatedAt": "2026-08-30T04:01:50.763Z",
+  "generatedAt": "2026-08-30T04:11:19.142Z",
   "result": "NO ENTRY EDGE FOUND",
-  "codeVersion": "203225ec540a8ecde3e50822b4bbecfdab1c7695",
+  "codeVersion": "8cab611705578bf364dea22c3f7765af0d38ed02",
   "provenance": {
     "mainBaseSha": "78104f72b8cbd486a9844839c3fc807cef57643a",
-    "branchHeadSha": "203225ec540a8ecde3e50822b4bbecfdab1c7695",
-    "sourceParentSha": "78104f72b8cbd486a9844839c3fc807cef57643a",
-    "researchScriptSha256": "b0eefa414b2bb71672cdc2340923bc4d2e0255300912bd1cec0d3b1c2d785c50",
+    "branchHeadSha": "8cab611705578bf364dea22c3f7765af0d38ed02",
+    "sourceParentSha": "203225ec540a8ecde3e50822b4bbecfdab1c7695",
+    "researchScriptSha256": "90ce4454b9c8b58c4652c6faa65261842c9e774dc9c86e40b87fc444c992d2c6",
     "entryEdgeModuleSha256": "c818edc93add0d8a8459149634d76252fc8a46ab145be695a922e18787e03b29",
     "candidateFreezeSha256": "27a1bfb88b420cdecb9478cd4bb6794bce4d0780387db1612011c12135887137",
     "datasetManifestSha256": "c2b482d6171596aa297133a9959c50b5faaea4655036f6f17e27c41c55dcfec9"
@@ -11034,7 +11034,7 @@
       "trades": 77156,
       "settled": 77130,
       "baselineExpectancyR": -0.796505184662247,
-      "highestBucketExpectancyR": 0,
+      "highestBucketExpectancyR": -0.3002060712801885,
       "spearman": 0.48535525706897326,
       "monotonicViolations": 0,
       "monotonicDefinition": "higher entry_edge_score should not reduce realized label expectancy",
@@ -11175,7 +11175,7 @@
         "trades": 163929,
         "settled": 163905,
         "baselineExpectancyR": -0.6801049689332246,
-        "highestBucketExpectancyR": 0,
+        "highestBucketExpectancyR": -0.28377523347990613,
         "spearman": 0.5013704105653718,
         "monotonicViolations": 0,
         "monotonicDefinition": "higher entry_edge_score should not reduce realized label expectancy",
@@ -11317,7 +11317,7 @@
         "trades": 77156,
         "settled": 77130,
         "baselineExpectancyR": -0.796505184662247,
-        "highestBucketExpectancyR": 0,
+        "highestBucketExpectancyR": -0.3002060712801885,
         "spearman": 0.48535525706897326,
         "monotonicViolations": 0,
         "monotonicDefinition": "higher entry_edge_score should not reduce realized label expectancy",
@@ -12385,7 +12385,7 @@
   "candidateFreeze": {
     "path": "reports/GPT-PROFIT-003-CANDIDATE-FREEZE.json",
     "sha256": "27a1bfb88b420cdecb9478cd4bb6794bce4d0780387db1612011c12135887137",
-    "created": true
+    "created": false
   },
   "finalUnseen": {
     "executed": false,

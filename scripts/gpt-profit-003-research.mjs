@@ -416,7 +416,7 @@ function summarizeScoreCalibration(scored) {
     trades: scored.length,
     settled: scored.filter((item) => item.event.labelOneR.netR !== null).length,
     baselineExpectancyR: baseline.expectancyR,
-    highestBucketExpectancyR: Math.max(0, ...expectancy),
+    highestBucketExpectancyR: expectancy.length ? Math.max(...expectancy) : 0,
     spearman: calculateSpearman(values, outcomes),
     monotonicViolations: countMonotonicViolations(expectancy),
     monotonicDefinition: "higher entry_edge_score should not reduce realized label expectancy",
