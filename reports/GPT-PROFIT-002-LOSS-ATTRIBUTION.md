@@ -12,6 +12,15 @@ Parity conclusion: this corrected runtime-lifecycle simulator leaves Main V2 dec
 
 For continuity, the accepted GPT-PROFIT-001-R1 parity reference remains full OOS 4,365 settled / -952.65R / PF 0.400 / -0.218R expectancy and final 60d holdout 1,398 settled / -369.23R / PF 0.341 / -0.264R expectancy.
 
+## R1 lifecycle parity
+
+Candidate-specific research lifecycle is advanced on each prior closed candle; hard SL/TP, invalidated_exit, and time_stop_exit are all settled before the next opportunity dedupe decision. Production review engine is unchanged.
+
+Candidate freeze SHA256: 6ab19d3ae5cd19a38e141cfa773ccdd89b6337077beccff40b67214478d7fc62. Dataset manifest SHA256: c2b482d6171596aa297133a9959c50b5faaea4655036f6f17e27c41c55dcfec9. Holdout executions: 0.
+
+D/E before R1: {"p002-e-time-stop-48h":{"trades":8067,"settledTrades":8003,"profitFactor":0.7443632037967156,"expectancyR":-0.15524519542671458,"netR":-1242.4272989999968},"p002-e-time-stop-24h":{"trades":8067,"settledTrades":8003,"profitFactor":0.7104738837907495,"expectancyR":-0.16322451305760333,"netR":-1306.2857779999995},"p002-d-invalidation-t1_5":{"trades":8067,"settledTrades":8067,"profitFactor":0.21106801494985114,"expectancyR":-0.2470832610635928,"netR":-1993.220667000003},"p002-d-invalidation-t1_25":{"trades":8067,"settledTrades":8067,"profitFactor":0.20883265638775642,"expectancyR":-0.24765412334201106,"netR":-1997.8258130000033}}.
+D/E after R1: {"p002-e-time-stop-48h":{"trades":8067,"settledTrades":8003,"profitFactor":0.7443632037967156,"expectancyR":-0.15524519542671458,"netR":-1242.4272989999968},"p002-e-time-stop-24h":{"trades":8067,"settledTrades":8003,"profitFactor":0.7104738837907495,"expectancyR":-0.16322451305760333,"netR":-1306.2857779999995},"p002-d-invalidation-t1_5":{"trades":8067,"settledTrades":8067,"profitFactor":0.21106801494985114,"expectancyR":-0.2470832610635928,"netR":-1993.220667000003},"p002-d-invalidation-t1_25":{"trades":8067,"settledTrades":8067,"profitFactor":0.20883265638775642,"expectancyR":-0.24765412334201106,"netR":-1997.8258130000033}}.
+
 ## Five key findings
 
 - symbol=AVAXUSDT is the largest negative Net R slice (-522.4427R, 2632 settled).

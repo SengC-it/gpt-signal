@@ -1,7 +1,16 @@
 {
   "task": "GPT-PROFIT-002",
-  "generatedAt": "2026-08-30T00:22:09.115Z",
-  "codeVersion": "working-tree",
+  "generatedAt": "2026-08-30T02:10:17.877Z",
+  "codeVersion": "8b47f53e3762d60f61f9f29bcd9bfd3cece4bc8d",
+  "provenance": {
+    "mainBaseSha": "65893c1a9f77674e2248191e20f6ad324c0c27ef",
+    "branchHeadSha": "8b47f53e3762d60f61f9f29bcd9bfd3cece4bc8d",
+    "sourceParentSha": "07df6df23ae7294f2601ee5c679b8ab4b744fe91",
+    "researchScriptSha256": "52991539d560f3812de9a901255f9252a3c168f12e5743f7beec4cd7355fb9a0",
+    "profitability002ModuleSha256": "0ff944af9a16fbcbe7b76b0d4a3de1a0c01a7e9db77f0f016c150a08bb7fbbb3",
+    "candidateFreezeSha256": "6ab19d3ae5cd19a38e141cfa773ccdd89b6337077beccff40b67214478d7fc62",
+    "datasetManifestSha256": "c2b482d6171596aa297133a9959c50b5faaea4655036f6f17e27c41c55dcfec9"
+  },
   "safety": {
     "mainV2DeliveryMode": "shadow",
     "altBasketDeliveryMode": "shadow",
@@ -101,6 +110,7 @@
         }
       }
     },
+    "manifestSha256": "c2b482d6171596aa297133a9959c50b5faaea4655036f6f17e27c41c55dcfec9",
     "commonBars": 45873,
     "discovery": {
       "start": "2025-05-09T18:45:00.000Z",
@@ -188,8 +198,84 @@
     },
     "priorAcceptedParityReference": {
       "source": "reports/GPT-PROFIT-001-R1-PARITY.md",
-      "fullOos": { "settledTrades": 4365, "netR": -952.65, "profitFactor": 0.4, "expectancyR": -0.218 },
-      "final60dHoldout": { "settledTrades": 1398, "netR": -369.23, "profitFactor": 0.341, "expectancyR": -0.264 }
+      "fullOos": {
+        "settledTrades": 4365,
+        "netR": -952.65,
+        "profitFactor": 0.4,
+        "expectancyR": -0.218
+      },
+      "final60dHoldout": {
+        "settledTrades": 1398,
+        "netR": -369.23,
+        "profitFactor": 0.341,
+        "expectancyR": -0.264
+      }
+    }
+  },
+  "lifecycleParity": {
+    "method": "Candidate-specific research lifecycle is advanced on each prior closed candle; hard SL/TP, invalidated_exit, and time_stop_exit are all settled before the next opportunity dedupe decision. Production review engine is unchanged.",
+    "previousRun": {
+      "sourceCommit": "477ee88f41ce36d5b895c273d042f71c77dbbb7d",
+      "candidates": {
+        "p002-e-time-stop-48h": {
+          "trades": 8067,
+          "settledTrades": 8003,
+          "profitFactor": 0.7443632037967156,
+          "expectancyR": -0.15524519542671458,
+          "netR": -1242.4272989999968
+        },
+        "p002-e-time-stop-24h": {
+          "trades": 8067,
+          "settledTrades": 8003,
+          "profitFactor": 0.7104738837907495,
+          "expectancyR": -0.16322451305760333,
+          "netR": -1306.2857779999995
+        },
+        "p002-d-invalidation-t1_5": {
+          "trades": 8067,
+          "settledTrades": 8067,
+          "profitFactor": 0.21106801494985114,
+          "expectancyR": -0.2470832610635928,
+          "netR": -1993.220667000003
+        },
+        "p002-d-invalidation-t1_25": {
+          "trades": 8067,
+          "settledTrades": 8067,
+          "profitFactor": 0.20883265638775642,
+          "expectancyR": -0.24765412334201106,
+          "netR": -1997.8258130000033
+        }
+      }
+    },
+    "currentRun": {
+      "p002-e-time-stop-48h": {
+        "trades": 8067,
+        "settledTrades": 8003,
+        "profitFactor": 0.7443632037967156,
+        "expectancyR": -0.15524519542671458,
+        "netR": -1242.4272989999968
+      },
+      "p002-e-time-stop-24h": {
+        "trades": 8067,
+        "settledTrades": 8003,
+        "profitFactor": 0.7104738837907495,
+        "expectancyR": -0.16322451305760333,
+        "netR": -1306.2857779999995
+      },
+      "p002-d-invalidation-t1_5": {
+        "trades": 8067,
+        "settledTrades": 8067,
+        "profitFactor": 0.21106801494985114,
+        "expectancyR": -0.2470832610635928,
+        "netR": -1993.220667000003
+      },
+      "p002-d-invalidation-t1_25": {
+        "trades": 8067,
+        "settledTrades": 8067,
+        "profitFactor": 0.20883265638775642,
+        "expectancyR": -0.24765412334201106,
+        "netR": -1997.8258130000033
+      }
     }
   },
   "lossAttribution": {
@@ -2312,6 +2398,7 @@
     "noHoldoutDecisions": true
   },
   "candidateFreeze": "reports/GPT-PROFIT-002-CANDIDATE-FREEZE.json",
+  "candidateFreezeSha256": "6ab19d3ae5cd19a38e141cfa773ccdd89b6337077beccff40b67214478d7fc62",
   "walkForward": {
     "trainDays": 120,
     "testDays": 45,
@@ -3875,5 +3962,6 @@
       "end": "2026-08-29T23:45:00.000Z"
     }
   },
+  "holdoutExecutions": 0,
   "result": "NO EDGE FOUND"
 }
