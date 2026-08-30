@@ -1,0 +1,309 @@
+{
+  "task": "GPT-PROFIT-004 — Derivatives Edge Data Foundation",
+  "generatedAt": "2026-08-30T12:09:35.459Z",
+  "result": "INSUFFICIENT_DERIVATIVES_HISTORY",
+  "boundary": {
+    "researchCutoff": "2026-08-30T00:00:00.000Z",
+    "forwardValidationStarts": "2026-08-30T00:05:00.000Z",
+    "labelEnd": "2026-08-30T00:00:00.000Z",
+    "decisionEnd": "2026-08-29T00:00:00.000Z",
+    "explicitlySeparateFromGPTProfit003Holdout": true,
+    "gptProfit003Holdout": {
+      "start": "2026-08-02T03:30:00.000Z",
+      "end": "2026-08-29T23:45:00.000Z",
+      "executions": 0
+    }
+  },
+  "sources": {
+    "manifest": "reports/GPT-PROFIT-004-DATA-MANIFEST.json",
+    "manifestSha256": "09e3915b66a18cdbfa8abfca4e3e8c5ae6a2ec0ff57aba4239653219bcf38bdd",
+    "sourceObservationRows": 360285,
+    "metricFiles": 49,
+    "metricRows": 60760,
+    "earliestMetric": "2026-07-31T11:15:00.000Z",
+    "latestMetric": "2026-08-30T11:15:00.000Z",
+    "historicalCoverageDays": 18.895833,
+    "historicalCoverageAtLeast90d": false
+  },
+  "labels": {
+    "primary": "+1R before -1R",
+    "secondary": "+1.25R before -1R",
+    "horizonBars": 96,
+    "sameCandlePriority": "STOP FIRST",
+    "feePerSide": 0.001,
+    "slippagePerSide": 0.0005,
+    "source": "fixed entry-edge label simulator; no derivative-derived threshold"
+  },
+  "events": {
+    "priceOnlyEvents": 4110,
+    "symbols": [
+      "ETHUSDT",
+      "SOLUSDT",
+      "BNBUSDT",
+      "LINKUSDT",
+      "AVAXUSDT",
+      "DOGEUSDT"
+    ],
+    "noCandidateSearch": true
+  },
+  "baseline": {
+    "family": "price_only",
+    "status": "EVALUATED",
+    "eventCount": 4110,
+    "settled": 4110,
+    "grossExpectancyR": 0.010219,
+    "netExpectancyR": -1.116132,
+    "profitFactor": 0.079921,
+    "payoff": 0.232615,
+    "spearman": null,
+    "monotonicViolations": null,
+    "conditionalLiftR": null,
+    "deltaGrossExpectancyR": null,
+    "deltaNetExpectancyR": null,
+    "deltaProfitFactor": null,
+    "symbolBreadth": 6,
+    "monthBreadth": 2,
+    "positiveMonths": 0,
+    "positiveFolds": 0,
+    "folds": 3,
+    "foldConsistency": "0/3",
+    "comparableBaseline": {
+      "eventCount": 0,
+      "settled": 0,
+      "grossExpectancyR": null,
+      "netExpectancyR": null,
+      "profitFactor": null
+    }
+  },
+  "families": [
+    {
+      "family": "open_interest",
+      "status": "INSUFFICIENT_DERIVATIVES_HISTORY",
+      "eventCount": 4110,
+      "settled": 4110,
+      "grossExpectancyR": 0.010219,
+      "netExpectancyR": -1.116132,
+      "profitFactor": 0.079921,
+      "payoff": 0.232615,
+      "spearman": -0.012065,
+      "monotonicViolations": 1057,
+      "conditionalLiftR": 0.147556,
+      "deltaGrossExpectancyR": 0,
+      "deltaNetExpectancyR": 0,
+      "deltaProfitFactor": 0,
+      "symbolBreadth": 6,
+      "monthBreadth": 2,
+      "positiveMonths": 0,
+      "positiveFolds": 0,
+      "folds": 3,
+      "foldConsistency": "0/3",
+      "comparableBaseline": {
+        "eventCount": 4110,
+        "settled": 4110,
+        "grossExpectancyR": 0.010219,
+        "netExpectancyR": -1.116132,
+        "profitFactor": 0.079921
+      }
+    },
+    {
+      "family": "funding",
+      "status": "INSUFFICIENT_DERIVATIVES_HISTORY",
+      "eventCount": 4080,
+      "settled": 4080,
+      "grossExpectancyR": 0.012745,
+      "netExpectancyR": -1.115252,
+      "profitFactor": 0.080339,
+      "payoff": 0.233328,
+      "spearman": -0.036325,
+      "monotonicViolations": 818,
+      "conditionalLiftR": 0.102521,
+      "deltaGrossExpectancyR": 0,
+      "deltaNetExpectancyR": 0,
+      "deltaProfitFactor": 0,
+      "symbolBreadth": 6,
+      "monthBreadth": 2,
+      "positiveMonths": 0,
+      "positiveFolds": 0,
+      "folds": 3,
+      "foldConsistency": "0/3",
+      "comparableBaseline": {
+        "eventCount": 4080,
+        "settled": 4080,
+        "grossExpectancyR": 0.012745,
+        "netExpectancyR": -1.115252,
+        "profitFactor": 0.080339
+      }
+    },
+    {
+      "family": "basis",
+      "status": "INSUFFICIENT_DERIVATIVES_HISTORY",
+      "eventCount": 4110,
+      "settled": 4110,
+      "grossExpectancyR": 0.010219,
+      "netExpectancyR": -1.116132,
+      "profitFactor": 0.079921,
+      "payoff": 0.232615,
+      "spearman": 0.034066,
+      "monotonicViolations": 987,
+      "conditionalLiftR": -0.10373,
+      "deltaGrossExpectancyR": 0,
+      "deltaNetExpectancyR": 0,
+      "deltaProfitFactor": 0,
+      "symbolBreadth": 6,
+      "monthBreadth": 2,
+      "positiveMonths": 0,
+      "positiveFolds": 0,
+      "folds": 3,
+      "foldConsistency": "0/3",
+      "comparableBaseline": {
+        "eventCount": 4110,
+        "settled": 4110,
+        "grossExpectancyR": 0.010219,
+        "netExpectancyR": -1.116132,
+        "profitFactor": 0.079921
+      }
+    },
+    {
+      "family": "taker_flow",
+      "status": "INSUFFICIENT_DERIVATIVES_HISTORY",
+      "eventCount": 4110,
+      "settled": 4110,
+      "grossExpectancyR": 0.010219,
+      "netExpectancyR": -1.116132,
+      "profitFactor": 0.079921,
+      "payoff": 0.232615,
+      "spearman": 0.033983,
+      "monotonicViolations": 1017,
+      "conditionalLiftR": -0.022654,
+      "deltaGrossExpectancyR": 0,
+      "deltaNetExpectancyR": 0,
+      "deltaProfitFactor": 0,
+      "symbolBreadth": 6,
+      "monthBreadth": 2,
+      "positiveMonths": 0,
+      "positiveFolds": 0,
+      "folds": 3,
+      "foldConsistency": "0/3",
+      "comparableBaseline": {
+        "eventCount": 4110,
+        "settled": 4110,
+        "grossExpectancyR": 0.010219,
+        "netExpectancyR": -1.116132,
+        "profitFactor": 0.079921
+      }
+    },
+    {
+      "family": "positioning",
+      "status": "INSUFFICIENT_DERIVATIVES_HISTORY",
+      "eventCount": 4110,
+      "settled": 4110,
+      "grossExpectancyR": 0.010219,
+      "netExpectancyR": -1.116132,
+      "profitFactor": 0.079921,
+      "payoff": 0.232615,
+      "spearman": -0.005879,
+      "monotonicViolations": 1023,
+      "conditionalLiftR": 0.155132,
+      "deltaGrossExpectancyR": 0,
+      "deltaNetExpectancyR": 0,
+      "deltaProfitFactor": 0,
+      "symbolBreadth": 6,
+      "monthBreadth": 2,
+      "positiveMonths": 0,
+      "positiveFolds": 0,
+      "folds": 3,
+      "foldConsistency": "0/3",
+      "comparableBaseline": {
+        "eventCount": 4110,
+        "settled": 4110,
+        "grossExpectancyR": 0.010219,
+        "netExpectancyR": -1.116132,
+        "profitFactor": 0.079921
+      }
+    }
+  ],
+  "combinedPermitted": {
+    "family": "combined_permitted",
+    "status": "INSUFFICIENT_DERIVATIVES_HISTORY",
+    "eventCount": 4080,
+    "settled": 4080,
+    "grossExpectancyR": 0.012745,
+    "netExpectancyR": -1.115252,
+    "profitFactor": 0.080339,
+    "payoff": 0.233328,
+    "spearman": 0.037161,
+    "monotonicViolations": 1021,
+    "conditionalLiftR": -0.113464,
+    "deltaGrossExpectancyR": 0,
+    "deltaNetExpectancyR": 0,
+    "deltaProfitFactor": 0,
+    "symbolBreadth": 6,
+    "monthBreadth": 2,
+    "positiveMonths": 0,
+    "positiveFolds": 0,
+    "folds": 3,
+    "foldConsistency": "0/3",
+    "comparableBaseline": {
+      "eventCount": 4080,
+      "settled": 4080,
+      "grossExpectancyR": 0.012745,
+      "netExpectancyR": -1.115252,
+      "profitFactor": 0.080339
+    }
+  },
+  "bestIncrementalFamily": null,
+  "internalGate": {
+    "status": "INSUFFICIENT_DERIVATIVES_HISTORY",
+    "passed": false,
+    "reasons": [
+      "no family can be evaluated with >=90d coverage"
+    ],
+    "checks": {
+      "historyAtLeast90d": false
+    }
+  },
+  "candidateSearch": {
+    "maxCandidates": 8,
+    "candidatesGenerated": 0,
+    "bestCandidate": null,
+    "status": "NO_CANDIDATE_SEARCH_IN_DATA_FOUNDATION"
+  },
+  "prospectiveCollector": {
+    "enabled": true,
+    "integratedInto": "src/app/api/jobs/sync-market/route.ts",
+    "failSoft": true,
+    "appendOnlyTable": "gpt_derivatives_metrics"
+  },
+  "liquidationForwardCollector": {
+    "enabled": true,
+    "mode": "forward_only",
+    "stream": "wss://fstream.binance.com/ws/!forceOrder@arr",
+    "historicalBackfill": false,
+    "backtestSafe": false,
+    "status": "INSUFFICIENT_HISTORICAL_LIQUIDATION_DATA"
+  },
+  "safety": {
+    "mainV2DeliveryMode": "shadow",
+    "altBasketDeliveryMode": "shadow",
+    "productionSignalStrategies": [],
+    "autoTrading": false,
+    "privateBinanceApi": false,
+    "accountAccess": false,
+    "positionControl": false,
+    "productionEnabled": false
+  },
+  "provenance": {
+    "mainBaseSha": "dccf086485409e1cd94d8942697a030fac6271dc",
+    "branchHeadSha": "dccf086485409e1cd94d8942697a030fac6271dc",
+    "sourceParentSha": "78104f72b8cbd486a9844839c3fc807cef57643a",
+    "dataManifestSha256": "09e3915b66a18cdbfa8abfca4e3e8c5ae6a2ec0ff57aba4239653219bcf38bdd",
+    "researchScriptSha256": "9670e0ae7f8512c0a0cf021977497a698148229b7d1e23d521dd59f2eeb6c334",
+    "researchModuleSha256": "543e0b1ecf150905521ef1749442907acaa1e51757aeb5e7561c243ef39950f7",
+    "derivativesCollectorSha256": "81e96f19008581d12c6ac7ca400003d6d168e5ef0419e46a0f8885f7cbd0849c",
+    "liquidationForwardCollectorSha256": "d266fface1c8c7989dc4f566449570294394d2fe8c12c58493d7f03368feb7cf"
+  },
+  "holdoutExecutions": 0,
+  "finalUnseenExecuted": false,
+  "finalModelGenerated": false,
+  "productionEnabledStrategies": []
+}
