@@ -265,7 +265,14 @@ const report = {
   },
   parity: {
     simulator: "runtime opportunity id + level/lifecycle dedupe; review previous closed candle before current signal evaluation; same-symbol concurrent opportunities retained; no cooldown; shared no-chase rule",
-    execution: { feeRatePerSide: FEE_RATE, slippageRatePerSide: SLIPPAGE_RATE, sameCandlePriority: "stop", candleTiming: "closed candles only" },
+    execution: {
+      feeRatePerSide: FEE_RATE,
+      slippageRatePerSide: SLIPPAGE_RATE,
+      sameCandlePriority: "stop",
+      candleTiming: "closed candles only",
+      signalCooldown: "none (runtime parity)",
+      noChase: "shared runtime shouldMarkNoChase rule"
+    },
     baselineMainV2Discovery: baselineSummary,
     priorAcceptedParityReference: {
       source: "reports/GPT-PROFIT-001-R1-PARITY.md",
@@ -674,7 +681,7 @@ function renderSummary(report) {
     `Provenance: main/base=${report.provenance.mainBaseSha}, branch source=${report.provenance.branchHeadSha}, research script SHA256=${report.provenance.researchScriptSha256}, module SHA256=${report.provenance.profitability002ModuleSha256}, manifest SHA256=${report.provenance.datasetManifestSha256}.`,
     `Best descriptive fold OOS (not used to choose params): ${winner ? `${winner.id}, PF=${round(winner.summary.profitFactor)}, expectancy=${round(winner.summary.expectancyR)}R, Net R=${round(winner.summary.netR)}` : "none"}.`,
     `Training-selected internal OOS: ${selected ? `${selected.id}, PF=${round(selected.summary.profitFactor)}, expectancy=${round(selected.summary.expectancyR)}R, Net R=${round(selected.summary.netR)}` : "none"}.`,
-    `Internal gate: ${report.internalGate.selectedByTraining ?? report.internalGate.selectedCandidate ?? "NO_CANDIDATE_FOR_FINAL_HOLDOUT"}.`,
+    `Internal gate: ${report.internalGate.selectedByTraining ?? report.internalGate.selectedCandidate ?? "NO_CANDIDATE_FOR_FINAL_HOLDOUT"}; ${report.internalGate.passed === false ? `FAIL (${report.internalGate.reasons.join(", ")})` : "PASS"}.`,
     `Final unseen holdout: ${report.finalHoldout.status}${report.finalHoldout.executed ? `, settled=${report.finalHoldout.summary.settledTrades}, PF=${round(report.finalHoldout.summary.profitFactor)}, expectancy=${round(report.finalHoldout.summary.expectancyR)}R, Net R=${round(report.finalHoldout.summary.netR)}` : " (not executed)"}.`,
     "",
     "All candidates remain `shadow_candidate`; no Production strategy or email is enabled.",

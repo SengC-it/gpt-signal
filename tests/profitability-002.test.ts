@@ -1,4 +1,5 @@
 import { describe, expect, test } from "vitest";
+import { createHash } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 import type { Candle, TradingPlan } from "@/lib/signal/types";
@@ -295,5 +296,18 @@ describe("GPT-PROFIT-002 research controls", () => {
     expect(route).not.toMatch(/fapi\/v[12]\/(order|positionRisk|account)/i);
     expect(fetcher).toContain("/fapi/v1/klines");
     expect(fetcher).not.toMatch(/\/fapi\/v[12]\/(order|positionRisk|account)/i);
+  });
+
+  test("records an immutable candidate freeze hash and keeps the holdout unexecuted", () => {
+    const freezePath = path.resolve(process.cwd(), "reports/GPT-PROFIT-002-CANDIDATE-FREEZE.json");
+    const hashPath = path.resolve(process.cwd(), "reports/GPT-PROFIT-002-CANDIDATE-FREEZE.sha256");
+    const researchPath = path.resolve(process.cwd(), "reports/GPT-PROFIT-002-RESEARCH.json");
+    const freezeHash = createHash("sha256").update(fs.readFileSync(freezePath)).digest("hex");
+    const recordedHash = fs.readFileSync(hashPath, "utf8").trim().split(/\s+/)[0];
+    const research = JSON.parse(fs.readFileSync(researchPath, "utf8"));
+    expect(recordedHash).toBe(freezeHash);
+    expect(research.candidateFreezeSha256).toBe(freezeHash);
+    expect(research.holdoutExecutions).toBe(0);
+    expect(research.finalHoldout.executed).toBe(false);
   });
 });
