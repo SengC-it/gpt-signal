@@ -13,7 +13,8 @@
     "backtest:compare": "node --experimental-strip-types scripts/strategy-version-comparison.mjs",
     "backtest:walk-forward": "node --experimental-strip-types scripts/walk-forward-validation.mjs",
     "data:profitability-002": "node scripts/fetch-profit-002-data.mjs",
-    "research:profitability-002": "node scripts/gpt-profit-002-research.mjs"
+    "research:profitability-002": "node scripts/gpt-profit-002-research.mjs",
+    "research:profitability-003": "node --experimental-strip-types scripts/gpt-profit-003-research.mjs"
   },
   "dependencies": {
     "@supabase/ssr": "^0.7.0",
