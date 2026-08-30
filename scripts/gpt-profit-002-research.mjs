@@ -1,21 +1,25 @@
 import fs from "node:fs";
 import path from "node:path";
+import { createHash } from "node:crypto";
 import { execFileSync } from "node:child_process";
 import { evaluateSignalCandidate } from "../src/lib/signal/engine.ts";
-import { applyReviewCandles, createInitialReviewState, isSettledReviewStatus } from "../src/lib/signal/review.ts";
 import { MAIN_STRATEGY_V2 } from "../src/lib/signal/strategy-config.ts";
-import { mainOpportunityId, reviewStatusToLifecycle, shouldCreateRuntimeSignal } from "../src/lib/signal/runtime-parity.ts";
+import { mainOpportunityId, shouldCreateRuntimeSignal } from "../src/lib/signal/runtime-parity.ts";
 import {
   PROFITABILITY_002_DISCOVERY_CUTOFF,
   PROFITABILITY_002_FEE_RATE,
   PROFITABILITY_002_SLIPPAGE_RATE,
+  applyResearchLifecycleCandles,
   buildProfitability002Candidates,
   classifyResearchRegime,
+  createInitialResearchLifecycleState,
   costCoverageBand,
   evaluateProfitability002InternalGate,
   isDiscoveryCandle,
   isHoldoutCandle,
+  isSettledResearchStatus,
   relativeStrengthBand,
+  researchStatusToLifecycle,
   scoreBand,
   simulateResearchOutcome,
   slAtrRatioBand,
@@ -36,6 +40,9 @@ const TRAIN_DAYS = Number(process.env.PROFITABILITY_002_TRAIN_DAYS || 120);
 const TEST_DAYS = Number(process.env.PROFITABILITY_002_TEST_DAYS || 45);
 const PURGE_HOURS = Number(process.env.PROFITABILITY_002_PURGE_HOURS || 4);
 const FOLD_COUNT = Number(process.env.PROFITABILITY_002_FOLDS || 3);
+const FREEZE_FILE = path.join(REPORT_DIR, "GPT-PROFIT-002-CANDIDATE-FREEZE.json");
+const FREEZE_HASH_FILE = path.join(REPORT_DIR, "GPT-PROFIT-002-CANDIDATE-FREEZE.sha256");
+const HOLDOUT_EXECUTION_MARKER = path.join(REPORT_DIR, "GPT-PROFIT-002-FINAL-UNSEEN-EXECUTION.json");
 
 fs.mkdirSync(REPORT_DIR, { recursive: true });
 const candlesBySymbol = Object.fromEntries(SYMBOLS.map((symbol) => [symbol, readCandles(symbol)]));
@@ -65,9 +72,7 @@ const baselineCandidate = {
   sidewaysPolicy: "allow"
 };
 
-// This file is written before any holdout simulation is allowed to run.
-const freeze = {
-  frozenAt: new Date().toISOString(),
+const freezeDefinition = {
   discoveryCutoff: PROFITABILITY_002_DISCOVERY_CUTOFF,
   holdoutDefinition: "closed candles strictly after the cutoff; one execution after candidate freeze only",
   candidateCount: candidates.length,
@@ -93,7 +98,20 @@ const freeze = {
     holdout: "single run only if internal gate passes; never retuned or redefined"
   }
 };
-fs.writeFileSync(path.join(REPORT_DIR, "GPT-PROFIT-002-CANDIDATE-FREEZE.json"), JSON.stringify(freeze, null, 2));
+const { freeze, freezeSha256 } = ensureCandidateFreeze(freezeDefinition);
+if (fs.existsSync(HOLDOUT_EXECUTION_MARKER)) {
+  throw new Error(`Final unseen execution marker already exists; refusing a second holdout run: ${HOLDOUT_EXECUTION_MARKER}`);
+}
+const sourceSha = resolveCodeVersion();
+const provenance = {
+  mainBaseSha: resolveRef("origin/main") ?? resolveRef("main"),
+  branchHeadSha: sourceSha,
+  sourceParentSha: resolveParentVersion(),
+  researchScriptSha256: hashFile(path.resolve(process.cwd(), "scripts", "gpt-profit-002-research.mjs")),
+  profitability002ModuleSha256: hashFile(path.resolve(process.cwd(), "src", "lib", "signal", "profitability-002.ts")),
+  candidateFreezeSha256: freezeSha256,
+  datasetManifestSha256: hashFile(path.join(REPORT_DIR, "GPT-PROFIT-002-DATA-MANIFEST.json"))
+};
 
 const baselineDiscoveryTrades = simulateCandidate(baselineCandidate, startIndex, discoveryEndIndex + 1);
 const baselineSummary = summarizeResearchTrades(baselineDiscoveryTrades);
@@ -162,6 +180,7 @@ const candidateOos = candidates.map((candidate) => {
     trades: foldTrades
   };
 }).sort((a, b) => b.summary.expectancyR - a.summary.expectancyR || b.summary.profitFactor - a.summary.profitFactor || b.summary.netR - a.summary.netR);
+const priorLifecycleMetrics = readPriorLifecycleMetrics();
 const trainingSelectedCandidate = [...selectedFoldCounts.entries()]
   .sort((a, b) => b[1] - a[1])[0]?.[0] ?? null;
 const selectedCandidateResult = trainingSelectedCandidate
@@ -177,7 +196,23 @@ let finalHoldout = {
   summary: summarizeResearchTrades([]),
   range: { start: iso(commonTimes[holdoutStartIndex]), end: iso(commonTimes[endIndex]) }
 };
+let holdoutExecutions = 0;
 if (internalWinner) {
+  if (!freeze.candidates.some((candidate) => candidate.id === internalWinner.candidate.id)) {
+    throw new Error(`Selected candidate is not present in the validated candidate freeze: ${internalWinner.candidate.id}`);
+  }
+  const holdoutMarker = {
+    status: "started",
+    executionCount: 1,
+    startedAt: new Date().toISOString(),
+    candidateId: internalWinner.candidate.id,
+    discoveryCutoff: PROFITABILITY_002_DISCOVERY_CUTOFF,
+    holdoutRange: { start: iso(commonTimes[holdoutStartIndex]), end: iso(commonTimes[endIndex]) },
+    candidateFreezeSha256: freezeSha256,
+    datasetManifestSha256: provenance.datasetManifestSha256
+  };
+  fs.writeFileSync(HOLDOUT_EXECUTION_MARKER, JSON.stringify(holdoutMarker, null, 2));
+  holdoutExecutions = 1;
   const holdoutTrades = simulateCandidate(internalWinner.candidate, holdoutStartIndex, endIndex + 1);
   const holdoutSummary = summarizeResearchTrades(holdoutTrades);
   const status = holdoutSummary.settledTrades < 50
@@ -192,13 +227,23 @@ if (internalWinner) {
     summary: holdoutSummary,
     range: { start: iso(commonTimes[holdoutStartIndex]), end: iso(commonTimes[endIndex]) }
   };
+  fs.writeFileSync(HOLDOUT_EXECUTION_MARKER, JSON.stringify({
+    ...holdoutMarker,
+    status,
+    completedAt: new Date().toISOString(),
+    settledTrades: holdoutSummary.settledTrades,
+    netR: holdoutSummary.netR,
+    profitFactor: holdoutSummary.profitFactor,
+    expectancyR: holdoutSummary.expectancyR
+  }, null, 2));
 }
 
 const productionEnabled = false;
 const report = {
   task: "GPT-PROFIT-002",
   generatedAt: new Date().toISOString(),
-  codeVersion: resolveCodeVersion(),
+  codeVersion: sourceSha,
+  provenance,
   safety: {
     mainV2DeliveryMode: "shadow",
     altBasketDeliveryMode: "shadow",
@@ -210,6 +255,7 @@ const report = {
   },
   data: {
     manifest,
+    manifestSha256: provenance.datasetManifestSha256,
     commonBars: commonTimes.length,
     discovery: { start: iso(commonTimes[startIndex]), end: iso(commonTimes[discoveryEndIndex]), bars: discoveryEndIndex - startIndex + 1 },
     cutoff: PROFITABILITY_002_DISCOVERY_CUTOFF,
@@ -227,10 +273,18 @@ const report = {
       final60dHoldout: { settledTrades: 1398, netR: -369.23, profitFactor: 0.341, expectancyR: -0.264 }
     }
   },
+  lifecycleParity: {
+    method: "Candidate-specific research lifecycle is advanced on each prior closed candle; hard SL/TP, invalidated_exit, and time_stop_exit are all settled before the next opportunity dedupe decision. Production review engine is unchanged.",
+    previousRun: priorLifecycleMetrics,
+    currentRun: Object.fromEntries(candidateOos
+      .filter((result) => result.candidate.exitMode === "early_invalidation" || result.candidate.exitMode === "time_stop")
+      .map((result) => [result.candidate.id, lifecycleMetrics(result.summary)]))
+  },
   lossAttribution: attribution,
   scoreCalibration: calibration,
   repeatedSignalAttribution: repeatedAttribution,
-  candidateFreeze: path.relative(process.cwd(), path.join(REPORT_DIR, "GPT-PROFIT-002-CANDIDATE-FREEZE.json")).replaceAll("\\", "/"),
+  candidateFreeze: path.relative(process.cwd(), FREEZE_FILE).replaceAll("\\", "/"),
+  candidateFreezeSha256: freezeSha256,
   walkForward: {
     trainDays: TRAIN_DAYS,
     testDays: TEST_DAYS,
@@ -245,6 +299,7 @@ const report = {
     ? { selectedByTraining: selectedCandidateResult.candidate.id, selectedFolds: selectedCandidateResult.selectedFolds, ...selectedCandidateResult.gate }
     : { selectedCandidate: null, status: "NO_CANDIDATE_FOR_FINAL_HOLDOUT" },
   finalHoldout,
+  holdoutExecutions,
   result: internalWinner && finalHoldout.status === "PASS" ? "SHADOW_CANDIDATE_ONLY" : "NO EDGE FOUND"
 };
 
@@ -263,17 +318,19 @@ function simulateCandidate(candidate, fromIndex, toIndexExclusive) {
       const current = series[index];
       if (!current) continue;
       for (const latest of latestByOpportunity.values()) {
-        if (!latest.plan || latest.createdIndex >= index - 1 || isSettledReviewStatus(latest.reviewState.finalStatus)) continue;
-        latest.reviewState = applyReviewCandles({
+        if (!latest.plan || latest.createdIndex >= index - 1 || isSettledResearchStatus(latest.researchState.finalStatus)) continue;
+        latest.researchState = applyResearchLifecycleCandles({
           direction: latest.direction,
           plan: latest.plan,
           candles: [series[index - 1]],
-          state: latest.reviewState,
+          state: latest.researchState,
           feeRate: FEE_RATE,
           slippageRate: SLIPPAGE_RATE,
-          candlesAreSorted: true
+          exitMode: latest.exitMode,
+          timeStopCandles: latest.timeStopCandles,
+          shouldInvalidate: latest.shouldInvalidate
         });
-        latest.lifecycleStatus = reviewStatusToLifecycle(latest.reviewState.finalStatus);
+        latest.lifecycleStatus = researchStatusToLifecycle(latest.researchState.finalStatus);
       }
 
       const btcIndex = btc4hIndexByTime[index];
@@ -309,7 +366,12 @@ function simulateCandidate(candidate, fromIndex, toIndexExclusive) {
         direction,
         plan: signal.plan,
         createdIndex: index,
-        reviewState: createInitialReviewState()
+        exitMode: candidate.exitMode,
+        timeStopCandles: candidate.timeStopCandles,
+        shouldInvalidate: candidate.exitMode === "early_invalidation"
+          ? (candle) => invalidationAt(series, indexByCloseTime, candle.closeTime, direction)
+          : undefined,
+        researchState: createInitialResearchLifecycleState()
       });
       if (signal.lifecycleStatus !== "planned" || !signal.plan) continue;
       if ((signal.costEdge?.costCoverageRatio ?? 0) < candidate.minimumCostCoverageRatio) continue;
@@ -506,6 +568,32 @@ function decideEntryExit(trades) {
   };
 }
 
+function lifecycleMetrics(summary) {
+  return {
+    trades: summary.trades,
+    settledTrades: summary.settledTrades,
+    profitFactor: summary.profitFactor,
+    expectancyR: summary.expectancyR,
+    netR: summary.netR
+  };
+}
+
+function readPriorLifecycleMetrics() {
+  const sourceCommit = process.env.PROFITABILITY_002_PRIOR_RESEARCH_COMMIT || "477ee88f41ce36d5b895c273d042f71c77dbbb7d";
+  try {
+    const raw = execFileSync("git", ["show", `${sourceCommit}:reports/GPT-PROFIT-002-RESEARCH.json`], { encoding: "utf8" });
+    const report = JSON.parse(raw);
+    return {
+      sourceCommit,
+      candidates: Object.fromEntries((report.walkForward?.leaderboard ?? [])
+        .filter((result) => result.id?.startsWith("p002-d-") || result.id?.startsWith("p002-e-"))
+        .map((result) => [result.id, lifecycleMetrics(result.summary)]))
+    };
+  } catch (error) {
+    throw new Error(`Unable to load the pre-R1 D/E research baseline from ${sourceCommit}: ${String(error)}`);
+  }
+}
+
 function summarizeGroups(trades, keyFn) {
   const groups = new Map();
   for (const trade of trades) {
@@ -537,6 +625,15 @@ function renderLossAttribution(report) {
     "Main V2 is simulated with runtime opportunity-id and level/lifecycle dedupe, previous-closed-candle review ordering, same-symbol concurrent opportunities, closed-candle TP/SL with stop priority, 0.10% fee and 0.05% slippage per side. The baseline is discovery-only.",
     "",
     `Baseline trades=${baseline.trades}, settled=${baseline.settledTrades}, Net R=${round(baseline.netR)}, PF=${round(baseline.profitFactor)}, expectancy=${round(baseline.expectancyR)}R, max DD=${round(baseline.maxDrawdownR)}R.`,
+    "",
+    "## R1 lifecycle parity",
+    "",
+    report.lifecycleParity.method,
+    "",
+    `Candidate freeze SHA256: ${report.candidateFreezeSha256}. Dataset manifest SHA256: ${report.provenance.datasetManifestSha256}. Holdout executions: ${report.holdoutExecutions}.`,
+    "",
+    `D/E before R1: ${JSON.stringify(report.lifecycleParity.previousRun.candidates)}.`,
+    `D/E after R1: ${JSON.stringify(report.lifecycleParity.currentRun)}.`,
     "",
     "## Five key findings",
     "",
@@ -573,6 +670,8 @@ function renderSummary(report) {
     "",
     `Discovery: ${report.data.discovery.start} → ${report.data.discovery.end}; cutoff=${report.data.cutoff}. Holdout: ${report.data.holdout.start} → ${report.data.holdout.end}.`,
     `Candidates: ${report.candidateFreeze ? report.walkForward.leaderboard.length : 0} (frozen before holdout).`,
+    `Candidate freeze SHA256: ${report.candidateFreezeSha256}; holdout executions: ${report.holdoutExecutions}.`,
+    `Provenance: main/base=${report.provenance.mainBaseSha}, branch source=${report.provenance.branchHeadSha}, research script SHA256=${report.provenance.researchScriptSha256}, module SHA256=${report.provenance.profitability002ModuleSha256}, manifest SHA256=${report.provenance.datasetManifestSha256}.`,
     `Best descriptive fold OOS (not used to choose params): ${winner ? `${winner.id}, PF=${round(winner.summary.profitFactor)}, expectancy=${round(winner.summary.expectancyR)}R, Net R=${round(winner.summary.netR)}` : "none"}.`,
     `Training-selected internal OOS: ${selected ? `${selected.id}, PF=${round(selected.summary.profitFactor)}, expectancy=${round(selected.summary.expectancyR)}R, Net R=${round(selected.summary.netR)}` : "none"}.`,
     `Internal gate: ${report.internalGate.selectedByTraining ?? report.internalGate.selectedCandidate ?? "NO_CANDIDATE_FOR_FINAL_HOLDOUT"}.`,
@@ -701,6 +800,69 @@ function round(value) {
 
 function iso(value) {
   return new Date(value).toISOString();
+}
+
+function ensureCandidateFreeze(expectedDefinition) {
+  if (!fs.existsSync(FREEZE_FILE)) {
+    fs.writeFileSync(FREEZE_FILE, JSON.stringify({
+      frozenAt: new Date().toISOString(),
+      ...expectedDefinition
+    }, null, 2));
+  }
+
+  let freeze;
+  try {
+    freeze = JSON.parse(fs.readFileSync(FREEZE_FILE, "utf8"));
+  } catch (error) {
+    throw new Error(`Candidate freeze is unreadable; refusing to continue: ${String(error)}`);
+  }
+
+  if (stableJson(stripFreezeMetadata(freeze)) !== stableJson(expectedDefinition)) {
+    throw new Error("Candidate freeze differs from the frozen candidate set/protocol; refusing to overwrite or continue.");
+  }
+
+  const freezeSha256 = hashFile(FREEZE_FILE);
+  if (fs.existsSync(FREEZE_HASH_FILE)) {
+    const recordedHash = fs.readFileSync(FREEZE_HASH_FILE, "utf8").trim().split(/\s+/)[0];
+    if (recordedHash !== freezeSha256) {
+      throw new Error(`Candidate freeze SHA256 mismatch: recorded=${recordedHash}, actual=${freezeSha256}`);
+    }
+  } else {
+    fs.writeFileSync(FREEZE_HASH_FILE, `${freezeSha256}  GPT-PROFIT-002-CANDIDATE-FREEZE.json\n`);
+  }
+
+  return { freeze, freezeSha256 };
+}
+
+function stripFreezeMetadata(value) {
+  const clone = JSON.parse(JSON.stringify(value));
+  delete clone.frozenAt;
+  delete clone.contentSha256;
+  return clone;
+}
+
+function stableJson(value) {
+  if (Array.isArray(value)) return `[${value.map(stableJson).join(",")}]`;
+  if (value && typeof value === "object") {
+    return `{${Object.keys(value).sort().map((key) => `${JSON.stringify(key)}:${stableJson(value[key])}`).join(",")}}`;
+  }
+  return JSON.stringify(value);
+}
+
+function hashFile(filePath) {
+  return createHash("sha256").update(fs.readFileSync(filePath)).digest("hex");
+}
+
+function resolveRef(ref) {
+  try {
+    return execFileSync("git", ["rev-parse", ref], { encoding: "utf8" }).trim();
+  } catch {
+    return null;
+  }
+}
+
+function resolveParentVersion() {
+  return resolveRef("HEAD^");
 }
 
 function resolveCodeVersion() {

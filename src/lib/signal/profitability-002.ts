@@ -1,4 +1,4 @@
-import type { Candle, Direction, MainStrategyConfig, TradingPlan } from "./types.ts";
+import type { Candle, Direction, LifecycleStatus, MainStrategyConfig, TradingPlan } from "./types.ts";
 
 export const PROFITABILITY_002_DISCOVERY_CUTOFF = "2026-08-02T03:15:00.000Z";
 export const PROFITABILITY_002_FEE_RATE = 0.001;
@@ -93,6 +93,10 @@ export type ResearchOutcome = {
   mfe: number;
   mae: number;
   durationCandles: number;
+};
+
+export type ResearchLifecycleState = ResearchOutcome & {
+  lastCheckedAt: number | null;
 };
 
 export type InternalGateResult = {
@@ -228,6 +232,30 @@ export function isHardSettledResearchStatus(status: ResearchFinalStatus | string
   return HARD_SETTLED_STATUSES.includes(status as ResearchFinalStatus);
 }
 
+export function createInitialResearchLifecycleState(): ResearchLifecycleState {
+  return {
+    entryHit: false,
+    entryTime: null,
+    exitTime: null,
+    finalStatus: "waiting_entry",
+    grossR: null,
+    netR: null,
+    grossPnlPct: null,
+    netPnlPct: null,
+    mfe: 0,
+    mae: 0,
+    durationCandles: 0,
+    lastCheckedAt: null
+  };
+}
+
+export function researchStatusToLifecycle(status: ResearchFinalStatus): LifecycleStatus {
+  if (status === "open") return "entered";
+  if (status === "invalidated_exit") return "invalidated";
+  if (status === "time_stop_exit") return "expired";
+  return status;
+}
+
 export function classifyResearchRegime(candles: Array<{ close: number; isClosed: boolean }>) {
   const closed = candles.filter((candle) => candle.isClosed);
   if (closed.length < 50) return "unknown" as const;
@@ -266,61 +294,80 @@ export function simulateResearchOutcome(input: {
   timeStopCandles?: number | null;
   shouldInvalidate?: (candle: Pick<Candle, "close" | "openTime" | "closeTime">) => boolean;
 }) : ResearchOutcome {
+  const outcome = applyResearchLifecycleCandles(input);
+  return {
+    entryHit: outcome.entryHit,
+    entryTime: outcome.entryTime,
+    exitTime: outcome.exitTime,
+    finalStatus: outcome.finalStatus,
+    grossR: outcome.grossR,
+    netR: outcome.netR,
+    grossPnlPct: outcome.grossPnlPct,
+    netPnlPct: outcome.netPnlPct,
+    mfe: outcome.mfe,
+    mae: outcome.mae,
+    durationCandles: outcome.durationCandles
+  };
+}
+
+export function applyResearchLifecycleCandles(input: {
+  direction: Direction;
+  plan: TradingPlan;
+  candles: Array<Pick<Candle, "openTime" | "closeTime" | "high" | "low" | "close" | "isClosed">>;
+  state?: ResearchLifecycleState;
+  feeRate?: number;
+  slippageRate?: number;
+  exitMode?: ProfitabilityExitMode;
+  timeStopCandles?: number | null;
+  shouldInvalidate?: (candle: Pick<Candle, "close" | "openTime" | "closeTime">) => boolean;
+}) : ResearchLifecycleState {
   const feeRate = input.feeRate ?? PROFITABILITY_002_FEE_RATE;
   const slippageRate = input.slippageRate ?? PROFITABILITY_002_SLIPPAGE_RATE;
   const exitMode = input.exitMode ?? "hard_sl_tp";
+  const state: ResearchLifecycleState = {
+    ...createInitialResearchLifecycleState(),
+    ...(input.state ?? {})
+  };
+  if (isSettledResearchStatus(state.finalStatus)) return state;
+
   const entryPrice = input.direction === "LONG" ? input.plan.entryHigh : input.plan.entryLow;
   const risk = Math.abs(entryPrice - input.plan.stopLoss);
-  let entryHit = false;
-  let entryTime: number | null = null;
-  let mfe = 0;
-  let mae = 0;
-  let heldCandles = 0;
 
   const candles = [...input.candles].sort((a, b) => a.closeTime - b.closeTime);
   for (const candle of candles) {
-    if (!candle.isClosed) continue;
-    if (!entryHit) {
+    if (!candle.isClosed || (state.lastCheckedAt !== null && candle.closeTime <= state.lastCheckedAt)) continue;
+    state.lastCheckedAt = candle.closeTime;
+
+    if (!state.entryHit) {
       const touchedEntry = input.direction === "LONG"
         ? candle.low <= input.plan.entryHigh && candle.high >= input.plan.entryLow
         : candle.high >= input.plan.entryLow && candle.low <= input.plan.entryHigh;
       if (!touchedEntry) continue;
-      entryHit = true;
-      entryTime = candle.closeTime;
+      state.entryHit = true;
+      state.entryTime = candle.closeTime;
     }
 
     if (risk <= 0) continue;
-    heldCandles += 1;
+    state.durationCandles += 1;
     const favorable = input.direction === "LONG" ? candle.high - entryPrice : entryPrice - candle.low;
     const adverse = input.direction === "LONG" ? entryPrice - candle.low : candle.high - entryPrice;
-    mfe = Math.max(mfe, favorable / risk);
-    mae = Math.max(mae, adverse / risk);
+    state.mfe = Math.max(state.mfe, favorable / risk);
+    state.mae = Math.max(state.mae, adverse / risk);
 
     const hitSl = input.direction === "LONG" ? candle.low <= input.plan.stopLoss : candle.high >= input.plan.stopLoss;
     const hitTp1 = input.direction === "LONG" ? candle.high >= input.plan.tp1 : candle.low <= input.plan.tp1;
-    if (hitSl) return settleResearch({ entryHit, entryTime, mfe, mae, durationCandles: heldCandles }, "hit_sl", input.plan.stopLoss, candle.closeTime, input.direction, entryPrice, risk, feeRate, slippageRate);
-    if (hitTp1) return settleResearch({ entryHit, entryTime, mfe, mae, durationCandles: heldCandles }, "hit_tp1", input.plan.tp1, candle.closeTime, input.direction, entryPrice, risk, feeRate, slippageRate);
+    if (hitSl) return settleResearch(state, "hit_sl", input.plan.stopLoss, candle.closeTime, input.direction, entryPrice, risk, feeRate, slippageRate);
+    if (hitTp1) return settleResearch(state, "hit_tp1", input.plan.tp1, candle.closeTime, input.direction, entryPrice, risk, feeRate, slippageRate);
     if (exitMode === "early_invalidation" && input.shouldInvalidate?.(candle)) {
-      return settleResearch({ entryHit, entryTime, mfe, mae, durationCandles: heldCandles }, "invalidated_exit", candle.close, candle.closeTime, input.direction, entryPrice, risk, feeRate, slippageRate);
+      return settleResearch(state, "invalidated_exit", candle.close, candle.closeTime, input.direction, entryPrice, risk, feeRate, slippageRate);
     }
-    if (exitMode === "time_stop" && input.timeStopCandles && heldCandles >= input.timeStopCandles) {
-      return settleResearch({ entryHit, entryTime, mfe, mae, durationCandles: heldCandles }, "time_stop_exit", candle.close, candle.closeTime, input.direction, entryPrice, risk, feeRate, slippageRate);
+    if (exitMode === "time_stop" && input.timeStopCandles && state.durationCandles >= input.timeStopCandles) {
+      return settleResearch(state, "time_stop_exit", candle.close, candle.closeTime, input.direction, entryPrice, risk, feeRate, slippageRate);
     }
   }
 
-  return {
-    entryHit,
-    entryTime,
-    exitTime: null,
-    finalStatus: entryHit ? "open" : "waiting_entry",
-    grossR: null,
-    netR: null,
-    grossPnlPct: null,
-    netPnlPct: null,
-    mfe,
-    mae,
-    durationCandles: heldCandles
-  };
+  state.finalStatus = state.entryHit ? "open" : "waiting_entry";
+  return state;
 }
 
 export function summarizeResearchTrades(trades: ResearchTrade[]): ResearchSummary {
@@ -423,7 +470,7 @@ export function slAtrRatioBand(value: number) {
 }
 
 function settleResearch(
-  base: Pick<ResearchOutcome, "entryHit" | "entryTime" | "mfe" | "mae" | "durationCandles">,
+  base: ResearchLifecycleState,
   finalStatus: Extract<ResearchFinalStatus, "hit_tp1" | "hit_sl" | "invalidated_exit" | "time_stop_exit">,
   exitPrice: number,
   exitTime: number,
@@ -432,7 +479,7 @@ function settleResearch(
   risk: number,
   feeRate: number,
   slippageRate: number
-): ResearchOutcome {
+): ResearchLifecycleState {
   const grossReturn = direction === "LONG"
     ? (exitPrice - entryPrice) / entryPrice
     : (entryPrice - exitPrice) / entryPrice;
@@ -442,17 +489,13 @@ function settleResearch(
   const roundTripCostPct = (feeRate + slippageRate) * 2;
   const costR = entryPrice > 0 ? roundTripCostPct / (risk / entryPrice) : 0;
   return {
-    entryHit: base.entryHit,
-    entryTime: base.entryTime,
+    ...base,
     exitTime,
     finalStatus,
     grossR: round(grossR),
     netR: round(grossR - costR),
     grossPnlPct: round(grossReturn * 100),
     netPnlPct: round((grossReturn - roundTripCostPct) * 100),
-    mfe: base.mfe,
-    mae: base.mae,
-    durationCandles: base.durationCandles
   };
 }
 
