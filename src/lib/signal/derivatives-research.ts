@@ -52,6 +52,18 @@ export type DerivativesFamilySummary = {
   netExpectancyR: number | null;
   profitFactor: number | null;
   payoff: number | null;
+  conditionedEventCount: number;
+  conditionedSettled: number;
+  conditionedGrossExpectancyR: number | null;
+  conditionedNetExpectancyR: number | null;
+  conditionedProfitFactor: number | null;
+  conditionedPayoff: number | null;
+  conditionedScoreThreshold: number | null;
+  conditionedSymbolBreadth: number;
+  conditionedMonthBreadth: number;
+  conditionedPositiveFolds: number;
+  conditionedFolds: number;
+  conditionedFoldConsistency: string;
   spearman: number | null;
   monotonicViolations: number | null;
   conditionalLiftR: number | null;
@@ -218,8 +230,23 @@ export function summarizeDerivativeFamily(
     : null;
   const sorted = [...usable].filter((row) => Number.isFinite(row.score)).sort((left, right) => left.score! - right.score!);
   const topCut = sorted.length ? sorted[Math.floor(sorted.length * 0.7)]!.score! : null;
-  const top = topCut === null ? [] : sorted.filter((row) => row.score! >= topCut).map((row) => row.event.netR).filter(isFiniteNumber);
-  const conditionalLiftR = top.length && netMean !== null ? round((mean(top) ?? 0) - netMean) : null;
+  const conditionedRows = topCut === null ? [] : sorted.filter((row) => row.score! >= topCut);
+  const conditionedSettledRows = conditionedRows.filter((row) => row.event.netR !== null && Number.isFinite(row.event.netR));
+  const conditionedGross = conditionedSettledRows.map((row) => row.event.grossR).filter(isFiniteNumber);
+  const conditionedNet = conditionedSettledRows.map((row) => row.event.netR).filter(isFiniteNumber);
+  const conditionedGrossMean = mean(conditionedGross);
+  const conditionedNetMean = mean(conditionedNet);
+  const conditionedProfitFactor = calculateProfitFactor(conditionedNet);
+  const conditionalLiftR = conditionedNetMean !== null && netMean !== null ? round(conditionedNetMean - netMean) : null;
+  const conditionedMonths = new Set(conditionedSettledRows.map((row) => new Date(row.event.eventTime).toISOString().slice(0, 7)));
+  const conditionedFoldValues = new Map<number, number[]>();
+  for (const row of conditionedSettledRows) {
+    const values = conditionedFoldValues.get(row.event.fold) ?? [];
+    values.push(row.event.netR!);
+    conditionedFoldValues.set(row.event.fold, values);
+  }
+  const conditionedPositiveFolds = [...conditionedFoldValues.values()].filter((values) => (mean(values) ?? 0) > 0).length;
+  const conditionedFolds = conditionedFoldValues.size;
   const summary: DerivativesFamilySummary = {
     family,
     status,
@@ -229,15 +256,27 @@ export function summarizeDerivativeFamily(
     netExpectancyR: netMean,
     profitFactor,
     payoff: calculatePayoff(netSettled),
+    conditionedEventCount: conditionedRows.length,
+    conditionedSettled: conditionedSettledRows.length,
+    conditionedGrossExpectancyR: conditionedGrossMean,
+    conditionedNetExpectancyR: conditionedNetMean,
+    conditionedProfitFactor,
+    conditionedPayoff: calculatePayoff(conditionedNet),
+    conditionedScoreThreshold: topCut,
+    conditionedSymbolBreadth: new Set(conditionedSettledRows.map((row) => row.event.symbol)).size,
+    conditionedMonthBreadth: conditionedMonths.size,
+    conditionedPositiveFolds,
+    conditionedFolds,
+    conditionedFoldConsistency: conditionedFolds ? `${conditionedPositiveFolds}/${conditionedFolds}` : "0/0",
     spearman: scoreValues.length >= 2 ? spearman(scoreValues, outcomeValues) : null,
     monotonicViolations: scoreValues.length >= 3 ? monotonicViolations(sorted.map((row) => row.event.grossR).filter(isFiniteNumber)) : null,
     conditionalLiftR,
-    deltaGrossExpectancyR: comparableBaseline && grossMean !== null && comparableBaseline.grossExpectancyR !== null
-      ? round(grossMean - comparableBaseline.grossExpectancyR) : null,
-    deltaNetExpectancyR: comparableBaseline && netMean !== null && comparableBaseline.netExpectancyR !== null
-      ? round(netMean - comparableBaseline.netExpectancyR) : null,
-    deltaProfitFactor: comparableBaseline && profitFactor !== null && comparableBaseline.profitFactor !== null
-      ? round(profitFactor - comparableBaseline.profitFactor) : null,
+    deltaGrossExpectancyR: comparableBaseline
+      ? difference(conditionedGrossMean, comparableBaseline.grossExpectancyR) : null,
+    deltaNetExpectancyR: comparableBaseline
+      ? difference(conditionedNetMean, comparableBaseline.netExpectancyR) : null,
+    deltaProfitFactor: comparableBaseline
+      ? difference(conditionedProfitFactor, comparableBaseline.profitFactor) : null,
     symbolBreadth,
     monthBreadth: familyMonths.size,
     positiveMonths: [...monthReturns.values()].filter((value) => value > 0).length,
@@ -311,8 +350,13 @@ export function buildDerivativeAblation(input: {
     );
   });
   const permittedFamilies = families.filter((summary) => summary.status === "EVALUATED"
+    && ((summary.deltaGrossExpectancyR ?? -Infinity) > 0 || (summary.spearman ?? -Infinity) > 0)
     && (summary.deltaNetExpectancyR ?? -Infinity) > 0
-    && (summary.deltaProfitFactor ?? -Infinity) > 0);
+    && (summary.deltaProfitFactor ?? -Infinity) > 0
+    && summary.conditionedPositiveFolds >= 2
+    && summary.conditionedFolds >= 3
+    && summary.conditionedSettled >= 300
+    && summary.conditionedSymbolBreadth >= 3);
   const combinedRows = permittedFamilies.length ? input.events.flatMap((event) => {
     const metricsByFamily = permittedFamilies.map((summary) => {
       const family = summary.family as DerivativeFamily;
@@ -429,6 +473,12 @@ export function evaluateDerivativesGate(input: {
 }
 
 function emptyComparableBaseline() { return { eventCount: 0, settled: 0, grossExpectancyR: null, netExpectancyR: null, profitFactor: null, payoff: null }; }
+function difference(value: number | null, baseline: number | null): number | null {
+  if (value === null || baseline === null || Number.isNaN(value) || Number.isNaN(baseline)) return null;
+  if (value === baseline) return 0;
+  const delta = value - baseline;
+  return Number.isFinite(delta) ? round(delta) : delta;
+}
 function isFiniteNumber(value: number | null): value is number { return value !== null && Number.isFinite(value); }
 function mean(values: number[]): number | null { return values.length ? round(values.reduce((sum, value) => sum + value, 0) / values.length) : null; }
 function calculateProfitFactor(values: number[]): number | null {

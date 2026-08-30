@@ -10,8 +10,11 @@ import {
   classifyPriceOiState,
   closedMetricTime,
   collectDerivativesMetrics,
+  fetchGlobalLongShortHistory,
   fetchOpenInterestHistory,
   fetchTopTraderAccountHistory,
+  fetchTopTraderPositionHistory,
+  isFreshObservation,
   selectPointInTime,
   sourceTimingFor,
   type CollectionInput
@@ -102,6 +105,52 @@ describe("GPT-PROFIT-004 public derivatives foundation", () => {
       globalLongShortHistory: []
     });
     expect(metric.fundingRate).toBeNull();
+  });
+
+  test("period-end families are PIT-usable at the provider timestamp", () => {
+    const periodStart = Date.parse("2026-08-30T12:00:00.000Z");
+    const periodEnd = periodStart + 5 * 60 * 1000;
+    for (const family of ["open_interest", "positioning", "top_trader_account", "top_trader_position"] as const) {
+      expect(sourceTimingFor({ timestamp: periodEnd }, family, periodEnd)).toMatchObject({
+        periodStart,
+        periodEnd,
+        availableAt: periodEnd,
+        status: "FRESH"
+      });
+      expect(isFreshObservation({ timestamp: periodEnd }, family, periodEnd)).toBe(true);
+      expect(isFreshObservation({ timestamp: periodEnd }, family, periodEnd - 1)).toBe(false);
+    }
+    for (const family of ["basis", "taker_flow"] as const) {
+      expect(isFreshObservation({ timestamp: periodStart }, family, periodStart + 4 * 60 * 1000)).toBe(false);
+      expect(isFreshObservation({ timestamp: periodStart }, family, periodEnd)).toBe(true);
+    }
+    expect(isFreshObservation({ fundingTime: periodEnd }, "funding", periodEnd - 1)).toBe(false);
+    expect(isFreshObservation({ fundingTime: periodEnd }, "funding", periodEnd)).toBe(true);
+  });
+
+  test("period-end endpoint parsers preserve provider period boundaries", async () => {
+    const periodEnd = Date.parse("2026-08-30T12:05:00.000Z");
+    const fetchImpl = vi.fn(async () => response([{
+      timestamp: periodEnd,
+      sumOpenInterest: "100",
+      sumOpenInterestValue: "1000",
+      longShortRatio: "1.1",
+      longAccount: "0.52",
+      shortAccount: "0.48"
+    }])) as typeof fetch;
+    const oi = await fetchOpenInterestHistory("BTCUSDT", { fetchImpl });
+    const positioning = await fetchGlobalLongShortHistory("BTCUSDT", { fetchImpl });
+    vi.stubEnv("BINANCE_MARKET_DATA_API_KEY", "market-data-test");
+    try {
+      const topAccount = await fetchTopTraderAccountHistory("BTCUSDT", { fetchImpl });
+      const topPosition = await fetchTopTraderPositionHistory("BTCUSDT", { fetchImpl });
+      expect(topAccount[0]).toMatchObject({ timestamp: periodEnd, periodStart: periodEnd - 5 * 60 * 1000, periodEnd, availableAt: periodEnd });
+      expect(topPosition[0]).toMatchObject({ timestamp: periodEnd, periodStart: periodEnd - 5 * 60 * 1000, periodEnd, availableAt: periodEnd });
+    } finally {
+      vi.unstubAllEnvs();
+    }
+    expect(oi[0]).toMatchObject({ timestamp: periodEnd, periodStart: periodEnd - 5 * 60 * 1000, periodEnd, availableAt: periodEnd });
+    expect(positioning[0]).toMatchObject({ timestamp: periodEnd, periodStart: periodEnd - 5 * 60 * 1000, periodEnd, availableAt: periodEnd });
   });
 
   test("closed metric time and PIT selection exclude current/future observations", () => {
@@ -290,6 +339,50 @@ describe("GPT-PROFIT-004 public derivatives foundation", () => {
     expect(result.families.find((family) => family.family === "open_interest")?.coverageDays).toBe(100);
     expect(result.families.find((family) => family.family === "basis")?.status).toBe("INSUFFICIENT_DERIVATIVES_HISTORY");
     expect(result.families.find((family) => family.family === "basis")?.coverageDays).toBe(20);
+  });
+
+  test("incremental top-30% slice improves a positively related family", () => {
+    const rows = [-5, -4, -3, -2, -1, 0.5, 1, 3, -1, 8].map((netR, index) => ({
+      event: {
+        eventId: `positive-${index}`,
+        symbol: ["BTCUSDT", "ETHUSDT", "SOLUSDT"][index % 3]!,
+        direction: "LONG" as const,
+        eventTime: Date.UTC(2026, 0, 1 + index),
+        fold: (index % 3) + 1,
+        grossR: netR,
+        netR
+      },
+      score: index + 1
+    }));
+    const baseline = summarizeDerivativeFamily("price_only", rows.map(({ event }) => ({ event, score: null })));
+    const summary = summarizeDerivativeFamily("open_interest", rows, baseline);
+    expect(summary.conditionedEventCount).toBe(3);
+    expect(summary.conditionedNetExpectancyR).toBeGreaterThan(summary.netExpectancyR!);
+    expect(summary.deltaNetExpectancyR).toBeGreaterThan(0);
+    expect(summary.deltaProfitFactor).toBeGreaterThan(0);
+  });
+
+  test("non-predictive scores are not marked incremental", () => {
+    const rows = Array.from({ length: 20 }, (_, index) => {
+      const netR = index % 2 === 0 ? -1 : 1;
+      return {
+        event: {
+          eventId: `null-${index}`,
+          symbol: index % 2 ? "ETHUSDT" : "BTCUSDT",
+          direction: "LONG" as const,
+          eventTime: Date.UTC(2026, 0, 1 + index),
+          fold: (index % 3) + 1,
+          grossR: netR,
+          netR
+        },
+        score: index + 1
+      };
+    });
+    const baseline = summarizeDerivativeFamily("price_only", rows.map(({ event }) => ({ event, score: null })));
+    const summary = summarizeDerivativeFamily("open_interest", rows, baseline);
+    expect(summary.conditionedNetExpectancyR).toBeCloseTo(summary.netExpectancyR!, 6);
+    expect(summary.deltaNetExpectancyR).toBeCloseTo(0, 6);
+    expect(summary.deltaProfitFactor).toBeCloseTo(0, 6);
   });
 
   test("future gate measures single-symbol net-R concentration rather than breadth alone", () => {

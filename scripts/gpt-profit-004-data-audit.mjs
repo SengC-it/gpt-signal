@@ -8,7 +8,8 @@ import {
   DERIVATIVES_ENDPOINT_CAPABILITIES,
   DERIVATIVES_MARKET_DATA_KEY_ENDPOINTS,
   DERIVATIVES_SOURCE_VERSION,
-  DERIVATIVES_INTERVAL_MS
+  DERIVATIVES_INTERVAL_MS,
+  DERIVATIVES_PERIOD_END_TIMESTAMP_FAMILIES
 } from "../src/lib/binance/derivatives.ts";
 
 const SYMBOLS = (process.env.GPT_PROFIT_004_SYMBOLS?.split(",").map((item) => item.trim()).filter(Boolean).length
@@ -37,14 +38,14 @@ fs.mkdirSync(CACHE_DIR, { recursive: true });
 
 const SOURCE_SPECS = [
   source("open_interest_current", DERIVATIVES_ENDPOINT_AUDIT.openInterest, false, "ANONYMOUS_PUBLIC", "current snapshot only", 1, "request", "weight 1", "server timestamp", "not historical-safe", "none"),
-  source("open_interest", DERIVATIVES_ENDPOINT_AUDIT.openInterestHistory, true, "ANONYMOUS_PUBLIC", "latest 1 month", 500, "5m", "1000 IP weight units / 5m; public data limit", "period start; available after period end", "yes; provider window only; revisions possible", "backward"),
+  source("open_interest", DERIVATIVES_ENDPOINT_AUDIT.openInterestHistory, true, "ANONYMOUS_PUBLIC", "latest 1 month", 500, "5m", "1000 IP weight units / 5m; public data limit", "period end; available at endpoint timestamp", "yes; provider window only; revisions possible", "backward"),
   source("premium_index_current", DERIVATIVES_ENDPOINT_AUDIT.premiumIndex, false, "ANONYMOUS_PUBLIC", "current snapshot only", 1, "request", "weight 1", "server timestamp", "not historical-safe", "none"),
   source("funding", DERIVATIVES_ENDPOINT_AUDIT.fundingHistory, true, "ANONYMOUS_PUBLIC", "provider history; no guaranteed long-term archive", 1000, "event / typically 8h", "500 / 5m IP shared with fundingInfo", "fundingTime settlement; available at fundingTime", "yes for settled event; rateType/revisions must be retained", "forward"),
   source("basis", DERIVATIVES_ENDPOINT_AUDIT.basis, true, "ANONYMOUS_PUBLIC", "latest 30 days", 500, "5m", "weight 0; IP limits apply", "period start; available at timestamp + 5m", "yes; provider window and contract roll risk", "forward"),
   source("taker_flow", DERIVATIVES_ENDPOINT_AUDIT.takerFlow, true, "ANONYMOUS_PUBLIC", "latest 30 days", 500, "5m", "1000 IP requests / 5m", "period start; available at timestamp + 5m", "yes; provider window and revision risk", "backward"),
-  source("positioning", DERIVATIVES_ENDPOINT_AUDIT.globalLongShort, true, "ANONYMOUS_PUBLIC", "latest 30 days", 500, "5m", "1000 IP requests / 5m", "period start; available at timestamp + 5m", "yes; global account ratio only", "backward"),
-  source("top_trader_account", DERIVATIVES_ENDPOINT_AUDIT.topTraderAccount, true, "MARKET_DATA_API_KEY", "latest 30 days", 500, "5m", "1000 IP requests / 5m", "period start; available at timestamp + 5m", "yes; provider window and revision risk", "backward"),
-  source("top_trader_position", DERIVATIVES_ENDPOINT_AUDIT.topTraderPosition, true, "MARKET_DATA_API_KEY", "latest 30 days", 500, "5m", "1000 IP requests / 5m", "period start; available at timestamp + 5m", "yes; provider window and revision risk", "backward"),
+  source("positioning", DERIVATIVES_ENDPOINT_AUDIT.globalLongShort, true, "ANONYMOUS_PUBLIC", "latest 30 days", 500, "5m", "1000 IP requests / 5m", "period end; available at endpoint timestamp", "yes; global account ratio only", "backward"),
+  source("top_trader_account", DERIVATIVES_ENDPOINT_AUDIT.topTraderAccount, true, "MARKET_DATA_API_KEY", "latest 30 days", 500, "5m", "1000 IP requests / 5m", "period end; available at endpoint timestamp", "yes; provider window and revision risk", "backward"),
+  source("top_trader_position", DERIVATIVES_ENDPOINT_AUDIT.topTraderPosition, true, "MARKET_DATA_API_KEY", "latest 30 days", 500, "5m", "1000 IP requests / 5m", "period end; available at endpoint timestamp", "yes; provider window and revision risk", "backward"),
   source("liquidation", DERIVATIVES_ENDPOINT_AUDIT.liquidation, true, "ANONYMOUS_PUBLIC", "no public historical REST backfill; websocket forward-only", null, "event stream", "websocket connection limits", "event time; available on receipt", "forward only; no safe historical backtest", "none")
 ];
 
@@ -252,9 +253,10 @@ function normalize(family, data) {
 }
 
 function timingFor(family, timestamp) {
+  const periodEndTimestamp = DERIVATIVES_PERIOD_END_TIMESTAMP_FAMILIES.includes(family);
   const periodic = family !== "funding";
-  const periodStart = periodic ? timestamp : null;
-  const periodEnd = periodic ? timestamp + DERIVATIVES_INTERVAL_MS : timestamp;
+  const periodStart = !periodic ? null : periodEndTimestamp ? timestamp - DERIVATIVES_INTERVAL_MS : timestamp;
+  const periodEnd = !periodic ? timestamp : periodEndTimestamp ? timestamp : timestamp + DERIVATIVES_INTERVAL_MS;
   const availableAt = periodEnd;
   return { source_timestamp: timestamp, period_start: periodStart, period_end: periodEnd, available_at: availableAt };
 }
@@ -335,6 +337,7 @@ function timingDescription(family) {
   if (family === "funding") return { period: "event", sourceTimestamp: "fundingTime", periodStart: null, periodEnd: "fundingTime", availableAt: "fundingTime", rule: "last settled funding may persist only within funding freshness tolerance" };
   if (family === "liquidation") return { period: "event", sourceTimestamp: "eventTime", periodStart: null, periodEnd: null, availableAt: "receivedAt", rule: "forward-only" };
   if (family === "open_interest_current" || family === "premium_index_current") return { period: "snapshot", sourceTimestamp: "server timestamp", periodStart: null, periodEnd: null, availableAt: "server timestamp", rule: "current snapshot is not historical-safe" };
+  if (DERIVATIVES_PERIOD_END_TIMESTAMP_FAMILIES.includes(family)) return { period: "5m", sourceTimestamp: "provider timestamp (period end)", periodStart: "timestamp - 5m", periodEnd: "timestamp", availableAt: "timestamp", rule: "period-end observation is PIT-usable at the endpoint timestamp" };
   return { period: "5m", sourceTimestamp: "provider timestamp (period start)", periodStart: "timestamp", periodEnd: "timestamp + 5m", availableAt: "timestamp + 5m", rule: "period must be closed before PIT use" };
 }
 

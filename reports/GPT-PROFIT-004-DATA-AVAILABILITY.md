@@ -2,21 +2,21 @@
 
 This audit is a data-foundation deliverable. It does not add a strategy, read a private Binance API, or consume any GPT-PROFIT-003 holdout.
 
-Generated: 2026-08-30T16:45:59.286Z; source version: `binance-usdm-public-rest-v1`; requested window: 2026-07-31T11:15:00.000Z → 2026-08-30T11:15:00.000Z.
+Generated: 2026-08-30T23:44:52.416Z; source version: `binance-usdm-public-rest-v1`; requested window: 2026-07-31T11:15:00.000Z → 2026-08-30T11:15:00.000Z.
 
 ## Endpoint capability matrix
 
 | Family | Endpoint | Capability | Anonymous | API key | Historical lookback | Interval | Point-in-time / backtest | Risks |
 |---|---|---|---:|---:|---|---|---|---|
 | open_interest_current | `/fapi/v1/openInterest` | ANONYMOUS_PUBLIC | yes | no | current snapshot only | request | server timestamp; safe=no | not historical-safe; symbol universe is fixed to currently configured symbols; delisted contracts are not inferred |
-| open_interest | `/futures/data/openInterestHist` | ANONYMOUS_PUBLIC | yes | no | latest 1 month | 5m | period start; available after period end; safe=yes | provider-limited history / possible revisions; retain source timestamps; symbol universe is fixed to currently configured symbols; delisted contracts are not inferred |
+| open_interest | `/futures/data/openInterestHist` | ANONYMOUS_PUBLIC | yes | no | latest 1 month | 5m | period end; available at endpoint timestamp; safe=yes | provider-limited history / possible revisions; retain source timestamps; symbol universe is fixed to currently configured symbols; delisted contracts are not inferred |
 | premium_index_current | `/fapi/v1/premiumIndex` | ANONYMOUS_PUBLIC | yes | no | current snapshot only | request | server timestamp; safe=no | not historical-safe; symbol universe is fixed to currently configured symbols; delisted contracts are not inferred |
 | funding | `/fapi/v1/fundingRate` | ANONYMOUS_PUBLIC | yes | no | provider history; no guaranteed long-term archive | event / typically 8h | fundingTime settlement; available at fundingTime; safe=yes | yes for settled event; rateType/revisions must be retained; symbol universe is fixed to currently configured symbols; delisted contracts are not inferred |
 | basis | `/futures/data/basis` | ANONYMOUS_PUBLIC | yes | no | latest 30 days | 5m | period start; available at timestamp + 5m; safe=yes | provider-limited history / possible revisions; retain source timestamps; symbol universe is fixed to currently configured symbols; delisted contracts are not inferred |
 | taker_flow | `/futures/data/takerlongshortRatio` | ANONYMOUS_PUBLIC | yes | no | latest 30 days | 5m | period start; available at timestamp + 5m; safe=yes | provider-limited history / possible revisions; retain source timestamps; symbol universe is fixed to currently configured symbols; delisted contracts are not inferred |
-| positioning | `/futures/data/globalLongShortAccountRatio` | ANONYMOUS_PUBLIC | yes | no | latest 30 days | 5m | period start; available at timestamp + 5m; safe=yes | yes; global account ratio only; symbol universe is fixed to currently configured symbols; delisted contracts are not inferred |
-| top_trader_account | `/futures/data/topLongShortAccountRatio` | MARKET_DATA_API_KEY | no | yes | latest 30 days | 5m | period start; available at timestamp + 5m; safe=yes | provider-limited history / possible revisions; retain source timestamps; symbol universe is fixed to currently configured symbols; delisted contracts are not inferred |
-| top_trader_position | `/futures/data/topLongShortPositionRatio` | MARKET_DATA_API_KEY | no | yes | latest 30 days | 5m | period start; available at timestamp + 5m; safe=yes | provider-limited history / possible revisions; retain source timestamps; symbol universe is fixed to currently configured symbols; delisted contracts are not inferred |
+| positioning | `/futures/data/globalLongShortAccountRatio` | ANONYMOUS_PUBLIC | yes | no | latest 30 days | 5m | period end; available at endpoint timestamp; safe=yes | yes; global account ratio only; symbol universe is fixed to currently configured symbols; delisted contracts are not inferred |
+| top_trader_account | `/futures/data/topLongShortAccountRatio` | MARKET_DATA_API_KEY | no | yes | latest 30 days | 5m | period end; available at endpoint timestamp; safe=yes | provider-limited history / possible revisions; retain source timestamps; symbol universe is fixed to currently configured symbols; delisted contracts are not inferred |
+| top_trader_position | `/futures/data/topLongShortPositionRatio` | MARKET_DATA_API_KEY | no | yes | latest 30 days | 5m | period end; available at endpoint timestamp; safe=yes | provider-limited history / possible revisions; retain source timestamps; symbol universe is fixed to currently configured symbols; delisted contracts are not inferred |
 | liquidation | `websocket:!forceOrder@arr` | ANONYMOUS_PUBLIC | yes | no | no public historical REST backfill; websocket forward-only | event stream | event time; available on receipt; safe=no | forward only; no safe historical backtest; symbol universe is fixed to currently configured symbols; delisted contracts are not inferred |
 
 ### Source timing matrix
@@ -24,14 +24,14 @@ Generated: 2026-08-30T16:45:59.286Z; source version: `binance-usdm-public-rest-v
 | Family | Period start | Period end | available_at | Freshness policy |
 |---|---|---|---|---|
 | open_interest_current | n/a | n/a | server timestamp | current snapshot is not historical-safe |
-| open_interest | timestamp | timestamp + 5m | timestamp + 5m | period must be closed before PIT use |
+| open_interest | timestamp - 5m | timestamp | timestamp | period-end observation is PIT-usable at the endpoint timestamp |
 | premium_index_current | n/a | n/a | server timestamp | current snapshot is not historical-safe |
 | funding | n/a | fundingTime | fundingTime | last settled funding may persist only within funding freshness tolerance |
 | basis | timestamp | timestamp + 5m | timestamp + 5m | period must be closed before PIT use |
 | taker_flow | timestamp | timestamp + 5m | timestamp + 5m | period must be closed before PIT use |
-| positioning | timestamp | timestamp + 5m | timestamp + 5m | period must be closed before PIT use |
-| top_trader_account | timestamp | timestamp + 5m | timestamp + 5m | period must be closed before PIT use |
-| top_trader_position | timestamp | timestamp + 5m | timestamp + 5m | period must be closed before PIT use |
+| positioning | timestamp - 5m | timestamp | timestamp | period-end observation is PIT-usable at the endpoint timestamp |
+| top_trader_account | timestamp - 5m | timestamp | timestamp | period-end observation is PIT-usable at the endpoint timestamp |
+| top_trader_position | timestamp - 5m | timestamp | timestamp | period-end observation is PIT-usable at the endpoint timestamp |
 | liquidation | n/a | n/a | receivedAt | forward-only |
 
 Top-trader capability: **MARKET_DATA_API_KEY**; key configured: **false**; without the optional `BINANCE_MARKET_DATA_API_KEY`, status is `UNAVAILABLE_API_KEY_REQUIRED`. No key is sent to non-allowlisted endpoints.
@@ -45,7 +45,7 @@ Official source URLs: [USDⓈ-M Futures market data](https://developers.binance.
 - Rows observed across source files: 226884; expected on fixed 5m grids where applicable: 241948; missing ratio: 0.064865.
 - Consolidated point-in-time rows prepared for `gpt_derivatives_metrics`: 60375; the migration is included but not applied to Production in this Draft PR.
 - Earliest metric: 2026-07-31T15:50:00.000Z; latest metric: 2026-08-30T11:15:00.000Z; global common span (descriptive only): 19.086806 days; family gates use independent coverage.
-- Dataset hash: `04b3724fedf34d35e8c6b7b0c050fd00a047185a83f830f1bddc148bf1ca5eaa`; manifest sidecar is generated next to this report.
+- Dataset hash: `17ee65012bb0c5c2e877a09ad5a0aaf008677d62e1a9b02a4d4896718e170c2a`; manifest sidecar is generated next to this report.
 - Database status: migration included in Draft PR; not applied to Production.
 
 | Family | Observed rows | Calendar coverage | Symbols with data | Symbols >=90d | Missing | Stale | Status |

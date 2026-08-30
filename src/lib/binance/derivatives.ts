@@ -3,6 +3,13 @@ export const DERIVATIVES_INTERVAL = "5m";
 export const DERIVATIVES_INTERVAL_MS = 5 * 60 * 1000;
 export const DERIVATIVES_SOURCE_VERSION = "binance-usdm-public-rest-v1";
 export const DERIVATIVES_HISTORY_LIMIT = 100;
+/** Binance reports these 5m statistics at the end of the represented period. */
+export const DERIVATIVES_PERIOD_END_TIMESTAMP_FAMILIES = [
+  "open_interest",
+  "positioning",
+  "top_trader_account",
+  "top_trader_position"
+] as const;
 export const DERIVATIVES_PERIODIC_FRESHNESS_TOLERANCE_MS = 10 * 60 * 1000;
 export const DERIVATIVES_FUNDING_FRESHNESS_TOLERANCE_MS = 9 * 60 * 60 * 1000;
 
@@ -295,9 +302,9 @@ export async function fetchOpenInterestHistory(symbol: string, options: Derivati
       openInterestValue: finiteNumberOrNull(row.sumOpenInterestValue),
       timestamp,
       sourceTimestamp: timestamp,
-      periodStart: timestamp,
-      periodEnd: timestamp + DERIVATIVES_INTERVAL_MS,
-      availableAt: timestamp + DERIVATIVES_INTERVAL_MS
+      periodStart: timestamp - DERIVATIVES_INTERVAL_MS,
+      periodEnd: timestamp,
+      availableAt: timestamp
     } satisfies TimedOpenInterest];
   });
 }
@@ -407,9 +414,9 @@ export async function fetchGlobalLongShortHistory(symbol: string, options: Deriv
       shortAccount: finiteNumberOrNull(row.shortAccount),
       timestamp,
       sourceTimestamp: timestamp,
-      periodStart: timestamp,
-      periodEnd: timestamp + DERIVATIVES_INTERVAL_MS,
-      availableAt: timestamp + DERIVATIVES_INTERVAL_MS
+      periodStart: timestamp - DERIVATIVES_INTERVAL_MS,
+      periodEnd: timestamp,
+      availableAt: timestamp
     } satisfies TimedPositioning];
   });
 }
@@ -438,9 +445,9 @@ async function fetchTopTraderHistory(symbol: string, endpoint: string, options: 
       shortAccount: finiteNumberOrNull(row.shortAccount),
       timestamp,
       sourceTimestamp: timestamp,
-      periodStart: timestamp,
-      periodEnd: timestamp + DERIVATIVES_INTERVAL_MS,
-      availableAt: timestamp + DERIVATIVES_INTERVAL_MS
+      periodStart: timestamp - DERIVATIVES_INTERVAL_MS,
+      periodEnd: timestamp,
+      availableAt: timestamp
     } satisfies TimedTopTraderPositioning];
   });
 }
@@ -449,7 +456,8 @@ export function buildDerivativesMetric(input: CollectionInput): DerivativesMetri
   const metricTime = closedMetricTime(input.now);
   // metricTime is the period start; the represented closed candle becomes
   // available at metricTime + 5m. Every source is joined against that close
-  // boundary rather than its provider timestamp alone.
+  // boundary rather than its provider timestamp alone. Period-end Binance
+  // families are therefore eligible exactly at this boundary.
   const decisionTime = metricTime + DERIVATIVES_INTERVAL_MS;
   const oiRaw = latestAtOrBefore(input.openInterestHistory, decisionTime, (item) => observationAvailableAt(item, "open_interest"));
   const oi = isFreshObservation(oiRaw, "open_interest", decisionTime) ? oiRaw : null;
@@ -459,8 +467,8 @@ export function buildDerivativesMetric(input: CollectionInput): DerivativesMetri
   const oiChanges = [5, 15, 60, 240].map((minutes) => {
     const previous = latestAtOrBefore(
       input.openInterestHistory,
-      metricTime - minutes * 60 * 1000,
-      (item) => item.timestamp
+      decisionTime - minutes * 60 * 1000,
+      (item) => observationAvailableAt(item, "open_interest")
     );
     return latestOpenInterest !== null && previous && previous.openInterest > 0
       ? round((latestOpenInterest - previous.openInterest) / previous.openInterest * 100)
@@ -546,7 +554,7 @@ export function buildDerivativesMetric(input: CollectionInput): DerivativesMetri
     top_trader_position: sourceTimingFor(topPositionRaw, "top_trader_position", decisionTime)
   } satisfies Record<string, SourceTiming>;
   const fundingRate = premium?.fundingRate ?? funding?.fundingRate ?? null;
-  const fundingValues = input.fundingHistory.filter((item) => item.fundingTime <= metricTime).map((item) => item.fundingRate);
+  const fundingValues = input.fundingHistory.filter((item) => observationAvailableAt(item, "funding") <= decisionTime).map((item) => item.fundingRate);
   const fundingPercentile = percentileRank(fundingRate, fundingValues);
   const basisAcceleration = basisBps !== null && priorBasisBps !== null ? round(basisBps - priorBasisBps) : null;
   const fundingExtremePositive = fundingPercentile === null ? null : fundingPercentile >= 95;
@@ -597,11 +605,15 @@ export function buildDerivativesMetric(input: CollectionInput): DerivativesMetri
     oiChange1h: oiChanges[2],
     oiChange4h: oiChanges[3],
     oiAcceleration,
-    oiPercentile: percentileRank(latestOpenInterest, input.openInterestHistory.filter((item) => item.timestamp <= metricTime).map((item) => item.openInterest)),
+    oiPercentile: percentileRank(latestOpenInterest, input.openInterestHistory
+      .filter((item) => observationAvailableAt(item, "open_interest") <= decisionTime)
+      .map((item) => item.openInterest)),
     fundingRate,
     lastSettledFunding: funding?.fundingRate ?? null,
     fundingPercentile,
-    fundingZScore: zScore(funding?.fundingRate ?? null, input.fundingHistory.filter((item) => item.fundingTime <= metricTime).map((item) => item.fundingRate)),
+    fundingZScore: zScore(funding?.fundingRate ?? null, input.fundingHistory
+      .filter((item) => observationAvailableAt(item, "funding") <= decisionTime)
+      .map((item) => item.fundingRate)),
     fundingAcceleration: funding && priorFunding ? round(funding.fundingRate - priorFunding.fundingRate) : null,
     fundingExtremePositive,
     fundingExtremeNegative,
@@ -612,7 +624,9 @@ export function buildDerivativesMetric(input: CollectionInput): DerivativesMetri
     basisBps,
     basisRate: basis?.basisRate ?? null,
     basisAcceleration,
-    basisPercentile: percentileRank(basisBps, input.basisHistory.filter((item) => item.timestamp <= metricTime).map((item) => {
+    basisPercentile: percentileRank(basisBps, input.basisHistory
+      .filter((item) => observationAvailableAt(item, "basis") <= decisionTime)
+      .map((item) => {
       if (item.basis !== null && item.indexPrice && item.indexPrice > 0) return item.basis / item.indexPrice * 10_000;
       return item.basisRate !== null ? item.basisRate * 10_000 : null;
     }).filter((value): value is number => value !== null)),
@@ -827,8 +841,13 @@ export function observationAvailableAt(row: TimedObservation | null | undefined,
   if (Number.isFinite(row.availableAt)) return row.availableAt!;
   const timestamp = row.sourceTimestamp ?? row.timestamp ?? row.fundingTime;
   if (!Number.isFinite(timestamp)) return Number.NEGATIVE_INFINITY;
-  if (family === "funding" || family === "liquidation" || family === "premium") return timestamp!;
+  if (family === "funding" || family === "liquidation" || family === "premium"
+    || isPeriodEndTimestampFamily(family)) return timestamp!;
   return timestamp! + DERIVATIVES_INTERVAL_MS;
+}
+
+export function isPeriodEndTimestampFamily(family: string): family is typeof DERIVATIVES_PERIOD_END_TIMESTAMP_FAMILIES[number] {
+  return (DERIVATIVES_PERIOD_END_TIMESTAMP_FAMILIES as readonly string[]).includes(family);
 }
 
 export function observationSourceTimestamp(row: TimedObservation | null | undefined) {
@@ -844,9 +863,11 @@ export function sourceTimingFor(
 ): SourceTiming {
   if (!row) return { sourceTimestamp: null, periodStart: null, periodEnd: null, availableAt: null, sourceAgeMs: null, stale: false, status: "MISSING" };
   const sourceTimestamp = observationSourceTimestamp(row);
-  const periodStart = row.periodStart === undefined ? (family === "funding" ? null : sourceTimestamp) : row.periodStart;
+  const periodStart = row.periodStart === undefined
+    ? family === "funding" ? null : sourceTimestamp === null ? null : isPeriodEndTimestampFamily(family) ? sourceTimestamp - DERIVATIVES_INTERVAL_MS : sourceTimestamp
+    : row.periodStart;
   const periodEnd = row.periodEnd === undefined
-    ? (family === "funding" ? sourceTimestamp : sourceTimestamp === null ? null : sourceTimestamp + DERIVATIVES_INTERVAL_MS)
+    ? (family === "funding" ? sourceTimestamp : sourceTimestamp === null ? null : isPeriodEndTimestampFamily(family) ? sourceTimestamp : sourceTimestamp + DERIVATIVES_INTERVAL_MS)
     : row.periodEnd;
   const availableAt = observationAvailableAt(row, family);
   const sourceAgeMs = Number.isFinite(availableAt) ? Math.max(0, decisionTime - availableAt) : null;

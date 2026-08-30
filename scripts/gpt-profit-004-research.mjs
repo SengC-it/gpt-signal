@@ -18,6 +18,10 @@ import {
   DERIVATIVE_FAMILIES
 } from "../src/lib/signal/derivatives-research.ts";
 import { forwardLiquidationCollectorStatus } from "../src/lib/binance/liquidation-forward.ts";
+import {
+  DERIVATIVES_INTERVAL_MS,
+  DERIVATIVES_PERIOD_END_TIMESTAMP_FAMILIES
+} from "../src/lib/binance/derivatives.ts";
 
 const SYMBOLS = ["BTCUSDT", "ETHUSDT", "SOLUSDT", "BNBUSDT", "LINKUSDT", "AVAXUSDT", "DOGEUSDT"];
 const TRADE_SYMBOLS = SYMBOLS.filter((symbol) => symbol !== "BTCUSDT");
@@ -102,6 +106,12 @@ const report = {
     feePerSide: DERIVATIVES_FEE_RATE,
     slippagePerSide: DERIVATIVES_SLIPPAGE_RATE,
     source: "fixed entry-edge label simulator; no derivative-derived threshold"
+  },
+  ablationProtocol: {
+    comparableBaseline: "unconditional outcomes for the same events with fresh point-in-time family data",
+    conditionedSlice: "deterministic top 30% of each family score; no threshold grid",
+    deltaDefinition: "conditioned slice metric minus its same-event unconditional baseline",
+    familyEligibility: "positive delta net and PF, positive delta gross or predictive evidence, conditioned fold consistency, and conditioned sample/breadth"
   },
   events: { priceOnlyEvents: events.length, symbols: TRADE_SYMBOLS, noCandidateSearch: true },
   baseline: ablation.baseline,
@@ -194,11 +204,14 @@ function readMetricCache() {
       const family = match[2];
       const key = `${symbol}:${timestamp}`;
       const row = byKey.get(key) ?? { symbol, metric_time: new Date(timestamp).toISOString(), timestamp, family_timing: {} };
+      const periodEndTimestamp = DERIVATIVES_PERIOD_END_TIMESTAMP_FAMILIES.includes(family);
+      const fallbackPeriodStart = periodEndTimestamp ? timestamp - DERIVATIVES_INTERVAL_MS : family === "funding" ? null : timestamp;
+      const fallbackPeriodEnd = family === "funding" || periodEndTimestamp ? timestamp : timestamp + DERIVATIVES_INTERVAL_MS;
       const timing = {
         source_timestamp: NumberOrNull(value.source_timestamp ?? timestamp),
-        period_start: NumberOrNull(value.period_start),
-        period_end: NumberOrNull(value.period_end),
-        available_at: NumberOrNull(value.available_at ?? (family === "funding" ? timestamp : timestamp + 5 * 60 * 1000)),
+        period_start: NumberOrNull(value.period_start ?? fallbackPeriodStart),
+        period_end: NumberOrNull(value.period_end ?? fallbackPeriodEnd),
+        available_at: NumberOrNull(value.available_at ?? (family === "funding" || periodEndTimestamp ? timestamp : timestamp + DERIVATIVES_INTERVAL_MS)),
         stale: false
       };
       row.family_timing[family] = timing;
@@ -319,8 +332,10 @@ function renderMarkdown(report) {
     "",
     "## Incremental information ablation",
     "",
-    "| Family | Events | Settled | Gross E[R] | Net E[R] | PF | Spearman | Top lift | Δ Net E[R] | Δ PF | Symbols | Missing | Stale | Status |",
-    "|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---|",
+    "Unconditional family columns are the comparable baseline population for that family. Conditioned columns are the deterministic score top 30% slice; deltas are conditioned minus that same-event baseline.",
+    "",
+    "| Family | Base events | Base settled | Base Gross E[R] | Base Net E[R] | Base PF | Cond events | Cond settled | Cond Gross E[R] | Cond Net E[R] | Cond PF | Δ Gross E[R] | Δ Net E[R] | Δ PF | Spearman | Mono violations | Top lift | Base symbols | Cond symbols | Base months | Cond folds | Missing | Stale | Status |",
+    "|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---|",
     row(report.baseline),
     ...report.families.map(row),
     row(report.combinedPermitted),
@@ -344,6 +359,6 @@ function renderMarkdown(report) {
   return lines.join("\n") + "\n";
 }
 function row(summary) {
-  return `| ${summary.family} | ${summary.eventCount} | ${summary.settled} | ${format(summary.grossExpectancyR)} | ${format(summary.netExpectancyR)} | ${format(summary.profitFactor)} | ${format(summary.spearman)} | ${format(summary.conditionalLiftR)} | ${format(summary.deltaNetExpectancyR)} | ${format(summary.deltaProfitFactor)} | ${summary.symbolBreadth} | ${summary.missingExcludedCount} | ${summary.staleExcludedCount} | ${summary.status} |`;
+  return `| ${summary.family} | ${summary.eventCount} | ${summary.settled} | ${format(summary.grossExpectancyR)} | ${format(summary.netExpectancyR)} | ${format(summary.profitFactor)} | ${summary.conditionedEventCount} | ${summary.conditionedSettled} | ${format(summary.conditionedGrossExpectancyR)} | ${format(summary.conditionedNetExpectancyR)} | ${format(summary.conditionedProfitFactor)} | ${format(summary.deltaGrossExpectancyR)} | ${format(summary.deltaNetExpectancyR)} | ${format(summary.deltaProfitFactor)} | ${format(summary.spearman)} | ${format(summary.monotonicViolations)} | ${format(summary.conditionalLiftR)} | ${summary.symbolBreadth} | ${summary.conditionedSymbolBreadth} | ${summary.monthBreadth} | ${summary.conditionedFoldConsistency} | ${summary.missingExcludedCount} | ${summary.staleExcludedCount} | ${summary.status} |`;
 }
 function format(value) { return value === null || value === undefined ? "n/a" : Number.isFinite(value) ? value.toFixed(6) : String(value); }

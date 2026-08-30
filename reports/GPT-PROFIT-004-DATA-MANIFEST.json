@@ -1,7 +1,7 @@
 {
   "task": "GPT-PROFIT-004 — Derivatives Edge Data Foundation",
   "schemaVersion": "gpt-profit-004-data-manifest-v2",
-  "generatedAt": "2026-08-30T16:45:59.286Z",
+  "generatedAt": "2026-08-30T23:44:52.416Z",
   "sourceVersion": "binance-usdm-public-rest-v1",
   "baseUrl": "https://fapi.binance.com",
   "requestedWindow": {
@@ -75,7 +75,7 @@
         "DOGEUSDT"
       ],
       "rateLimit": "1000 IP weight units / 5m; public data limit",
-      "pointInTime": "period start; available after period end",
+      "pointInTime": "period end; available at endpoint timestamp",
       "safeForBacktest": true,
       "pagination": "backward",
       "survivorshipRisk": "symbol universe is fixed to currently configured symbols; delisted contracts are not inferred",
@@ -215,7 +215,7 @@
         "DOGEUSDT"
       ],
       "rateLimit": "1000 IP requests / 5m",
-      "pointInTime": "period start; available at timestamp + 5m",
+      "pointInTime": "period end; available at endpoint timestamp",
       "safeForBacktest": true,
       "pagination": "backward",
       "survivorshipRisk": "symbol universe is fixed to currently configured symbols; delisted contracts are not inferred",
@@ -243,7 +243,7 @@
         "DOGEUSDT"
       ],
       "rateLimit": "1000 IP requests / 5m",
-      "pointInTime": "period start; available at timestamp + 5m",
+      "pointInTime": "period end; available at endpoint timestamp",
       "safeForBacktest": true,
       "pagination": "backward",
       "survivorshipRisk": "symbol universe is fixed to currently configured symbols; delisted contracts are not inferred",
@@ -271,7 +271,7 @@
         "DOGEUSDT"
       ],
       "rateLimit": "1000 IP requests / 5m",
-      "pointInTime": "period start; available at timestamp + 5m",
+      "pointInTime": "period end; available at endpoint timestamp",
       "safeForBacktest": true,
       "pagination": "backward",
       "survivorshipRisk": "symbol universe is fixed to currently configured symbols; delisted contracts are not inferred",
@@ -371,7 +371,7 @@
         "symbol": "BTCUSDT",
         "family": "open_interest",
         "file": ".cache/gpt-profit-004/BTCUSDT-open_interest.json",
-        "fileSha256": "13611fe2e9543771126bfdbf2b462f037299459963241c79431eb0f1c737a030",
+        "fileSha256": "2bc0c732f09fcbba66db644e9c0d27cd03caf0f60b2effa3a0b12cfce8a89947",
         "start": "2026-07-31T15:55:00.000Z",
         "end": "2026-08-30T11:15:00.000Z",
         "earliest": "2026-07-31T15:55:00.000Z",
@@ -383,11 +383,11 @@
         },
         "sourceTiming": {
           "period": "5m",
-          "sourceTimestamp": "provider timestamp (period start)",
-          "periodStart": "timestamp",
-          "periodEnd": "timestamp + 5m",
-          "availableAt": "timestamp + 5m",
-          "rule": "period must be closed before PIT use"
+          "sourceTimestamp": "provider timestamp (period end)",
+          "periodStart": "timestamp - 5m",
+          "periodEnd": "timestamp",
+          "availableAt": "timestamp",
+          "rule": "period-end observation is PIT-usable at the endpoint timestamp"
         },
         "staleRatio": 0,
         "observations": 8585,
@@ -403,7 +403,7 @@
         "symbol": "ETHUSDT",
         "family": "open_interest",
         "file": ".cache/gpt-profit-004/ETHUSDT-open_interest.json",
-        "fileSha256": "0b1a4ca0bb794e2d1819087d03ccffe6b47800816add7f3c947b591159f1d6cd",
+        "fileSha256": "561251a2383ce822a82779429d0ae45b0245a118c7c6baa981764b69de5b5848",
         "start": "2026-07-31T15:55:00.000Z",
         "end": "2026-08-30T11:15:00.000Z",
         "earliest": "2026-07-31T15:55:00.000Z",
@@ -415,11 +415,11 @@
         },
         "sourceTiming": {
           "period": "5m",
-          "sourceTimestamp": "provider timestamp (period start)",
-          "periodStart": "timestamp",
-          "periodEnd": "timestamp + 5m",
-          "availableAt": "timestamp + 5m",
-          "rule": "period must be closed before PIT use"
+          "sourceTimestamp": "provider timestamp (period end)",
+          "periodStart": "timestamp - 5m",
+          "periodEnd": "timestamp",
+          "availableAt": "timestamp",
+          "rule": "period-end observation is PIT-usable at the endpoint timestamp"
         },
         "staleRatio": 0,
         "observations": 8585,
@@ -435,7 +435,7 @@
         "symbol": "SOLUSDT",
         "family": "open_interest",
         "file": ".cache/gpt-profit-004/SOLUSDT-open_interest.json",
-        "fileSha256": "807780226c6f0c002ed5e575570399b8bb6934560cd6a12a10b5f168d1ffd34c",
+        "fileSha256": "4d2451cd16202c48c24e56f3d5193d7328ce689b06d6215ebeb5716cded62faa",
         "start": "2026-07-31T15:55:00.000Z",
         "end": "2026-08-30T11:15:00.000Z",
         "earliest": "2026-07-31T15:55:00.000Z",
@@ -447,11 +447,11 @@
         },
         "sourceTiming": {
           "period": "5m",
-          "sourceTimestamp": "provider timestamp (period start)",
-          "periodStart": "timestamp",
-          "periodEnd": "timestamp + 5m",
-          "availableAt": "timestamp + 5m",
-          "rule": "period must be closed before PIT use"
+          "sourceTimestamp": "provider timestamp (period end)",
+          "periodStart": "timestamp - 5m",
+          "periodEnd": "timestamp",
+          "availableAt": "timestamp",
+          "rule": "period-end observation is PIT-usable at the endpoint timestamp"
         },
         "staleRatio": 0,
         "observations": 8585,
@@ -467,7 +467,7 @@
         "symbol": "BNBUSDT",
         "family": "open_interest",
         "file": ".cache/gpt-profit-004/BNBUSDT-open_interest.json",
-        "fileSha256": "9901e3404d875d46210dea77e57a1a7414923591acaa77b807bf7dfad0fd57c9",
+        "fileSha256": "a1acc97d1bf8db59b1dc0be427665e4fb9d1aa209e024a70de5700ea19cfc068",
         "start": "2026-07-31T15:55:00.000Z",
         "end": "2026-08-30T11:15:00.000Z",
         "earliest": "2026-07-31T15:55:00.000Z",
@@ -479,11 +479,11 @@
         },
         "sourceTiming": {
           "period": "5m",
-          "sourceTimestamp": "provider timestamp (period start)",
-          "periodStart": "timestamp",
-          "periodEnd": "timestamp + 5m",
-          "availableAt": "timestamp + 5m",
-          "rule": "period must be closed before PIT use"
+          "sourceTimestamp": "provider timestamp (period end)",
+          "periodStart": "timestamp - 5m",
+          "periodEnd": "timestamp",
+          "availableAt": "timestamp",
+          "rule": "period-end observation is PIT-usable at the endpoint timestamp"
         },
         "staleRatio": 0,
         "observations": 8585,
@@ -499,7 +499,7 @@
         "symbol": "LINKUSDT",
         "family": "open_interest",
         "file": ".cache/gpt-profit-004/LINKUSDT-open_interest.json",
-        "fileSha256": "8eae25963a924d0d1d295c8b4ab94d34ffe4ceb711cf3ff53b289efb23a22be3",
+        "fileSha256": "903e81e1137fe90ec3ff5c4f6543ee748607c1aa5666f010acedae7594566dc8",
         "start": "2026-07-31T15:55:00.000Z",
         "end": "2026-08-30T11:15:00.000Z",
         "earliest": "2026-07-31T15:55:00.000Z",
@@ -511,11 +511,11 @@
         },
         "sourceTiming": {
           "period": "5m",
-          "sourceTimestamp": "provider timestamp (period start)",
-          "periodStart": "timestamp",
-          "periodEnd": "timestamp + 5m",
-          "availableAt": "timestamp + 5m",
-          "rule": "period must be closed before PIT use"
+          "sourceTimestamp": "provider timestamp (period end)",
+          "periodStart": "timestamp - 5m",
+          "periodEnd": "timestamp",
+          "availableAt": "timestamp",
+          "rule": "period-end observation is PIT-usable at the endpoint timestamp"
         },
         "staleRatio": 0,
         "observations": 8585,
@@ -531,7 +531,7 @@
         "symbol": "AVAXUSDT",
         "family": "open_interest",
         "file": ".cache/gpt-profit-004/AVAXUSDT-open_interest.json",
-        "fileSha256": "52e2d3d528df797ea779c0a6b95f6b363bdf9981678e042b2b7952a7ea9abfa7",
+        "fileSha256": "666fe3a06c3f45bb7717ffd09a66cfcb519c3462c4c8b8bff8b30ee1447be95c",
         "start": "2026-07-31T15:55:00.000Z",
         "end": "2026-08-30T11:15:00.000Z",
         "earliest": "2026-07-31T15:55:00.000Z",
@@ -543,11 +543,11 @@
         },
         "sourceTiming": {
           "period": "5m",
-          "sourceTimestamp": "provider timestamp (period start)",
-          "periodStart": "timestamp",
-          "periodEnd": "timestamp + 5m",
-          "availableAt": "timestamp + 5m",
-          "rule": "period must be closed before PIT use"
+          "sourceTimestamp": "provider timestamp (period end)",
+          "periodStart": "timestamp - 5m",
+          "periodEnd": "timestamp",
+          "availableAt": "timestamp",
+          "rule": "period-end observation is PIT-usable at the endpoint timestamp"
         },
         "staleRatio": 0,
         "observations": 8585,
@@ -563,7 +563,7 @@
         "symbol": "DOGEUSDT",
         "family": "open_interest",
         "file": ".cache/gpt-profit-004/DOGEUSDT-open_interest.json",
-        "fileSha256": "21ebaaa876dc7ae79834231bed8bf36b7dadfbfbf73f8e6d1e8cf516f0470b9a",
+        "fileSha256": "2704bed287a24ac583ff74a43feb6dbe7a1394e7b6e1d853dcaf0abed8bbdf9b",
         "start": "2026-07-31T15:55:00.000Z",
         "end": "2026-08-30T11:15:00.000Z",
         "earliest": "2026-07-31T15:55:00.000Z",
@@ -575,11 +575,11 @@
         },
         "sourceTiming": {
           "period": "5m",
-          "sourceTimestamp": "provider timestamp (period start)",
-          "periodStart": "timestamp",
-          "periodEnd": "timestamp + 5m",
-          "availableAt": "timestamp + 5m",
-          "rule": "period must be closed before PIT use"
+          "sourceTimestamp": "provider timestamp (period end)",
+          "periodStart": "timestamp - 5m",
+          "periodEnd": "timestamp",
+          "availableAt": "timestamp",
+          "rule": "period-end observation is PIT-usable at the endpoint timestamp"
         },
         "staleRatio": 0,
         "observations": 8585,
@@ -1275,7 +1275,7 @@
         "symbol": "BTCUSDT",
         "family": "positioning",
         "file": ".cache/gpt-profit-004/BTCUSDT-positioning.json",
-        "fileSha256": "b0c97b191f0ab37d3f3b8bb93cae4b3169a81f84164aa155abb7d06a9273cd74",
+        "fileSha256": "8f3571874f8c32500fb6fa7d74975b4dba3f70400f1ed067fa2774923fce76d1",
         "start": "2026-07-31T15:50:00.000Z",
         "end": "2026-08-30T11:15:00.000Z",
         "earliest": "2026-07-31T15:50:00.000Z",
@@ -1287,11 +1287,11 @@
         },
         "sourceTiming": {
           "period": "5m",
-          "sourceTimestamp": "provider timestamp (period start)",
-          "periodStart": "timestamp",
-          "periodEnd": "timestamp + 5m",
-          "availableAt": "timestamp + 5m",
-          "rule": "period must be closed before PIT use"
+          "sourceTimestamp": "provider timestamp (period end)",
+          "periodStart": "timestamp - 5m",
+          "periodEnd": "timestamp",
+          "availableAt": "timestamp",
+          "rule": "period-end observation is PIT-usable at the endpoint timestamp"
         },
         "staleRatio": 0,
         "observations": 8586,
@@ -1307,7 +1307,7 @@
         "symbol": "ETHUSDT",
         "family": "positioning",
         "file": ".cache/gpt-profit-004/ETHUSDT-positioning.json",
-        "fileSha256": "d5ce86e90503ea16101dcadd818717d63b0d5aaf21f8e425b7cb20a8c4cb91f3",
+        "fileSha256": "a24e691977048b9befdd3339acc687ee1a5d14b23fc0d3ba19a024e2b33ebcac",
         "start": "2026-07-31T15:50:00.000Z",
         "end": "2026-08-30T11:15:00.000Z",
         "earliest": "2026-07-31T15:50:00.000Z",
@@ -1319,11 +1319,11 @@
         },
         "sourceTiming": {
           "period": "5m",
-          "sourceTimestamp": "provider timestamp (period start)",
-          "periodStart": "timestamp",
-          "periodEnd": "timestamp + 5m",
-          "availableAt": "timestamp + 5m",
-          "rule": "period must be closed before PIT use"
+          "sourceTimestamp": "provider timestamp (period end)",
+          "periodStart": "timestamp - 5m",
+          "periodEnd": "timestamp",
+          "availableAt": "timestamp",
+          "rule": "period-end observation is PIT-usable at the endpoint timestamp"
         },
         "staleRatio": 0,
         "observations": 8586,
@@ -1339,7 +1339,7 @@
         "symbol": "SOLUSDT",
         "family": "positioning",
         "file": ".cache/gpt-profit-004/SOLUSDT-positioning.json",
-        "fileSha256": "b993cdc1a31dea916e78bab5ab00f709bc6cb2fd26a3c69aa620c24f72c445a5",
+        "fileSha256": "719bde75da2c0bce6240122fcb3cdd6e8750659b13e45fb26fbc986571e705e1",
         "start": "2026-07-31T15:50:00.000Z",
         "end": "2026-08-30T11:15:00.000Z",
         "earliest": "2026-07-31T15:50:00.000Z",
@@ -1351,11 +1351,11 @@
         },
         "sourceTiming": {
           "period": "5m",
-          "sourceTimestamp": "provider timestamp (period start)",
-          "periodStart": "timestamp",
-          "periodEnd": "timestamp + 5m",
-          "availableAt": "timestamp + 5m",
-          "rule": "period must be closed before PIT use"
+          "sourceTimestamp": "provider timestamp (period end)",
+          "periodStart": "timestamp - 5m",
+          "periodEnd": "timestamp",
+          "availableAt": "timestamp",
+          "rule": "period-end observation is PIT-usable at the endpoint timestamp"
         },
         "staleRatio": 0,
         "observations": 8586,
@@ -1371,7 +1371,7 @@
         "symbol": "BNBUSDT",
         "family": "positioning",
         "file": ".cache/gpt-profit-004/BNBUSDT-positioning.json",
-        "fileSha256": "aabf046f896352d2c9180e5f304d6360dcbadf0741dbec8cbb482812f84a49c3",
+        "fileSha256": "d080afa281a929e888da2dc43e0281cd3f92818bb6a1b4440d2b903d7b979194",
         "start": "2026-07-31T15:50:00.000Z",
         "end": "2026-08-30T11:15:00.000Z",
         "earliest": "2026-07-31T15:50:00.000Z",
@@ -1383,11 +1383,11 @@
         },
         "sourceTiming": {
           "period": "5m",
-          "sourceTimestamp": "provider timestamp (period start)",
-          "periodStart": "timestamp",
-          "periodEnd": "timestamp + 5m",
-          "availableAt": "timestamp + 5m",
-          "rule": "period must be closed before PIT use"
+          "sourceTimestamp": "provider timestamp (period end)",
+          "periodStart": "timestamp - 5m",
+          "periodEnd": "timestamp",
+          "availableAt": "timestamp",
+          "rule": "period-end observation is PIT-usable at the endpoint timestamp"
         },
         "staleRatio": 0,
         "observations": 8586,
@@ -1403,7 +1403,7 @@
         "symbol": "LINKUSDT",
         "family": "positioning",
         "file": ".cache/gpt-profit-004/LINKUSDT-positioning.json",
-        "fileSha256": "89b0f690c72150d5599b0a06b39f65ed912c80e86b8f4613c2268e37561f7b78",
+        "fileSha256": "6db004ba8b58601ca89153e4270a0dd76bf424293f70cec81600aad828d0cb8a",
         "start": "2026-07-31T15:50:00.000Z",
         "end": "2026-08-30T11:15:00.000Z",
         "earliest": "2026-07-31T15:50:00.000Z",
@@ -1415,11 +1415,11 @@
         },
         "sourceTiming": {
           "period": "5m",
-          "sourceTimestamp": "provider timestamp (period start)",
-          "periodStart": "timestamp",
-          "periodEnd": "timestamp + 5m",
-          "availableAt": "timestamp + 5m",
-          "rule": "period must be closed before PIT use"
+          "sourceTimestamp": "provider timestamp (period end)",
+          "periodStart": "timestamp - 5m",
+          "periodEnd": "timestamp",
+          "availableAt": "timestamp",
+          "rule": "period-end observation is PIT-usable at the endpoint timestamp"
         },
         "staleRatio": 0,
         "observations": 8586,
@@ -1435,7 +1435,7 @@
         "symbol": "AVAXUSDT",
         "family": "positioning",
         "file": ".cache/gpt-profit-004/AVAXUSDT-positioning.json",
-        "fileSha256": "193f53d49a88573caedf6e8ec76960c505f48d669460f1c30045cb7483d9119b",
+        "fileSha256": "d0b7188b9fbb40923742b7b9c41a791c4dd904015fda7a47804e4cd807718824",
         "start": "2026-07-31T15:50:00.000Z",
         "end": "2026-08-30T11:15:00.000Z",
         "earliest": "2026-07-31T15:50:00.000Z",
@@ -1447,11 +1447,11 @@
         },
         "sourceTiming": {
           "period": "5m",
-          "sourceTimestamp": "provider timestamp (period start)",
-          "periodStart": "timestamp",
-          "periodEnd": "timestamp + 5m",
-          "availableAt": "timestamp + 5m",
-          "rule": "period must be closed before PIT use"
+          "sourceTimestamp": "provider timestamp (period end)",
+          "periodStart": "timestamp - 5m",
+          "periodEnd": "timestamp",
+          "availableAt": "timestamp",
+          "rule": "period-end observation is PIT-usable at the endpoint timestamp"
         },
         "staleRatio": 0,
         "observations": 8586,
@@ -1467,7 +1467,7 @@
         "symbol": "DOGEUSDT",
         "family": "positioning",
         "file": ".cache/gpt-profit-004/DOGEUSDT-positioning.json",
-        "fileSha256": "34955241e660ab372afc1a0f09f4f41ed255e2de4029f7b485fba7a47c9c08bb",
+        "fileSha256": "aed8d15428ce03b75e94a05a03ba5b1864d4e9093a66c431b60f3450560cd4b9",
         "start": "2026-07-31T15:50:00.000Z",
         "end": "2026-08-30T11:15:00.000Z",
         "earliest": "2026-07-31T15:50:00.000Z",
@@ -1479,11 +1479,11 @@
         },
         "sourceTiming": {
           "period": "5m",
-          "sourceTimestamp": "provider timestamp (period start)",
-          "periodStart": "timestamp",
-          "periodEnd": "timestamp + 5m",
-          "availableAt": "timestamp + 5m",
-          "rule": "period must be closed before PIT use"
+          "sourceTimestamp": "provider timestamp (period end)",
+          "periodStart": "timestamp - 5m",
+          "periodEnd": "timestamp",
+          "availableAt": "timestamp",
+          "rule": "period-end observation is PIT-usable at the endpoint timestamp"
         },
         "staleRatio": 0,
         "observations": 8586,
@@ -1513,11 +1513,11 @@
         },
         "sourceTiming": {
           "period": "5m",
-          "sourceTimestamp": "provider timestamp (period start)",
-          "periodStart": "timestamp",
-          "periodEnd": "timestamp + 5m",
-          "availableAt": "timestamp + 5m",
-          "rule": "period must be closed before PIT use"
+          "sourceTimestamp": "provider timestamp (period end)",
+          "periodStart": "timestamp - 5m",
+          "periodEnd": "timestamp",
+          "availableAt": "timestamp",
+          "rule": "period-end observation is PIT-usable at the endpoint timestamp"
         },
         "staleRatio": null,
         "observations": 0,
@@ -1545,11 +1545,11 @@
         },
         "sourceTiming": {
           "period": "5m",
-          "sourceTimestamp": "provider timestamp (period start)",
-          "periodStart": "timestamp",
-          "periodEnd": "timestamp + 5m",
-          "availableAt": "timestamp + 5m",
-          "rule": "period must be closed before PIT use"
+          "sourceTimestamp": "provider timestamp (period end)",
+          "periodStart": "timestamp - 5m",
+          "periodEnd": "timestamp",
+          "availableAt": "timestamp",
+          "rule": "period-end observation is PIT-usable at the endpoint timestamp"
         },
         "staleRatio": null,
         "observations": 0,
@@ -1577,11 +1577,11 @@
         },
         "sourceTiming": {
           "period": "5m",
-          "sourceTimestamp": "provider timestamp (period start)",
-          "periodStart": "timestamp",
-          "periodEnd": "timestamp + 5m",
-          "availableAt": "timestamp + 5m",
-          "rule": "period must be closed before PIT use"
+          "sourceTimestamp": "provider timestamp (period end)",
+          "periodStart": "timestamp - 5m",
+          "periodEnd": "timestamp",
+          "availableAt": "timestamp",
+          "rule": "period-end observation is PIT-usable at the endpoint timestamp"
         },
         "staleRatio": null,
         "observations": 0,
@@ -1609,11 +1609,11 @@
         },
         "sourceTiming": {
           "period": "5m",
-          "sourceTimestamp": "provider timestamp (period start)",
-          "periodStart": "timestamp",
-          "periodEnd": "timestamp + 5m",
-          "availableAt": "timestamp + 5m",
-          "rule": "period must be closed before PIT use"
+          "sourceTimestamp": "provider timestamp (period end)",
+          "periodStart": "timestamp - 5m",
+          "periodEnd": "timestamp",
+          "availableAt": "timestamp",
+          "rule": "period-end observation is PIT-usable at the endpoint timestamp"
         },
         "staleRatio": null,
         "observations": 0,
@@ -1641,11 +1641,11 @@
         },
         "sourceTiming": {
           "period": "5m",
-          "sourceTimestamp": "provider timestamp (period start)",
-          "periodStart": "timestamp",
-          "periodEnd": "timestamp + 5m",
-          "availableAt": "timestamp + 5m",
-          "rule": "period must be closed before PIT use"
+          "sourceTimestamp": "provider timestamp (period end)",
+          "periodStart": "timestamp - 5m",
+          "periodEnd": "timestamp",
+          "availableAt": "timestamp",
+          "rule": "period-end observation is PIT-usable at the endpoint timestamp"
         },
         "staleRatio": null,
         "observations": 0,
@@ -1673,11 +1673,11 @@
         },
         "sourceTiming": {
           "period": "5m",
-          "sourceTimestamp": "provider timestamp (period start)",
-          "periodStart": "timestamp",
-          "periodEnd": "timestamp + 5m",
-          "availableAt": "timestamp + 5m",
-          "rule": "period must be closed before PIT use"
+          "sourceTimestamp": "provider timestamp (period end)",
+          "periodStart": "timestamp - 5m",
+          "periodEnd": "timestamp",
+          "availableAt": "timestamp",
+          "rule": "period-end observation is PIT-usable at the endpoint timestamp"
         },
         "staleRatio": null,
         "observations": 0,
@@ -1705,11 +1705,11 @@
         },
         "sourceTiming": {
           "period": "5m",
-          "sourceTimestamp": "provider timestamp (period start)",
-          "periodStart": "timestamp",
-          "periodEnd": "timestamp + 5m",
-          "availableAt": "timestamp + 5m",
-          "rule": "period must be closed before PIT use"
+          "sourceTimestamp": "provider timestamp (period end)",
+          "periodStart": "timestamp - 5m",
+          "periodEnd": "timestamp",
+          "availableAt": "timestamp",
+          "rule": "period-end observation is PIT-usable at the endpoint timestamp"
         },
         "staleRatio": null,
         "observations": 0,
@@ -1739,11 +1739,11 @@
         },
         "sourceTiming": {
           "period": "5m",
-          "sourceTimestamp": "provider timestamp (period start)",
-          "periodStart": "timestamp",
-          "periodEnd": "timestamp + 5m",
-          "availableAt": "timestamp + 5m",
-          "rule": "period must be closed before PIT use"
+          "sourceTimestamp": "provider timestamp (period end)",
+          "periodStart": "timestamp - 5m",
+          "periodEnd": "timestamp",
+          "availableAt": "timestamp",
+          "rule": "period-end observation is PIT-usable at the endpoint timestamp"
         },
         "staleRatio": null,
         "observations": 0,
@@ -1771,11 +1771,11 @@
         },
         "sourceTiming": {
           "period": "5m",
-          "sourceTimestamp": "provider timestamp (period start)",
-          "periodStart": "timestamp",
-          "periodEnd": "timestamp + 5m",
-          "availableAt": "timestamp + 5m",
-          "rule": "period must be closed before PIT use"
+          "sourceTimestamp": "provider timestamp (period end)",
+          "periodStart": "timestamp - 5m",
+          "periodEnd": "timestamp",
+          "availableAt": "timestamp",
+          "rule": "period-end observation is PIT-usable at the endpoint timestamp"
         },
         "staleRatio": null,
         "observations": 0,
@@ -1803,11 +1803,11 @@
         },
         "sourceTiming": {
           "period": "5m",
-          "sourceTimestamp": "provider timestamp (period start)",
-          "periodStart": "timestamp",
-          "periodEnd": "timestamp + 5m",
-          "availableAt": "timestamp + 5m",
-          "rule": "period must be closed before PIT use"
+          "sourceTimestamp": "provider timestamp (period end)",
+          "periodStart": "timestamp - 5m",
+          "periodEnd": "timestamp",
+          "availableAt": "timestamp",
+          "rule": "period-end observation is PIT-usable at the endpoint timestamp"
         },
         "staleRatio": null,
         "observations": 0,
@@ -1835,11 +1835,11 @@
         },
         "sourceTiming": {
           "period": "5m",
-          "sourceTimestamp": "provider timestamp (period start)",
-          "periodStart": "timestamp",
-          "periodEnd": "timestamp + 5m",
-          "availableAt": "timestamp + 5m",
-          "rule": "period must be closed before PIT use"
+          "sourceTimestamp": "provider timestamp (period end)",
+          "periodStart": "timestamp - 5m",
+          "periodEnd": "timestamp",
+          "availableAt": "timestamp",
+          "rule": "period-end observation is PIT-usable at the endpoint timestamp"
         },
         "staleRatio": null,
         "observations": 0,
@@ -1867,11 +1867,11 @@
         },
         "sourceTiming": {
           "period": "5m",
-          "sourceTimestamp": "provider timestamp (period start)",
-          "periodStart": "timestamp",
-          "periodEnd": "timestamp + 5m",
-          "availableAt": "timestamp + 5m",
-          "rule": "period must be closed before PIT use"
+          "sourceTimestamp": "provider timestamp (period end)",
+          "periodStart": "timestamp - 5m",
+          "periodEnd": "timestamp",
+          "availableAt": "timestamp",
+          "rule": "period-end observation is PIT-usable at the endpoint timestamp"
         },
         "staleRatio": null,
         "observations": 0,
@@ -1899,11 +1899,11 @@
         },
         "sourceTiming": {
           "period": "5m",
-          "sourceTimestamp": "provider timestamp (period start)",
-          "periodStart": "timestamp",
-          "periodEnd": "timestamp + 5m",
-          "availableAt": "timestamp + 5m",
-          "rule": "period must be closed before PIT use"
+          "sourceTimestamp": "provider timestamp (period end)",
+          "periodStart": "timestamp - 5m",
+          "periodEnd": "timestamp",
+          "availableAt": "timestamp",
+          "rule": "period-end observation is PIT-usable at the endpoint timestamp"
         },
         "staleRatio": null,
         "observations": 0,
@@ -1931,11 +1931,11 @@
         },
         "sourceTiming": {
           "period": "5m",
-          "sourceTimestamp": "provider timestamp (period start)",
-          "periodStart": "timestamp",
-          "periodEnd": "timestamp + 5m",
-          "availableAt": "timestamp + 5m",
-          "rule": "period must be closed before PIT use"
+          "sourceTimestamp": "provider timestamp (period end)",
+          "periodStart": "timestamp - 5m",
+          "periodEnd": "timestamp",
+          "availableAt": "timestamp",
+          "rule": "period-end observation is PIT-usable at the endpoint timestamp"
         },
         "staleRatio": null,
         "observations": 0,
@@ -2369,7 +2369,7 @@
       "note": "The earlier truncation was not reproduced on the fixed-window refresh; the provider returned observations through the requested end. The historical cause of the prior gap remains unresolved."
     }
   },
-  "datasetHash": "04b3724fedf34d35e8c6b7b0c050fd00a047185a83f830f1bddc148bf1ca5eaa",
+  "datasetHash": "17ee65012bb0c5c2e877a09ad5a0aaf008677d62e1a9b02a4d4896718e170c2a",
   "errors": [],
   "prohibitedSources": [
     "private Binance API",
