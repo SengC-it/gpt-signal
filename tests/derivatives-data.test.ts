@@ -3,18 +3,25 @@ import path from "node:path";
 import { describe, expect, test, vi } from "vitest";
 import {
   DERIVATIVES_ENDPOINT_AUDIT,
+  DERIVATIVES_ENDPOINT_CAPABILITIES,
+  DERIVATIVES_MARKET_DATA_KEY_ENDPOINTS,
   DERIVATIVES_PUBLIC_ENDPOINTS,
   buildDerivativesMetric,
   classifyPriceOiState,
   closedMetricTime,
   collectDerivativesMetrics,
+  fetchOpenInterestHistory,
+  fetchTopTraderAccountHistory,
   selectPointInTime,
+  sourceTimingFor,
   type CollectionInput
 } from "@/lib/binance/derivatives";
 import { forwardLiquidationCollectorStatus, parseForwardLiquidationEvent } from "@/lib/binance/liquidation-forward";
 import {
   buildDerivativeAblation,
+  evaluateDerivativesGate,
   selectDerivativeMetricAsOf,
+  summarizeDerivativeFamily,
   type DerivativesResearchEvent,
   type DerivativesResearchMetric
 } from "@/lib/signal/derivatives-research";
@@ -36,6 +43,65 @@ describe("GPT-PROFIT-004 public derivatives foundation", () => {
     expect(DERIVATIVES_ENDPOINT_AUDIT.topTraderAccount).toContain("topLongShortAccountRatio");
     expect(DERIVATIVES_ENDPOINT_AUDIT.topTraderPosition).toContain("topLongShortPositionRatio");
     expect(fs.readFileSync(path.join(process.cwd(), "src", "lib", "binance", "derivatives.ts"), "utf8")).not.toMatch(/X-MBX-APIKEY/);
+    const manifest = JSON.parse(fs.readFileSync(path.join(process.cwd(), "reports", "GPT-PROFIT-004-DATA-MANIFEST.json"), "utf8"));
+    expect(manifest.privateEndpointsUsed).toBe(false);
+    expect(manifest.privateEndpointFamilies).toEqual([]);
+  });
+
+  test("top-trader endpoints are MARKET_DATA and require the optional key", async () => {
+    expect(DERIVATIVES_ENDPOINT_CAPABILITIES.topTraderAccount).toEqual({ classification: "MARKET_DATA_API_KEY", apiKeyRequired: true });
+    expect(DERIVATIVES_ENDPOINT_CAPABILITIES.topTraderPosition).toEqual({ classification: "MARKET_DATA_API_KEY", apiKeyRequired: true });
+    expect(DERIVATIVES_MARKET_DATA_KEY_ENDPOINTS).toEqual([
+      DERIVATIVES_PUBLIC_ENDPOINTS.topTraderAccount,
+      DERIVATIVES_PUBLIC_ENDPOINTS.topTraderPosition
+    ]);
+    const fetchImpl = vi.fn(async () => response([])) as typeof fetch;
+    await expect(fetchTopTraderAccountHistory("BTCUSDT", { fetchImpl })).rejects.toThrow("UNAVAILABLE_API_KEY_REQUIRED");
+    expect(fetchImpl).not.toHaveBeenCalled();
+  });
+
+  test("market-data key is sent only to the explicit top-trader allow-list", async () => {
+    const requests: RequestInit[] = [];
+    const fetchImpl = vi.fn(async (_input: RequestInfo | URL, init?: RequestInit) => {
+      requests.push(init ?? {});
+      return response([]);
+    }) as typeof fetch;
+    vi.stubEnv("BINANCE_MARKET_DATA_API_KEY", "market-data-test");
+    try {
+      await fetchTopTraderAccountHistory("BTCUSDT", { fetchImpl });
+      await fetchOpenInterestHistory("BTCUSDT", { fetchImpl });
+    } finally {
+      vi.unstubAllEnvs();
+    }
+    expect((requests[0]!.headers as Record<string, string>)[["X-MBX", "APIKEY"].join("-")]).toBe("market-data-test");
+    expect(requests[1]!.headers).toBeUndefined();
+  });
+
+  test("source timing enforces period close and funding settlement", () => {
+    const start = Date.parse("2026-08-30T12:00:00.000Z");
+    expect(sourceTimingFor({ timestamp: start }, "basis", start + 4 * 60 * 1000)).toMatchObject({
+      periodStart: start,
+      periodEnd: start + 5 * 60 * 1000,
+      availableAt: start + 5 * 60 * 1000,
+      status: "FRESH"
+    });
+    expect(sourceTimingFor({ timestamp: start }, "basis", start + 4 * 60 * 1000).availableAt).toBeGreaterThan(start + 4 * 60 * 1000);
+    expect(sourceTimingFor({ timestamp: start }, "taker_flow", start + 6 * 60 * 1000)).toMatchObject({
+      periodStart: start,
+      periodEnd: start + 5 * 60 * 1000,
+      availableAt: start + 5 * 60 * 1000
+    });
+    expect(sourceTimingFor({ fundingTime: start }, "funding", start - 1)).toMatchObject({ availableAt: start, status: "FRESH" });
+    const metric = buildDerivativesMetric({
+      symbol: "BTCUSDT",
+      now: start + 10 * 60 * 1000,
+      openInterestHistory: [],
+      fundingHistory: [{ symbol: "BTCUSDT", fundingRate: 0.001, fundingTime: start + 15 * 60 * 1000, markPrice: 100 }],
+      basisHistory: [],
+      takerHistory: [],
+      globalLongShortHistory: []
+    });
+    expect(metric.fundingRate).toBeNull();
   });
 
   test("closed metric time and PIT selection exclude current/future observations", () => {
@@ -45,10 +111,12 @@ describe("GPT-PROFIT-004 public derivatives foundation", () => {
     expect(selectPointInTime(rows, 25, (row) => row.timestamp)).toEqual({ timestamp: 20 });
     expect(selectPointInTime(rows, 5, (row) => row.timestamp)).toBeNull();
     const metricRows: DerivativesResearchMetric[] = [
-      { symbol: "ETHUSDT", metric_time: "2026-08-30T00:00:00.000Z", open_interest: 1 },
-      { symbol: "ETHUSDT", metric_time: "2026-08-30T00:05:00.000Z", open_interest: 999 }
+      { symbol: "ETHUSDT", metric_time: "2026-08-30T00:00:00.000Z", available_at: "2026-08-30T00:05:00.000Z", open_interest: 1 },
+      { symbol: "ETHUSDT", metric_time: "2026-08-30T00:05:00.000Z", available_at: "2026-08-30T00:10:00.000Z", open_interest: 999 }
     ];
-    expect(selectDerivativeMetricAsOf(metricRows, "ETHUSDT", Date.parse("2026-08-30T00:02:00.000Z"))?.open_interest).toBe(1);
+    expect(selectDerivativeMetricAsOf(metricRows, "ETHUSDT", Date.parse("2026-08-30T00:04:00.000Z"))).toBeNull();
+    expect(selectDerivativeMetricAsOf(metricRows, "ETHUSDT", Date.parse("2026-08-30T00:05:00.000Z"))?.open_interest).toBe(1);
+    expect(selectDerivativeMetricAsOf(metricRows, "ETHUSDT", Date.parse("2026-08-30T00:09:00.000Z"))?.open_interest).toBe(1);
   });
 
   test("percentiles use only point-in-time OI history and interaction state is directional", () => {
@@ -96,8 +164,26 @@ describe("GPT-PROFIT-004 public derivatives foundation", () => {
     expect(metric.globalLongShortRatio).toBe(1.1);
     expect(metric.topAccountLongShortRatio).toBe(1.2);
     expect(metric.topPositionLongShortRatio).toBe(1.3);
-    expect(metric.dataQualityFlags.topTraderPositioning).toEqual({ account: "public_market_data", position: "public_market_data" });
+    expect(metric.dataQualityFlags.topTraderPositioning).toEqual({ account: "market_data_api_key", position: "market_data_api_key" });
     expect(metric.dataQualityFlags.liquidation).toBe("INSUFFICIENT_HISTORICAL_LIQUIDATION_DATA");
+  });
+
+  test("stale 5m observations are nulled and 15m references cannot masquerade as 5m", () => {
+    const now = Date.UTC(2026, 7, 30, 12, 4, 0);
+    const metric = buildDerivativesMetric({
+      symbol: "DOGEUSDT",
+      now,
+      priceReference: { current: 105, previous: 100, interval: "15m" },
+      openInterestHistory: [],
+      fundingHistory: [],
+      basisHistory: [{ pair: "DOGEUSDT", basis: 1, basisRate: 0.01, indexPrice: 100, futuresPrice: 101, timestamp: now - 60 * 60 * 1000 }],
+      takerHistory: [],
+      globalLongShortHistory: []
+    });
+    expect(metric.priceChange5m).toBeNull();
+    expect(metric.basisBps).toBeNull();
+    expect(metric.dataQualityFlags.sourceTiming).toMatchObject({ basis: { status: "STALE_SOURCE_DATA", stale: true } });
+    expect(metric.dataQualityFlags.staleFamilies).toContain("basis");
   });
 
   test("collector is fail-soft and still emits a quality row when endpoints fail", async () => {
@@ -119,8 +205,13 @@ describe("GPT-PROFIT-004 public derivatives foundation", () => {
     const route = fs.readFileSync(path.join(process.cwd(), "src", "app", "api", "jobs", "sync-market", "route.ts"), "utf8");
     expect(migration).toMatch(/unique \(symbol, interval, metric_time\)/i);
     expect(migration).toMatch(/before update or delete/i);
+    expect(migration).toMatch(/period_start timestamptz/i);
+    expect(migration).toMatch(/period_end timestamptz/i);
+    expect(migration).toMatch(/available_at timestamptz/i);
+    expect(migration).toMatch(/source_age_ms bigint/i);
     expect(route).toMatch(/ignoreDuplicates:\s*true/);
     expect(route).toMatch(/gpt_derivatives_metrics/);
+    expect(route).toMatch(/interval:\s*"5m"/);
   });
 
   test("family ablation compares each family against a same-event price-only baseline", () => {
@@ -144,6 +235,57 @@ describe("GPT-PROFIT-004 public derivatives foundation", () => {
     expect(result.families).toHaveLength(5);
     expect(result.families.every((family) => family.comparableBaseline.eventCount === 3)).toBe(true);
     expect(result.combined.family).toBe("combined_permitted");
+  });
+
+  test("family coverage is independent and a broken family does not truncate others", () => {
+    const event: DerivativesResearchEvent = {
+      eventId: "coverage-1",
+      symbol: "BTCUSDT",
+      direction: "LONG",
+      eventTime: Date.parse("2026-08-30T12:00:00Z"),
+      fold: 1,
+      grossR: 1,
+      netR: 0.5
+    };
+    const metric: DerivativesResearchMetric = {
+      symbol: event.symbol,
+      metric_time: new Date(event.eventTime).toISOString(),
+      open_interest: 100,
+      oi_change_5m: 1,
+      basis_bps: 1
+    };
+    const result = buildDerivativeAblation({
+      events: [event],
+      metrics: [metric],
+      historyDays: 30,
+      familyCoverageDays: { open_interest: 100, basis: 20 }
+    });
+    expect(result.families.find((family) => family.family === "open_interest")?.status).toBe("EVALUATED");
+    expect(result.families.find((family) => family.family === "open_interest")?.coverageDays).toBe(100);
+    expect(result.families.find((family) => family.family === "basis")?.status).toBe("INSUFFICIENT_DERIVATIVES_HISTORY");
+    expect(result.families.find((family) => family.family === "basis")?.coverageDays).toBe(20);
+  });
+
+  test("future gate measures single-symbol net-R concentration rather than breadth alone", () => {
+    const event = (eventId: string, symbol: string, netR: number) => ({
+      eventId,
+      symbol,
+      direction: "LONG" as const,
+      eventTime: Date.parse("2026-08-30T12:00:00Z"),
+      fold: 1,
+      grossR: netR,
+      netR
+    });
+    const summary = summarizeDerivativeFamily("open_interest", [
+      { event: event("a", "BTCUSDT", 8), score: 1 },
+      { event: event("b", "ETHUSDT", 1), score: 2 },
+      { event: event("c", "SOLUSDT", 1), score: 3 }
+    ]);
+    const gate = evaluateDerivativesGate({ historyDays: 100, summary });
+    expect(summary.symbolBreadth).toBe(3);
+    expect(summary.largestSymbolAbsoluteContributionShare).toBe(0.8);
+    expect(gate.checks.largestSymbolAbsoluteContributionAtMost50).toBe(false);
+    expect(gate.checks.noSingleSymbolDomination).toBe(false);
   });
 
   test("production and GPT-PROFIT-003 holdout remain disabled/untouched", () => {

@@ -1,4 +1,7 @@
 import type { Direction } from "./types.ts";
+import {
+  DERIVATIVES_FAMILY_FRESHNESS_TOLERANCE_MS
+} from "../binance/derivatives.ts";
 
 /**
  * GPT-PROFIT-004 is an information-increment study. It does not add a
@@ -23,6 +26,10 @@ export type DerivativesResearchMetric = Record<string, unknown> & {
   symbol?: string;
   metric_time?: string | number;
   metricTime?: number;
+  available_at?: string | number;
+  availableAt?: string | number;
+  family_timing?: Record<string, Record<string, unknown>>;
+  familyTiming?: Record<string, Record<string, unknown>>;
   interval?: string;
 };
 
@@ -57,6 +64,12 @@ export type DerivativesFamilySummary = {
   positiveFolds: number;
   folds: number;
   foldConsistency: string;
+  coverageDays: number | null;
+  missingExcludedCount: number;
+  staleExcludedCount: number;
+  netRBySymbol: Record<string, number>;
+  largestSymbolAbsoluteContributionShare: number | null;
+  largestSymbolPositiveContributionShare: number | null;
   comparableBaseline: {
     eventCount: number;
     settled: number;
@@ -73,15 +86,15 @@ export type DerivativesGate = {
   checks: Record<string, boolean>;
 };
 
-/** Point-in-time join: a metric at or after an event is never visible. */
+/** Point-in-time join: an observation is visible only after its source-specific availability boundary. */
 export function selectDerivativeMetricAsOf(
   rows: DerivativesResearchMetric[],
   symbol: string,
   asOf: number
 ): DerivativesResearchMetric | null {
   return rows
-    .filter((row) => row.symbol === symbol && metricTimeOf(row) <= asOf)
-    .sort((left, right) => metricTimeOf(left) - metricTimeOf(right))
+    .filter((row) => row.symbol === symbol && availabilityTimeOf(row) <= asOf)
+    .sort((left, right) => availabilityTimeOf(left) - availabilityTimeOf(right))
     .at(-1) ?? null;
 }
 
@@ -93,6 +106,16 @@ export function metricTimeOf(row: DerivativesResearchMetric): number {
     return Number.isFinite(parsed) ? parsed : Number.NEGATIVE_INFINITY;
   }
   return Number.NEGATIVE_INFINITY;
+}
+
+export function availabilityTimeOf(row: DerivativesResearchMetric): number {
+  const value = row.availableAt ?? row.available_at;
+  if (typeof value === "number") return Number.isFinite(value) ? value : Number.POSITIVE_INFINITY;
+  if (typeof value === "string") {
+    const parsed = Date.parse(value);
+    if (Number.isFinite(parsed)) return parsed;
+  }
+  return metricTimeOf(row);
 }
 
 /**
@@ -108,7 +131,9 @@ export function derivativeFamilyScore(
   const sign = direction === "LONG" ? 1 : -1;
   const numberValue = (...keys: string[]) => {
     for (const key of keys) {
-      const value = Number(metric[key]);
+      const raw = metric[key];
+      if (raw === null || raw === undefined || raw === "") continue;
+      const value = Number(raw);
       if (Number.isFinite(value)) return value;
     }
     return null;
@@ -147,7 +172,12 @@ export function summarizeDerivativeFamily(
   family: DerivativeFamily | "price_only" | "combined_permitted",
   rows: Array<{ event: DerivativesResearchEvent; score: number | null }>,
   comparableBaseline: DerivativesFamilySummary | null = null,
-  status: DerivativesFamilySummary["status"] = "EVALUATED"
+  status: DerivativesFamilySummary["status"] = "EVALUATED",
+  diagnostics: {
+    coverageDays?: number | null;
+    missingExcludedCount?: number;
+    staleExcludedCount?: number;
+  } = {}
 ): DerivativesFamilySummary {
   const usable = rows.filter((row) => Number.isFinite(row.score) || family === "price_only" || family === "combined_permitted");
   const eventCount = usable.length;
@@ -176,6 +206,16 @@ export function summarizeDerivativeFamily(
   }
   const positiveFolds = [...foldValues.values()].filter((values) => (mean(values) ?? 0) > 0).length;
   const folds = foldValues.size;
+  const netRBySymbol: Record<string, number> = {};
+  for (const row of settled) netRBySymbol[row.event.symbol] = round((netRBySymbol[row.event.symbol] ?? 0) + row.event.netR!);
+  const absoluteContributionTotal = Object.values(netRBySymbol).reduce((sum, value) => sum + Math.abs(value), 0);
+  const positiveContributionTotal = Object.values(netRBySymbol).reduce((sum, value) => sum + Math.max(value, 0), 0);
+  const largestSymbolAbsoluteContributionShare = absoluteContributionTotal > 0
+    ? round(Math.max(...Object.values(netRBySymbol).map((value) => Math.abs(value))) / absoluteContributionTotal)
+    : null;
+  const largestSymbolPositiveContributionShare = positiveContributionTotal > 0
+    ? round(Math.max(...Object.values(netRBySymbol).map((value) => Math.max(value, 0))) / positiveContributionTotal)
+    : null;
   const sorted = [...usable].filter((row) => Number.isFinite(row.score)).sort((left, right) => left.score! - right.score!);
   const topCut = sorted.length ? sorted[Math.floor(sorted.length * 0.7)]!.score! : null;
   const top = topCut === null ? [] : sorted.filter((row) => row.score! >= topCut).map((row) => row.event.netR).filter(isFiniteNumber);
@@ -204,6 +244,12 @@ export function summarizeDerivativeFamily(
     positiveFolds,
     folds,
     foldConsistency: folds ? `${positiveFolds}/${folds}` : "0/0",
+    coverageDays: diagnostics.coverageDays ?? null,
+    missingExcludedCount: diagnostics.missingExcludedCount ?? 0,
+    staleExcludedCount: diagnostics.staleExcludedCount ?? 0,
+    netRBySymbol,
+    largestSymbolAbsoluteContributionShare,
+    largestSymbolPositiveContributionShare,
     comparableBaseline: {
       eventCount: baseline.eventCount,
       settled: baseline.settled,
@@ -218,7 +264,8 @@ export function summarizeDerivativeFamily(
 export function buildDerivativeAblation(input: {
   events: DerivativesResearchEvent[];
   metrics: DerivativesResearchMetric[];
-  historyDays: number;
+  historyDays?: number;
+  familyCoverageDays?: Partial<Record<DerivativeFamily, number>>;
 }): { baseline: DerivativesFamilySummary; families: DerivativesFamilySummary[]; combined: DerivativesFamilySummary } {
   const baselineRows = input.events.map((event) => ({ event, score: null }));
   const baseline = summarizeDerivativeFamily("price_only", baselineRows);
@@ -228,48 +275,81 @@ export function buildDerivativeAblation(input: {
     list.push(metric);
     metricsBySymbol.set(metric.symbol ?? "", list);
   }
-  for (const list of metricsBySymbol.values()) list.sort((left, right) => metricTimeOf(left) - metricTimeOf(right));
+  for (const list of metricsBySymbol.values()) list.sort((left, right) => availabilityTimeOf(left) - availabilityTimeOf(right));
   const families = DERIVATIVE_FAMILIES.map((family) => {
+    let missingExcludedCount = 0;
+    let staleExcludedCount = 0;
     const rows = input.events.flatMap((event) => {
-      const metric = selectSortedMetricAsOf(metricsBySymbol.get(event.symbol) ?? [], event.eventTime);
-      const score = metric ? derivativeFamilyScore(family, metric, event.direction) : null;
-      return score === null ? [] : [{ event, score }];
+      const candidates = (metricsBySymbol.get(event.symbol) ?? []).filter((metric) => hasFamilyValue(metric, family));
+      const metric = selectSortedMetricAsOf(candidates, event.eventTime, family);
+      if (!metric) {
+        missingExcludedCount += 1;
+        return [];
+      }
+      if (!isFreshFamilyMetric(metric, family, event.eventTime)) {
+        staleExcludedCount += 1;
+        return [];
+      }
+      const score = derivativeFamilyScore(family, metric, event.direction);
+      if (score === null) {
+        missingExcludedCount += 1;
+        return [];
+      }
+      return [{ event, score }];
     });
     const comparable = summarizeDerivativeFamily("price_only", rows.map((row) => ({ event: row.event, score: null })));
+    const coverageDays = input.familyCoverageDays?.[family] ?? input.historyDays ?? null;
+    const status = coverageDays !== null && coverageDays < 90
+      ? "INSUFFICIENT_DERIVATIVES_HISTORY"
+      : rows.length ? "EVALUATED" : "NO_DATA";
     return summarizeDerivativeFamily(
       family,
       rows,
       comparable,
-      input.historyDays < 90 ? "INSUFFICIENT_DERIVATIVES_HISTORY" : rows.length ? "EVALUATED" : "NO_DATA"
+      status,
+      { coverageDays, missingExcludedCount, staleExcludedCount }
     );
   });
   const permittedFamilies = families.filter((summary) => summary.status === "EVALUATED"
     && (summary.deltaNetExpectancyR ?? -Infinity) > 0
     && (summary.deltaProfitFactor ?? -Infinity) > 0);
   const combinedRows = permittedFamilies.length ? input.events.flatMap((event) => {
-    const metrics = selectSortedMetricAsOf(metricsBySymbol.get(event.symbol) ?? [], event.eventTime);
-    if (!metrics) return [];
-    const scores = permittedFamilies.map((summary) => derivativeFamilyScore(summary.family as DerivativeFamily, metrics, event.direction));
+    const metricsByFamily = permittedFamilies.map((summary) => {
+      const family = summary.family as DerivativeFamily;
+      const candidates = (metricsBySymbol.get(event.symbol) ?? []).filter((metric) => hasFamilyValue(metric, family));
+      const metric = selectSortedMetricAsOf(candidates, event.eventTime, family);
+      return metric && isFreshFamilyMetric(metric, family, event.eventTime)
+        ? derivativeFamilyScore(family, metric, event.direction)
+        : null;
+    });
+    const scores = metricsByFamily;
     if (scores.some((score) => score === null)) return [];
     return [{ event, score: mean(scores as number[]) }];
   }) : [];
   const combinedBaseline = summarizeDerivativeFamily("price_only", combinedRows.map((row) => ({ event: row.event, score: null })));
+  const combinedCoverageDays = permittedFamilies.length
+    ? Math.min(...permittedFamilies.map((summary) => summary.coverageDays ?? input.historyDays ?? 0))
+    : input.historyDays ?? null;
   const combined = summarizeDerivativeFamily(
     "combined_permitted",
     combinedRows,
     combinedBaseline,
-    input.historyDays < 90 ? "INSUFFICIENT_DERIVATIVES_HISTORY" : permittedFamilies.length ? "EVALUATED" : "NOT_PERMITTED"
+    combinedCoverageDays !== null && combinedCoverageDays < 90
+      ? "INSUFFICIENT_DERIVATIVES_HISTORY"
+      : permittedFamilies.length ? "EVALUATED" : "NOT_PERMITTED",
+    { coverageDays: combinedCoverageDays }
   );
   return { baseline, families, combined };
 }
 
-function selectSortedMetricAsOf(rows: DerivativesResearchMetric[], asOf: number): DerivativesResearchMetric | null {
+function selectSortedMetricAsOf(rows: DerivativesResearchMetric[], asOf: number, family?: DerivativeFamily): DerivativesResearchMetric | null {
+  const availability = (row: DerivativesResearchMetric) => family ? familyAvailabilityTimeOf(row, family) : availabilityTimeOf(row);
   let low = 0;
   let high = rows.length - 1;
   let best = -1;
   while (low <= high) {
     const middle = Math.floor((low + high) / 2);
-    if (metricTimeOf(rows[middle]!) <= asOf) {
+    if (availability(rows[middle]!) <= asOf) {
       best = middle;
       low = middle + 1;
     } else {
@@ -277,6 +357,39 @@ function selectSortedMetricAsOf(rows: DerivativesResearchMetric[], asOf: number)
     }
   }
   return best >= 0 ? rows[best]! : null;
+}
+
+function familyAvailabilityTimeOf(row: DerivativesResearchMetric, family: DerivativeFamily) {
+  const timing = row.familyTiming?.[family] ?? row.family_timing?.[family];
+  const raw = timing?.availableAt ?? timing?.available_at;
+  if (typeof raw === "number" && Number.isFinite(raw)) return raw;
+  if (typeof raw === "string") {
+    const parsed = Date.parse(raw);
+    if (Number.isFinite(parsed)) return parsed;
+  }
+  return availabilityTimeOf(row);
+}
+
+function hasFamilyValue(metric: DerivativesResearchMetric, family: DerivativeFamily) {
+  const keys: Record<DerivativeFamily, string[]> = {
+    open_interest: ["open_interest", "open_interest_value", "oi_change_5m", "oi_percentile", "oiChange5m", "oiPercentile"],
+    funding: ["funding_rate", "funding_z_score", "last_settled_funding", "fundingRate", "fundingZScore"],
+    basis: ["basis_bps", "basis_rate", "basis_percentile", "basisBps", "basisPercentile"],
+    taker_flow: ["taker_imbalance", "taker_buy_ratio", "takerImbalance", "takerBuyRatio"],
+    positioning: ["global_long_short_change", "top_account_long_short_change", "top_position_long_short_change", "global_long_short_ratio", "globalLongShortRatio"]
+  };
+  return keys[family].some((key) => {
+    const raw = metric[key];
+    return raw !== null && raw !== undefined && raw !== "" && Number.isFinite(Number(raw));
+  });
+}
+
+function isFreshFamilyMetric(metric: DerivativesResearchMetric, family: DerivativeFamily, decisionTime: number) {
+  const timing = metric.familyTiming?.[family] ?? metric.family_timing?.[family];
+  const rawAvailable = timing?.availableAt ?? timing?.available_at ?? metric.availableAt ?? metric.available_at;
+  const availableAt = typeof rawAvailable === "number" ? rawAvailable : typeof rawAvailable === "string" ? Date.parse(rawAvailable) : metricTimeOf(metric);
+  if (!Number.isFinite(availableAt) || availableAt > decisionTime) return false;
+  return decisionTime - availableAt <= DERIVATIVES_FAMILY_FRESHNESS_TOLERANCE_MS[family];
 }
 
 export function evaluateDerivativesGate(input: {
@@ -302,7 +415,12 @@ export function evaluateDerivativesGate(input: {
     positiveFoldsAtLeast2of3: summary.positiveFolds >= 2,
     symbolBreadthAtLeast3: summary.symbolBreadth >= 3,
     positiveMonthShareAtLeast60: summary.monthBreadth > 0 && summary.positiveMonths / summary.monthBreadth >= 0.6,
-    noSingleSymbolDomination: summary.symbolBreadth >= 3,
+    largestSymbolAbsoluteContributionAtMost50: summary.largestSymbolAbsoluteContributionShare !== null
+      && summary.largestSymbolAbsoluteContributionShare <= 0.5,
+    largestSymbolPositiveContributionAtMost50: summary.largestSymbolPositiveContributionShare !== null
+      && summary.largestSymbolPositiveContributionShare <= 0.5,
+    noSingleSymbolDomination: summary.largestSymbolAbsoluteContributionShare !== null
+      && summary.largestSymbolAbsoluteContributionShare <= 0.5,
     materiallyBetterThanPriceOnly: (summary.deltaNetExpectancyR ?? -Infinity) > 0,
     noLeakage: true
   };

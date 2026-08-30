@@ -1,6 +1,6 @@
 {
   "task": "GPT-PROFIT-004 — Derivatives Edge Data Foundation",
-  "generatedAt": "2026-08-30T12:18:41.895Z",
+  "generatedAt": "2026-08-30T16:46:28.833Z",
   "result": "INSUFFICIENT_DERIVATIVES_HISTORY",
   "boundary": {
     "researchCutoff": "2026-08-30T00:00:00.000Z",
@@ -16,14 +16,184 @@
   },
   "sources": {
     "manifest": "reports/GPT-PROFIT-004-DATA-MANIFEST.json",
-    "manifestSha256": "09e3915b66a18cdbfa8abfca4e3e8c5ae6a2ec0ff57aba4239653219bcf38bdd",
-    "sourceObservationRows": 360285,
+    "manifestSha256": "b2b835dc4fbae5c4e6335e87270c5ff39ff6c7016d74b3b2dac9c079d1340a72",
+    "sourceObservationRows": 226884,
     "metricFiles": 49,
-    "metricRows": 60760,
-    "earliestMetric": "2026-07-31T11:15:00.000Z",
+    "metricRows": 60375,
+    "earliestMetric": "2026-07-31T15:50:00.000Z",
     "latestMetric": "2026-08-30T11:15:00.000Z",
-    "historicalCoverageDays": 18.895833,
-    "historicalCoverageAtLeast90d": false
+    "historicalCoverageDays": 19.090278,
+    "historicalCoverageAtLeast90d": false,
+    "familyCoverageDays": {
+      "open_interest": 29.809028,
+      "funding": 29.666667,
+      "basis": 19.09375,
+      "taker_flow": 29.809028,
+      "positioning": 29.8125
+    },
+    "familyCoverage": {
+      "open_interest": {
+        "family": "open_interest",
+        "earliest": "2026-07-31T15:55:00.000Z",
+        "latest": "2026-08-30T11:15:00.000Z",
+        "commonWindow": {
+          "start": "2026-07-31T15:55:00.000Z",
+          "end": "2026-08-30T11:15:00.000Z"
+        },
+        "calendarCoverageDays": 29.809028,
+        "symbolsMeetingCoverage": [],
+        "symbolsWithData": [
+          "BTCUSDT",
+          "ETHUSDT",
+          "SOLUSDT",
+          "BNBUSDT",
+          "LINKUSDT",
+          "AVAXUSDT",
+          "DOGEUSDT"
+        ],
+        "missingRatio": 0.006481,
+        "staleRatio": 0,
+        "observations": 60095
+      },
+      "funding": {
+        "family": "funding",
+        "earliest": "2026-07-31T16:00:00.000Z",
+        "latest": "2026-08-30T08:00:00.000Z",
+        "commonWindow": {
+          "start": "2026-07-31T16:00:00.000Z",
+          "end": "2026-08-30T08:00:00.000Z"
+        },
+        "calendarCoverageDays": 29.666667,
+        "symbolsMeetingCoverage": [],
+        "symbolsWithData": [
+          "BTCUSDT",
+          "ETHUSDT",
+          "SOLUSDT",
+          "BNBUSDT",
+          "LINKUSDT",
+          "AVAXUSDT",
+          "DOGEUSDT"
+        ],
+        "missingRatio": null,
+        "staleRatio": 0,
+        "observations": 630
+      },
+      "basis": {
+        "family": "basis",
+        "earliest": "2026-07-31T15:55:00.000Z",
+        "latest": "2026-08-30T11:15:00.000Z",
+        "commonWindow": {
+          "start": "2026-07-31T15:55:00.000Z",
+          "end": "2026-08-19T18:05:00.000Z"
+        },
+        "calendarCoverageDays": 19.09375,
+        "symbolsMeetingCoverage": [],
+        "symbolsWithData": [
+          "BTCUSDT",
+          "ETHUSDT",
+          "SOLUSDT",
+          "BNBUSDT",
+          "LINKUSDT",
+          "AVAXUSDT",
+          "DOGEUSDT"
+        ],
+        "missingRatio": 0.2382,
+        "staleRatio": 0.00013,
+        "observations": 46079
+      },
+      "taker_flow": {
+        "family": "taker_flow",
+        "earliest": "2026-07-31T15:50:00.000Z",
+        "latest": "2026-08-30T11:15:00.000Z",
+        "commonWindow": {
+          "start": "2026-07-31T15:55:00.000Z",
+          "end": "2026-08-30T11:15:00.000Z"
+        },
+        "calendarCoverageDays": 29.809028,
+        "symbolsMeetingCoverage": [],
+        "symbolsWithData": [
+          "BTCUSDT",
+          "ETHUSDT",
+          "SOLUSDT",
+          "BNBUSDT",
+          "LINKUSDT",
+          "AVAXUSDT",
+          "DOGEUSDT"
+        ],
+        "missingRatio": 0.008415,
+        "staleRatio": 0,
+        "observations": 59978
+      },
+      "positioning": {
+        "family": "positioning",
+        "earliest": "2026-07-31T15:50:00.000Z",
+        "latest": "2026-08-30T11:15:00.000Z",
+        "commonWindow": {
+          "start": "2026-07-31T15:50:00.000Z",
+          "end": "2026-08-30T11:15:00.000Z"
+        },
+        "calendarCoverageDays": 29.8125,
+        "symbolsMeetingCoverage": [],
+        "symbolsWithData": [
+          "BTCUSDT",
+          "ETHUSDT",
+          "SOLUSDT",
+          "BNBUSDT",
+          "LINKUSDT",
+          "AVAXUSDT",
+          "DOGEUSDT"
+        ],
+        "missingRatio": 0.006365,
+        "staleRatio": 0,
+        "observations": 60102
+      },
+      "top_trader_account": {
+        "family": "top_trader_account",
+        "earliest": null,
+        "latest": null,
+        "commonWindow": {
+          "start": null,
+          "end": null
+        },
+        "calendarCoverageDays": 0,
+        "symbolsMeetingCoverage": [],
+        "symbolsWithData": [],
+        "missingRatio": null,
+        "staleRatio": null,
+        "observations": 0
+      },
+      "top_trader_position": {
+        "family": "top_trader_position",
+        "earliest": null,
+        "latest": null,
+        "commonWindow": {
+          "start": null,
+          "end": null
+        },
+        "calendarCoverageDays": 0,
+        "symbolsMeetingCoverage": [],
+        "symbolsWithData": [],
+        "missingRatio": null,
+        "staleRatio": null,
+        "observations": 0
+      },
+      "liquidation": {
+        "family": "liquidation",
+        "earliest": null,
+        "latest": null,
+        "commonWindow": {
+          "start": null,
+          "end": null
+        },
+        "calendarCoverageDays": 0,
+        "symbolsMeetingCoverage": [],
+        "symbolsWithData": [],
+        "missingRatio": null,
+        "staleRatio": null,
+        "observations": 0
+      }
+    },
+    "coverageMethod": "family-specific; combined coverage is selected-family intersection"
   },
   "labels": {
     "primary": "+1R before -1R",
@@ -35,7 +205,7 @@
     "source": "fixed entry-edge label simulator; no derivative-derived threshold"
   },
   "events": {
-    "priceOnlyEvents": 4110,
+    "priceOnlyEvents": 4086,
     "symbols": [
       "ETHUSDT",
       "SOLUSDT",
@@ -49,12 +219,12 @@
   "baseline": {
     "family": "price_only",
     "status": "EVALUATED",
-    "eventCount": 4110,
-    "settled": 4110,
-    "grossExpectancyR": 0.010219,
-    "netExpectancyR": -1.116132,
-    "profitFactor": 0.079921,
-    "payoff": 0.232615,
+    "eventCount": 4086,
+    "settled": 4085,
+    "grossExpectancyR": -0.020808,
+    "netExpectancyR": -1.162269,
+    "profitFactor": 0.073202,
+    "payoff": 0.232243,
     "spearman": null,
     "monotonicViolations": null,
     "conditionalLiftR": null,
@@ -67,6 +237,19 @@
     "positiveFolds": 0,
     "folds": 3,
     "foldConsistency": "0/3",
+    "coverageDays": null,
+    "missingExcludedCount": 0,
+    "staleExcludedCount": 0,
+    "netRBySymbol": {
+      "ETHUSDT": -1012.70804,
+      "SOLUSDT": -761.398063,
+      "BNBUSDT": -1108.181573,
+      "LINKUSDT": -533.881522,
+      "AVAXUSDT": -570.238337,
+      "DOGEUSDT": -761.461598
+    },
+    "largestSymbolAbsoluteContributionShare": 0.233406,
+    "largestSymbolPositiveContributionShare": null,
     "comparableBaseline": {
       "eventCount": 0,
       "settled": 0,
@@ -79,15 +262,15 @@
     {
       "family": "open_interest",
       "status": "INSUFFICIENT_DERIVATIVES_HISTORY",
-      "eventCount": 4110,
-      "settled": 4110,
-      "grossExpectancyR": 0.010219,
-      "netExpectancyR": -1.116132,
-      "profitFactor": 0.079921,
-      "payoff": 0.232615,
-      "spearman": -0.012065,
-      "monotonicViolations": 1057,
-      "conditionalLiftR": 0.147556,
+      "eventCount": 4080,
+      "settled": 4079,
+      "grossExpectancyR": -0.019367,
+      "netExpectancyR": -1.161616,
+      "profitFactor": 0.07334,
+      "payoff": 0.232231,
+      "spearman": -0.0184,
+      "monotonicViolations": 1026,
+      "conditionalLiftR": 0.153052,
       "deltaGrossExpectancyR": 0,
       "deltaNetExpectancyR": 0,
       "deltaProfitFactor": 0,
@@ -97,26 +280,39 @@
       "positiveFolds": 0,
       "folds": 3,
       "foldConsistency": "0/3",
+      "coverageDays": 29.809028,
+      "missingExcludedCount": 6,
+      "staleExcludedCount": 0,
+      "netRBySymbol": {
+        "ETHUSDT": -1011.128856,
+        "SOLUSDT": -759.700672,
+        "BNBUSDT": -1106.47274,
+        "LINKUSDT": -532.35849,
+        "AVAXUSDT": -568.742396,
+        "DOGEUSDT": -759.828847
+      },
+      "largestSymbolAbsoluteContributionShare": 0.23352,
+      "largestSymbolPositiveContributionShare": null,
       "comparableBaseline": {
-        "eventCount": 4110,
-        "settled": 4110,
-        "grossExpectancyR": 0.010219,
-        "netExpectancyR": -1.116132,
-        "profitFactor": 0.079921
+        "eventCount": 4080,
+        "settled": 4079,
+        "grossExpectancyR": -0.019367,
+        "netExpectancyR": -1.161616,
+        "profitFactor": 0.07334
       }
     },
     {
       "family": "funding",
       "status": "INSUFFICIENT_DERIVATIVES_HISTORY",
       "eventCount": 4080,
-      "settled": 4080,
-      "grossExpectancyR": 0.012745,
-      "netExpectancyR": -1.115252,
-      "profitFactor": 0.080339,
-      "payoff": 0.233328,
-      "spearman": -0.036325,
-      "monotonicViolations": 818,
-      "conditionalLiftR": 0.102521,
+      "settled": 4079,
+      "grossExpectancyR": -0.019367,
+      "netExpectancyR": -1.161616,
+      "profitFactor": 0.07334,
+      "payoff": 0.232231,
+      "spearman": -0.013265,
+      "monotonicViolations": 839,
+      "conditionalLiftR": 0.139578,
       "deltaGrossExpectancyR": 0,
       "deltaNetExpectancyR": 0,
       "deltaProfitFactor": 0,
@@ -126,26 +322,39 @@
       "positiveFolds": 0,
       "folds": 3,
       "foldConsistency": "0/3",
+      "coverageDays": 29.666667,
+      "missingExcludedCount": 6,
+      "staleExcludedCount": 0,
+      "netRBySymbol": {
+        "ETHUSDT": -1011.128856,
+        "SOLUSDT": -759.700672,
+        "BNBUSDT": -1106.47274,
+        "LINKUSDT": -532.35849,
+        "AVAXUSDT": -568.742396,
+        "DOGEUSDT": -759.828847
+      },
+      "largestSymbolAbsoluteContributionShare": 0.23352,
+      "largestSymbolPositiveContributionShare": null,
       "comparableBaseline": {
         "eventCount": 4080,
-        "settled": 4080,
-        "grossExpectancyR": 0.012745,
-        "netExpectancyR": -1.115252,
-        "profitFactor": 0.080339
+        "settled": 4079,
+        "grossExpectancyR": -0.019367,
+        "netExpectancyR": -1.161616,
+        "profitFactor": 0.07334
       }
     },
     {
       "family": "basis",
       "status": "INSUFFICIENT_DERIVATIVES_HISTORY",
-      "eventCount": 4110,
-      "settled": 4110,
-      "grossExpectancyR": 0.010219,
-      "netExpectancyR": -1.116132,
-      "profitFactor": 0.079921,
-      "payoff": 0.232615,
-      "spearman": 0.034066,
-      "monotonicViolations": 987,
-      "conditionalLiftR": -0.10373,
+      "eventCount": 3304,
+      "settled": 3304,
+      "grossExpectancyR": -0.012712,
+      "netExpectancyR": -1.273823,
+      "profitFactor": 0.051138,
+      "payoff": 0.2084,
+      "spearman": 0.034404,
+      "monotonicViolations": 824,
+      "conditionalLiftR": -0.094002,
       "deltaGrossExpectancyR": 0,
       "deltaNetExpectancyR": 0,
       "deltaProfitFactor": 0,
@@ -155,26 +364,39 @@
       "positiveFolds": 0,
       "folds": 3,
       "foldConsistency": "0/3",
+      "coverageDays": 19.09375,
+      "missingExcludedCount": 6,
+      "staleExcludedCount": 776,
+      "netRBySymbol": {
+        "ETHUSDT": -848.895644,
+        "SOLUSDT": -706.265674,
+        "BNBUSDT": -936.087375,
+        "LINKUSDT": -425.778425,
+        "AVAXUSDT": -531.855825,
+        "DOGEUSDT": -759.828847
+      },
+      "largestSymbolAbsoluteContributionShare": 0.222417,
+      "largestSymbolPositiveContributionShare": null,
       "comparableBaseline": {
-        "eventCount": 4110,
-        "settled": 4110,
-        "grossExpectancyR": 0.010219,
-        "netExpectancyR": -1.116132,
-        "profitFactor": 0.079921
+        "eventCount": 3304,
+        "settled": 3304,
+        "grossExpectancyR": -0.012712,
+        "netExpectancyR": -1.273823,
+        "profitFactor": 0.051138
       }
     },
     {
       "family": "taker_flow",
       "status": "INSUFFICIENT_DERIVATIVES_HISTORY",
-      "eventCount": 4110,
-      "settled": 4110,
-      "grossExpectancyR": 0.010219,
-      "netExpectancyR": -1.116132,
-      "profitFactor": 0.079921,
-      "payoff": 0.232615,
-      "spearman": 0.033983,
-      "monotonicViolations": 1017,
-      "conditionalLiftR": -0.022654,
+      "eventCount": 4082,
+      "settled": 4081,
+      "grossExpectancyR": -0.019848,
+      "netExpectancyR": -1.161881,
+      "profitFactor": 0.073291,
+      "payoff": 0.232227,
+      "spearman": 0.002157,
+      "monotonicViolations": 1047,
+      "conditionalLiftR": -0.054855,
       "deltaGrossExpectancyR": 0,
       "deltaNetExpectancyR": 0,
       "deltaProfitFactor": 0,
@@ -184,26 +406,39 @@
       "positiveFolds": 0,
       "folds": 3,
       "foldConsistency": "0/3",
+      "coverageDays": 29.809028,
+      "missingExcludedCount": 4,
+      "staleExcludedCount": 0,
+      "netRBySymbol": {
+        "SOLUSDT": -761.398063,
+        "BNBUSDT": -1108.181573,
+        "ETHUSDT": -1011.128856,
+        "LINKUSDT": -532.35849,
+        "AVAXUSDT": -568.742396,
+        "DOGEUSDT": -759.828847
+      },
+      "largestSymbolAbsoluteContributionShare": 0.233713,
+      "largestSymbolPositiveContributionShare": null,
       "comparableBaseline": {
-        "eventCount": 4110,
-        "settled": 4110,
-        "grossExpectancyR": 0.010219,
-        "netExpectancyR": -1.116132,
-        "profitFactor": 0.079921
+        "eventCount": 4082,
+        "settled": 4081,
+        "grossExpectancyR": -0.019848,
+        "netExpectancyR": -1.161881,
+        "profitFactor": 0.073291
       }
     },
     {
       "family": "positioning",
       "status": "INSUFFICIENT_DERIVATIVES_HISTORY",
-      "eventCount": 4110,
-      "settled": 4110,
-      "grossExpectancyR": 0.010219,
-      "netExpectancyR": -1.116132,
-      "profitFactor": 0.079921,
-      "payoff": 0.232615,
-      "spearman": -0.005879,
-      "monotonicViolations": 1023,
-      "conditionalLiftR": 0.155132,
+      "eventCount": 4086,
+      "settled": 4085,
+      "grossExpectancyR": -0.020808,
+      "netExpectancyR": -1.162269,
+      "profitFactor": 0.073202,
+      "payoff": 0.232243,
+      "spearman": -0.022677,
+      "monotonicViolations": 994,
+      "conditionalLiftR": 0.057835,
       "deltaGrossExpectancyR": 0,
       "deltaNetExpectancyR": 0,
       "deltaProfitFactor": 0,
@@ -213,12 +448,25 @@
       "positiveFolds": 0,
       "folds": 3,
       "foldConsistency": "0/3",
+      "coverageDays": 29.8125,
+      "missingExcludedCount": 0,
+      "staleExcludedCount": 0,
+      "netRBySymbol": {
+        "ETHUSDT": -1012.70804,
+        "SOLUSDT": -761.398063,
+        "BNBUSDT": -1108.181573,
+        "LINKUSDT": -533.881522,
+        "AVAXUSDT": -570.238337,
+        "DOGEUSDT": -761.461598
+      },
+      "largestSymbolAbsoluteContributionShare": 0.233406,
+      "largestSymbolPositiveContributionShare": null,
       "comparableBaseline": {
-        "eventCount": 4110,
-        "settled": 4110,
-        "grossExpectancyR": 0.010219,
-        "netExpectancyR": -1.116132,
-        "profitFactor": 0.079921
+        "eventCount": 4086,
+        "settled": 4085,
+        "grossExpectancyR": -0.020808,
+        "netExpectancyR": -1.162269,
+        "profitFactor": 0.073202
       }
     }
   ],
@@ -243,6 +491,12 @@
     "positiveFolds": 0,
     "folds": 0,
     "foldConsistency": "0/0",
+    "coverageDays": 19.090278,
+    "missingExcludedCount": 0,
+    "staleExcludedCount": 0,
+    "netRBySymbol": {},
+    "largestSymbolAbsoluteContributionShare": null,
+    "largestSymbolPositiveContributionShare": null,
     "comparableBaseline": {
       "eventCount": 0,
       "settled": 0,
@@ -272,15 +526,18 @@
     "enabled": true,
     "integratedInto": "src/app/api/jobs/sync-market/route.ts",
     "failSoft": true,
-    "appendOnlyTable": "gpt_derivatives_metrics"
+    "appendOnlyTable": "gpt_derivatives_metrics",
+    "priceChange5mSource": "Binance USD-M /fapi/v1/klines interval=5m closed candles"
   },
   "liquidationForwardCollector": {
-    "enabled": true,
+    "adapterImplemented": true,
+    "runtimeCollectorEnabled": false,
+    "enabled": false,
     "mode": "forward_only",
     "stream": "wss://fstream.binance.com/ws/!forceOrder@arr",
     "historicalBackfill": false,
     "backtestSafe": false,
-    "status": "INSUFFICIENT_HISTORICAL_LIQUIDATION_DATA"
+    "status": "FORWARD_COLLECTOR_NOT_DEPLOYED"
   },
   "safety": {
     "mainV2DeliveryMode": "shadow",
@@ -293,14 +550,14 @@
     "productionEnabled": false
   },
   "provenance": {
-    "mainBaseSha": "dccf086485409e1cd94d8942697a030fac6271dc",
-    "branchHeadSha": "7ec29c057f7ed64af14fc3430e3ebd18b280b397",
-    "sourceParentSha": "dccf086485409e1cd94d8942697a030fac6271dc",
-    "dataManifestSha256": "09e3915b66a18cdbfa8abfca4e3e8c5ae6a2ec0ff57aba4239653219bcf38bdd",
-    "researchScriptSha256": "9670e0ae7f8512c0a0cf021977497a698148229b7d1e23d521dd59f2eeb6c334",
-    "researchModuleSha256": "429ed298f47637db2cc284761da5739f431a8fe331e5fad0ebea339ec3948795",
-    "derivativesCollectorSha256": "81e96f19008581d12c6ac7ca400003d6d168e5ef0419e46a0f8885f7cbd0849c",
-    "liquidationForwardCollectorSha256": "d266fface1c8c7989dc4f566449570294394d2fe8c12c58493d7f03368feb7cf"
+    "mainBaseSha": null,
+    "branchHeadSha": null,
+    "sourceParentSha": null,
+    "dataManifestSha256": "b2b835dc4fbae5c4e6335e87270c5ff39ff6c7016d74b3b2dac9c079d1340a72",
+    "researchScriptSha256": "3420385a5e9d9f5e8939ecb1566e8a4a405c40caf9b8e566d7cf67f4424397c0",
+    "researchModuleSha256": "397152a9830c6fb077b2bd59baa3ae43cbc207c83b9e356043a8bba89d97ba3f",
+    "derivativesCollectorSha256": "9f378963eb071dd9397a609ee1e45836403fabc49e132aeec7baedd35c382fd7",
+    "liquidationForwardCollectorSha256": "b8b499c2434cad0525d1d58129d24c9ab00b3f9a21f98aad40bcc7c166e3533a"
   },
   "holdoutExecutions": 0,
   "finalUnseenExecuted": false,

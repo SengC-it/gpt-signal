@@ -51,12 +51,14 @@ export function parseForwardLiquidationEvent(payload: unknown, receivedAt = Date
 
 export function forwardLiquidationCollectorStatus() {
   return {
-    enabled: true,
+    adapterImplemented: true,
+    runtimeCollectorEnabled: false,
+    enabled: false,
     mode: "forward_only" as const,
     stream: BINANCE_LIQUIDATION_STREAM,
     historicalBackfill: false,
     backtestSafe: false,
-    status: "INSUFFICIENT_HISTORICAL_LIQUIDATION_DATA" as const
+    status: "FORWARD_COLLECTOR_NOT_DEPLOYED" as const
   };
 }
 

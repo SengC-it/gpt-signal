@@ -4,20 +4,27 @@ Result: **INSUFFICIENT_DERIVATIVES_HISTORY**
 
 Research cutoff: 2026-08-30T00:00:00.000Z; forward validation starts: 2026-08-30T00:05:00.000Z. This is separate from GPT-PROFIT-003 Final Unseen, which remains at 0 executions.
 
-Source observations: 360285; consolidated PIT metric rows: 60760 across 49 cache files; earliest: 2026-07-31T11:15:00.000Z; latest: 2026-08-30T11:15:00.000Z; common history: 18.90 days; >=90d: **false**.
-Price-only diagnostic events: 4110; label horizon: 96 bars; costs: fee 0.001 + slippage 0.0005 per side; same-candle priority: STOP FIRST.
+Source observations: 226884; consolidated PIT metric rows: 60375 across 49 cache files; earliest: 2026-07-31T15:50:00.000Z; latest: 2026-08-30T11:15:00.000Z; combined selected-family history: 19.09 days; >=90d: **false**.
+Family coverage (independent): open_interest=29.81d, funding=29.67d, basis=19.09d, taker_flow=29.81d, positioning=29.81d.
+Price-only diagnostic events: 4086; label horizon: 96 bars; costs: fee 0.001 + slippage 0.0005 per side; same-candle priority: STOP FIRST.
 
 ## Incremental information ablation
 
-| Family | Events | Settled | Gross E[R] | Net E[R] | PF | Spearman | Δ Net E[R] | Δ PF | Symbols | Months | Fold consistency | Status |
-|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---|---|
-| price_only | 4110 | 4110 | 0.010219 | -1.116132 | 0.079921 | n/a | n/a | n/a | 6 | 2 | 0/3 | EVALUATED |
-| open_interest | 4110 | 4110 | 0.010219 | -1.116132 | 0.079921 | -0.012065 | 0.000000 | 0.000000 | 6 | 2 | 0/3 | INSUFFICIENT_DERIVATIVES_HISTORY |
-| funding | 4080 | 4080 | 0.012745 | -1.115252 | 0.080339 | -0.036325 | 0.000000 | 0.000000 | 6 | 2 | 0/3 | INSUFFICIENT_DERIVATIVES_HISTORY |
-| basis | 4110 | 4110 | 0.010219 | -1.116132 | 0.079921 | 0.034066 | 0.000000 | 0.000000 | 6 | 2 | 0/3 | INSUFFICIENT_DERIVATIVES_HISTORY |
-| taker_flow | 4110 | 4110 | 0.010219 | -1.116132 | 0.079921 | 0.033983 | 0.000000 | 0.000000 | 6 | 2 | 0/3 | INSUFFICIENT_DERIVATIVES_HISTORY |
-| positioning | 4110 | 4110 | 0.010219 | -1.116132 | 0.079921 | -0.005879 | 0.000000 | 0.000000 | 6 | 2 | 0/3 | INSUFFICIENT_DERIVATIVES_HISTORY |
-| combined_permitted | 0 | 0 | n/a | n/a | n/a | n/a | n/a | n/a | 0 | 0 | 0/0 | INSUFFICIENT_DERIVATIVES_HISTORY |
+| Family | Events | Settled | Gross E[R] | Net E[R] | PF | Spearman | Top lift | Δ Net E[R] | Δ PF | Symbols | Missing | Stale | Status |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---|
+| price_only | 4086 | 4085 | -0.020808 | -1.162269 | 0.073202 | n/a | n/a | n/a | n/a | 6 | 0 | 0 | EVALUATED |
+| open_interest | 4080 | 4079 | -0.019367 | -1.161616 | 0.073340 | -0.018400 | 0.153052 | 0.000000 | 0.000000 | 6 | 6 | 0 | INSUFFICIENT_DERIVATIVES_HISTORY |
+| funding | 4080 | 4079 | -0.019367 | -1.161616 | 0.073340 | -0.013265 | 0.139578 | 0.000000 | 0.000000 | 6 | 6 | 0 | INSUFFICIENT_DERIVATIVES_HISTORY |
+| basis | 3304 | 3304 | -0.012712 | -1.273823 | 0.051138 | 0.034404 | -0.094002 | 0.000000 | 0.000000 | 6 | 6 | 776 | INSUFFICIENT_DERIVATIVES_HISTORY |
+| taker_flow | 4082 | 4081 | -0.019848 | -1.161881 | 0.073291 | 0.002157 | -0.054855 | 0.000000 | 0.000000 | 6 | 4 | 0 | INSUFFICIENT_DERIVATIVES_HISTORY |
+| positioning | 4086 | 4085 | -0.020808 | -1.162269 | 0.073202 | -0.022677 | 0.057835 | 0.000000 | 0.000000 | 6 | 0 | 0 | INSUFFICIENT_DERIVATIVES_HISTORY |
+| combined_permitted | 0 | 0 | n/a | n/a | n/a | n/a | n/a | n/a | n/a | 0 | 0 | 0 | INSUFFICIENT_DERIVATIVES_HISTORY |
+
+- open_interest net-R contribution concentration: largest absolute=0.233520, largest positive=n/a; future Gate requires each <= 0.50.
+- funding net-R contribution concentration: largest absolute=0.233520, largest positive=n/a; future Gate requires each <= 0.50.
+- basis net-R contribution concentration: largest absolute=0.222417, largest positive=n/a; future Gate requires each <= 0.50.
+- taker_flow net-R contribution concentration: largest absolute=0.233713, largest positive=n/a; future Gate requires each <= 0.50.
+- positioning net-R contribution concentration: largest absolute=0.233406, largest positive=n/a; future Gate requires each <= 0.50.
 
 Best incremental family: **none**. No candidate search was run (candidates generated: 0).
 
@@ -27,7 +34,7 @@ Internal Gate: **INSUFFICIENT_DERIVATIVES_HISTORY**; reasons: no family can be e
 
 The prospective collector is enabled in the existing market sync, writes append-only `gpt_derivatives_metrics`, and is fail-soft: endpoint or table errors are returned in sync metadata without failing the candle/signal sync.
 
-Liquidation remains `INSUFFICIENT_HISTORICAL_LIQUIDATION_DATA`; the forward-only public stream adapter is available with historicalBackfill=false; top-trader account/position ratios are public aggregate observations and are retained for positioning research without account credentials.
+Liquidation remains `INSUFFICIENT_HISTORICAL_LIQUIDATION_DATA`; adapterImplemented=true, runtimeCollectorEnabled=false, status=FORWARD_COLLECTOR_NOT_DEPLOYED. Top-trader account/position ratios require the optional MARKET_DATA key and are excluded when unavailable.
 
 ## Safety
 

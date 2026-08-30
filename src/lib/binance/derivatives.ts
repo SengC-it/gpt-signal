@@ -3,6 +3,19 @@ export const DERIVATIVES_INTERVAL = "5m";
 export const DERIVATIVES_INTERVAL_MS = 5 * 60 * 1000;
 export const DERIVATIVES_SOURCE_VERSION = "binance-usdm-public-rest-v1";
 export const DERIVATIVES_HISTORY_LIMIT = 100;
+export const DERIVATIVES_PERIODIC_FRESHNESS_TOLERANCE_MS = 10 * 60 * 1000;
+export const DERIVATIVES_FUNDING_FRESHNESS_TOLERANCE_MS = 9 * 60 * 60 * 1000;
+
+export const DERIVATIVES_FAMILY_FRESHNESS_TOLERANCE_MS = Object.freeze({
+  open_interest: DERIVATIVES_PERIODIC_FRESHNESS_TOLERANCE_MS,
+  funding: DERIVATIVES_FUNDING_FRESHNESS_TOLERANCE_MS,
+  basis: DERIVATIVES_PERIODIC_FRESHNESS_TOLERANCE_MS,
+  taker_flow: DERIVATIVES_PERIODIC_FRESHNESS_TOLERANCE_MS,
+  positioning: DERIVATIVES_PERIODIC_FRESHNESS_TOLERANCE_MS,
+  top_trader_account: DERIVATIVES_PERIODIC_FRESHNESS_TOLERANCE_MS,
+  top_trader_position: DERIVATIVES_PERIODIC_FRESHNESS_TOLERANCE_MS,
+  liquidation: 0
+} as const);
 
 /**
  * This list is deliberately limited to public market-data endpoints.  No
@@ -22,14 +35,37 @@ export const DERIVATIVES_PUBLIC_ENDPOINTS = Object.freeze({
 
 /**
  * Availability metadata is kept separate from the collector allow-list. The
- * Top-trader endpoints are aggregate public market-data endpoints and are
- * collected without account credentials. Liquidations have a public stream
- * but no safe historical REST backfill, so they are forward-only.
+ * Top-trader endpoints are aggregate MARKET_DATA endpoints and require the
+ * optional BINANCE_MARKET_DATA_API_KEY. They never use account credentials.
+ * Liquidations have a public stream but no safe historical REST backfill.
  */
 export const DERIVATIVES_ENDPOINT_AUDIT = Object.freeze({
   ...DERIVATIVES_PUBLIC_ENDPOINTS,
   liquidation: "websocket:!forceOrder@arr"
 });
+
+export type DerivativesEndpointClassification = "ANONYMOUS_PUBLIC" | "MARKET_DATA_API_KEY" | "PRIVATE";
+
+/** Capability classification is intentionally separate from the endpoint allow-list. */
+export const DERIVATIVES_ENDPOINT_CAPABILITIES = Object.freeze({
+  openInterest: { classification: "ANONYMOUS_PUBLIC" as const, apiKeyRequired: false },
+  openInterestHistory: { classification: "ANONYMOUS_PUBLIC" as const, apiKeyRequired: false },
+  premiumIndex: { classification: "ANONYMOUS_PUBLIC" as const, apiKeyRequired: false },
+  fundingHistory: { classification: "ANONYMOUS_PUBLIC" as const, apiKeyRequired: false },
+  basis: { classification: "ANONYMOUS_PUBLIC" as const, apiKeyRequired: false },
+  takerFlow: { classification: "ANONYMOUS_PUBLIC" as const, apiKeyRequired: false },
+  globalLongShort: { classification: "ANONYMOUS_PUBLIC" as const, apiKeyRequired: false },
+  topTraderAccount: { classification: "MARKET_DATA_API_KEY" as const, apiKeyRequired: true },
+  topTraderPosition: { classification: "MARKET_DATA_API_KEY" as const, apiKeyRequired: true },
+  liquidation: { classification: "ANONYMOUS_PUBLIC" as const, apiKeyRequired: false }
+});
+
+export const DERIVATIVES_MARKET_DATA_KEY_ENDPOINTS = Object.freeze([
+  DERIVATIVES_PUBLIC_ENDPOINTS.topTraderAccount,
+  DERIVATIVES_PUBLIC_ENDPOINTS.topTraderPosition
+]);
+
+const MARKET_DATA_KEY_HEADER = ["X-MBX", "APIKEY"].join("-");
 
 type FetchLike = typeof fetch;
 
@@ -39,11 +75,25 @@ export type DerivativesRequestOptions = {
   limit?: number;
 };
 
+export type SourceTiming = {
+  sourceTimestamp: number | null;
+  periodStart: number | null;
+  periodEnd: number | null;
+  availableAt: number | null;
+  sourceAgeMs: number | null;
+  stale: boolean;
+  status: "FRESH" | "STALE_SOURCE_DATA" | "MISSING" | "UNAVAILABLE_API_KEY_REQUIRED";
+};
+
 export type TimedOpenInterest = {
   symbol: string;
   openInterest: number;
   openInterestValue: number | null;
   timestamp: number;
+  sourceTimestamp?: number;
+  periodStart?: number;
+  periodEnd?: number;
+  availableAt?: number;
 };
 
 export type TimedFunding = {
@@ -51,6 +101,10 @@ export type TimedFunding = {
   fundingRate: number;
   fundingTime: number;
   markPrice: number | null;
+  sourceTimestamp?: number;
+  periodStart?: number | null;
+  periodEnd?: number;
+  availableAt?: number;
 };
 
 export type TimedBasis = {
@@ -60,6 +114,10 @@ export type TimedBasis = {
   indexPrice: number | null;
   futuresPrice: number | null;
   timestamp: number;
+  sourceTimestamp?: number;
+  periodStart?: number;
+  periodEnd?: number;
+  availableAt?: number;
 };
 
 export type TimedTakerFlow = {
@@ -67,6 +125,10 @@ export type TimedTakerFlow = {
   buyVolume: number | null;
   sellVolume: number | null;
   timestamp: number;
+  sourceTimestamp?: number;
+  periodStart?: number;
+  periodEnd?: number;
+  availableAt?: number;
 };
 
 export type TimedPositioning = {
@@ -75,6 +137,10 @@ export type TimedPositioning = {
   longAccount: number | null;
   shortAccount: number | null;
   timestamp: number;
+  sourceTimestamp?: number;
+  periodStart?: number;
+  periodEnd?: number;
+  availableAt?: number;
 };
 
 export type TimedTopTraderPositioning = {
@@ -82,12 +148,20 @@ export type TimedTopTraderPositioning = {
   longAccount: number | null;
   shortAccount: number | null;
   timestamp: number;
+  sourceTimestamp?: number;
+  periodStart?: number;
+  periodEnd?: number;
+  availableAt?: number;
 };
 
 export type CurrentOpenInterest = {
   symbol: string;
   openInterest: number;
   timestamp: number;
+  sourceTimestamp?: number;
+  periodStart?: null;
+  periodEnd?: number;
+  availableAt?: number;
 };
 
 export type PremiumIndex = {
@@ -97,11 +171,18 @@ export type PremiumIndex = {
   fundingRate: number | null;
   nextFundingTime: number | null;
   timestamp: number;
+  sourceTimestamp?: number;
+  periodStart?: null;
+  periodEnd?: number;
+  availableAt?: number;
 };
 
 export type PriceReference = {
   current: number;
   previous: number;
+  interval?: string;
+  currentTime?: number;
+  previousTime?: number;
 };
 
 export type DerivativesMetric = {
@@ -150,6 +231,10 @@ export type DerivativesMetric = {
   priceChange5m: number | null;
   priceOiState: string | null;
   sourceTimestamp: number | null;
+  periodStart: number | null;
+  periodEnd: number | null;
+  availableAt: number | null;
+  sourceAgeMs: number | null;
   fetchedAt: number;
   sourceEndpoint: string;
   sourceVersion: string;
@@ -181,10 +266,15 @@ export type CollectionInput = {
 
 export async function fetchCurrentOpenInterest(symbol: string, options: DerivativesRequestOptions = {}) {
   const data = await requestJson<Record<string, unknown>>(DERIVATIVES_PUBLIC_ENDPOINTS.openInterest, { symbol }, options);
+  const timestamp = finiteNumber(data.time);
   return {
     symbol,
     openInterest: finiteNumber(data.openInterest),
-    timestamp: finiteNumber(data.time)
+    timestamp,
+    sourceTimestamp: timestamp,
+    periodStart: null,
+    periodEnd: timestamp,
+    availableAt: timestamp
   } satisfies CurrentOpenInterest;
 }
 
@@ -203,7 +293,11 @@ export async function fetchOpenInterestHistory(symbol: string, options: Derivati
       symbol,
       openInterest,
       openInterestValue: finiteNumberOrNull(row.sumOpenInterestValue),
-      timestamp
+      timestamp,
+      sourceTimestamp: timestamp,
+      periodStart: timestamp,
+      periodEnd: timestamp + DERIVATIVES_INTERVAL_MS,
+      availableAt: timestamp + DERIVATIVES_INTERVAL_MS
     } satisfies TimedOpenInterest];
   });
 }
@@ -216,7 +310,11 @@ export async function fetchPremiumIndex(symbol: string, options: DerivativesRequ
     indexPrice: finiteNumberOrNull(data.indexPrice),
     fundingRate: finiteNumberOrNull(data.lastFundingRate),
     nextFundingTime: finiteNumberOrNull(data.nextFundingTime),
-    timestamp: finiteNumber(data.time)
+    timestamp: finiteNumber(data.time),
+    sourceTimestamp: finiteNumber(data.time),
+    periodStart: null,
+    periodEnd: finiteNumber(data.time),
+    availableAt: finiteNumber(data.time)
   } satisfies PremiumIndex;
 }
 
@@ -234,7 +332,11 @@ export async function fetchFundingHistory(symbol: string, options: DerivativesRe
       symbol,
       fundingRate,
       fundingTime,
-      markPrice: finiteNumberOrNull(row.markPrice)
+      markPrice: finiteNumberOrNull(row.markPrice),
+      sourceTimestamp: fundingTime,
+      periodStart: null,
+      periodEnd: fundingTime,
+      availableAt: fundingTime
     } satisfies TimedFunding];
   });
 }
@@ -256,7 +358,11 @@ export async function fetchBasisHistory(symbol: string, options: DerivativesRequ
       basisRate: finiteNumberOrNull(row.basisRate),
       indexPrice: finiteNumberOrNull(row.indexPrice),
       futuresPrice: finiteNumberOrNull(row.futuresPrice),
-      timestamp
+      timestamp,
+      sourceTimestamp: timestamp,
+      periodStart: timestamp,
+      periodEnd: timestamp + DERIVATIVES_INTERVAL_MS,
+      availableAt: timestamp + DERIVATIVES_INTERVAL_MS
     } satisfies TimedBasis];
   });
 }
@@ -275,7 +381,11 @@ export async function fetchTakerFlowHistory(symbol: string, options: Derivatives
       buySellRatio: finiteNumberOrNull(row.buySellRatio),
       buyVolume: finiteNumberOrNull(row.buyVol),
       sellVolume: finiteNumberOrNull(row.sellVol),
-      timestamp
+      timestamp,
+      sourceTimestamp: timestamp,
+      periodStart: timestamp,
+      periodEnd: timestamp + DERIVATIVES_INTERVAL_MS,
+      availableAt: timestamp + DERIVATIVES_INTERVAL_MS
     } satisfies TimedTakerFlow];
   });
 }
@@ -295,7 +405,11 @@ export async function fetchGlobalLongShortHistory(symbol: string, options: Deriv
       longShortRatio: finiteNumberOrNull(row.longShortRatio),
       longAccount: finiteNumberOrNull(row.longAccount),
       shortAccount: finiteNumberOrNull(row.shortAccount),
-      timestamp
+      timestamp,
+      sourceTimestamp: timestamp,
+      periodStart: timestamp,
+      periodEnd: timestamp + DERIVATIVES_INTERVAL_MS,
+      availableAt: timestamp + DERIVATIVES_INTERVAL_MS
     } satisfies TimedPositioning];
   });
 }
@@ -322,15 +436,25 @@ async function fetchTopTraderHistory(symbol: string, endpoint: string, options: 
       longShortRatio: finiteNumberOrNull(row.longShortRatio),
       longAccount: finiteNumberOrNull(row.longAccount),
       shortAccount: finiteNumberOrNull(row.shortAccount),
-      timestamp
+      timestamp,
+      sourceTimestamp: timestamp,
+      periodStart: timestamp,
+      periodEnd: timestamp + DERIVATIVES_INTERVAL_MS,
+      availableAt: timestamp + DERIVATIVES_INTERVAL_MS
     } satisfies TimedTopTraderPositioning];
   });
 }
 
 export function buildDerivativesMetric(input: CollectionInput): DerivativesMetric {
   const metricTime = closedMetricTime(input.now);
-  const oi = latestAtOrBefore(input.openInterestHistory, metricTime, (item) => item.timestamp);
-  const oiCurrent = input.openInterest && input.openInterest.timestamp <= metricTime ? input.openInterest : null;
+  // metricTime is the period start; the represented closed candle becomes
+  // available at metricTime + 5m. Every source is joined against that close
+  // boundary rather than its provider timestamp alone.
+  const decisionTime = metricTime + DERIVATIVES_INTERVAL_MS;
+  const oiRaw = latestAtOrBefore(input.openInterestHistory, decisionTime, (item) => observationAvailableAt(item, "open_interest"));
+  const oi = isFreshObservation(oiRaw, "open_interest", decisionTime) ? oiRaw : null;
+  const oiCurrentRaw = input.openInterest && observationAvailableAt(input.openInterest, "open_interest") <= decisionTime ? input.openInterest : null;
+  const oiCurrent = isFreshObservation(oiCurrentRaw, "open_interest", decisionTime) ? oiCurrentRaw : null;
   const latestOpenInterest = oi?.openInterest ?? oiCurrent?.openInterest ?? null;
   const oiChanges = [5, 15, 60, 240].map((minutes) => {
     const previous = latestAtOrBefore(
@@ -346,33 +470,46 @@ export function buildDerivativesMetric(input: CollectionInput): DerivativesMetri
     ? round(oiChanges[0] - oiChanges[1] / 3)
     : null;
 
-  const funding = latestAtOrBefore(input.fundingHistory, metricTime, (item) => item.fundingTime);
+  const fundingRaw = latestAtOrBefore(input.fundingHistory, decisionTime, (item) => observationAvailableAt(item, "funding"));
+  const funding = isFreshObservation(fundingRaw, "funding", decisionTime) ? fundingRaw : null;
   const priorFunding = funding
     ? latestAtOrBefore(input.fundingHistory, funding.fundingTime - 1, (item) => item.fundingTime, funding.fundingTime)
     : null;
-  const premium = input.premiumIndex && input.premiumIndex.timestamp <= metricTime ? input.premiumIndex : null;
-  const basis = latestAtOrBefore(input.basisHistory, metricTime, (item) => item.timestamp);
+  const premiumRaw = input.premiumIndex && observationAvailableAt(input.premiumIndex, "premium") <= decisionTime ? input.premiumIndex : null;
+  const premium = isFreshObservation(premiumRaw, "funding", decisionTime) ? premiumRaw : null;
+  const basisRaw = latestAtOrBefore(input.basisHistory, decisionTime, (item) => observationAvailableAt(item, "basis"));
+  const basis = isFreshObservation(basisRaw, "basis", decisionTime) ? basisRaw : null;
   const priorBasis = basis
     ? latestAtOrBefore(input.basisHistory, basis.timestamp - 1, (item) => item.timestamp, basis.timestamp)
     : null;
-  const taker = latestAtOrBefore(input.takerHistory, metricTime, (item) => item.timestamp);
+  const takerRaw = latestAtOrBefore(input.takerHistory, decisionTime, (item) => observationAvailableAt(item, "taker_flow"));
+  const taker = isFreshObservation(takerRaw, "taker_flow", decisionTime) ? takerRaw : null;
   const priorTaker = taker
     ? latestAtOrBefore(input.takerHistory, taker.timestamp - 1, (item) => item.timestamp, taker.timestamp)
     : null;
-  const positioning = latestAtOrBefore(input.globalLongShortHistory, metricTime, (item) => item.timestamp);
+  const positioningRaw = latestAtOrBefore(input.globalLongShortHistory, decisionTime, (item) => observationAvailableAt(item, "positioning"));
+  const positioning = isFreshObservation(positioningRaw, "positioning", decisionTime) ? positioningRaw : null;
   const priorPositioning = positioning
     ? latestAtOrBefore(input.globalLongShortHistory, positioning.timestamp - 1, (item) => item.timestamp, positioning.timestamp)
     : null;
-  const topAccount = latestAtOrBefore(input.topTraderAccountHistory ?? [], metricTime, (item) => item.timestamp);
-  const topPosition = latestAtOrBefore(input.topTraderPositionHistory ?? [], metricTime, (item) => item.timestamp);
+  const topAccountRaw = latestAtOrBefore(input.topTraderAccountHistory ?? [], decisionTime, (item) => observationAvailableAt(item, "top_trader_account"));
+  const topAccount = isFreshObservation(topAccountRaw, "top_trader_account", decisionTime) ? topAccountRaw : null;
+  const topPositionRaw = latestAtOrBefore(input.topTraderPositionHistory ?? [], decisionTime, (item) => observationAvailableAt(item, "top_trader_position"));
+  const topPosition = isFreshObservation(topPositionRaw, "top_trader_position", decisionTime) ? topPositionRaw : null;
   const priorTopAccount = topAccount
     ? latestAtOrBefore(input.topTraderAccountHistory ?? [], topAccount.timestamp - 1, (item) => item.timestamp, topAccount.timestamp)
     : null;
   const priorTopPosition = topPosition
     ? latestAtOrBefore(input.topTraderPositionHistory ?? [], topPosition.timestamp - 1, (item) => item.timestamp, topPosition.timestamp)
     : null;
-  const priceChange5m = input.priceReference && input.priceReference.previous > 0
-    ? round((input.priceReference.current - input.priceReference.previous) / input.priceReference.previous * 100)
+  const priceReferenceIs5m = input.priceReference
+    && (!input.priceReference.interval || input.priceReference.interval === DERIVATIVES_INTERVAL)
+    && (input.priceReference.currentTime === undefined || input.priceReference.previousTime === undefined
+      || input.priceReference.currentTime - input.priceReference.previousTime === DERIVATIVES_INTERVAL_MS)
+    && (input.priceReference.currentTime === undefined || input.priceReference.currentTime <= decisionTime);
+  const priceChange5m = priceReferenceIs5m
+    && input.priceReference!.previous > 0
+    ? round((input.priceReference!.current - input.priceReference!.previous) / input.priceReference!.previous * 100)
     : null;
   const takerImbalance = taker?.buyVolume !== null && taker?.buyVolume !== undefined && taker?.sellVolume !== null && taker?.sellVolume !== undefined
     ? round((taker.buyVolume - taker.sellVolume) / Math.max(taker.buyVolume + taker.sellVolume, Number.EPSILON))
@@ -390,15 +527,24 @@ export function buildDerivativesMetric(input: CollectionInput): DerivativesMetri
     ? priorBasis.basis / priorBasis.indexPrice * 10_000
     : priorBasis?.basisRate !== null && priorBasis?.basisRate !== undefined ? priorBasis.basisRate * 10_000 : null;
   const sourceTimestamps = [
-    oi?.timestamp,
-    funding?.fundingTime,
-    premium?.timestamp,
-    basis?.timestamp,
-    taker?.timestamp,
-    positioning?.timestamp,
-    topAccount?.timestamp,
-    topPosition?.timestamp
+    oi?.sourceTimestamp ?? oi?.timestamp,
+    funding?.sourceTimestamp ?? funding?.fundingTime,
+    premium?.sourceTimestamp ?? premium?.timestamp,
+    basis?.sourceTimestamp ?? basis?.timestamp,
+    taker?.sourceTimestamp ?? taker?.timestamp,
+    positioning?.sourceTimestamp ?? positioning?.timestamp,
+    topAccount?.sourceTimestamp ?? topAccount?.timestamp,
+    topPosition?.sourceTimestamp ?? topPosition?.timestamp
   ].filter((value): value is number => value !== undefined && value !== null);
+  const sourceTiming = {
+    open_interest: sourceTimingFor(oiRaw, "open_interest", decisionTime),
+    funding: sourceTimingFor(fundingRaw, "funding", decisionTime),
+    basis: sourceTimingFor(basisRaw, "basis", decisionTime),
+    taker_flow: sourceTimingFor(takerRaw, "taker_flow", decisionTime),
+    positioning: sourceTimingFor(positioningRaw, "positioning", decisionTime),
+    top_trader_account: sourceTimingFor(topAccountRaw, "top_trader_account", decisionTime),
+    top_trader_position: sourceTimingFor(topPositionRaw, "top_trader_position", decisionTime)
+  } satisfies Record<string, SourceTiming>;
   const fundingRate = premium?.fundingRate ?? funding?.fundingRate ?? null;
   const fundingValues = input.fundingHistory.filter((item) => item.fundingTime <= metricTime).map((item) => item.fundingRate);
   const fundingPercentile = percentileRank(fundingRate, fundingValues);
@@ -423,14 +569,20 @@ export function buildDerivativesMetric(input: CollectionInput): DerivativesMetri
     ["liquidationNotional", null]
   ].filter(([, value]) => value === null).map(([name]) => name);
   const endpointErrors = input.endpointErrors ?? [];
+  const unavailableEndpoint = (endpoint: string) => endpointErrors.some((error) => error.endpoint === endpoint && error.message.includes("UNAVAILABLE_API_KEY_REQUIRED"));
+  if (unavailableEndpoint(DERIVATIVES_PUBLIC_ENDPOINTS.topTraderAccount)) sourceTiming.top_trader_account = unavailableTiming();
+  if (unavailableEndpoint(DERIVATIVES_PUBLIC_ENDPOINTS.topTraderPosition)) sourceTiming.top_trader_position = unavailableTiming();
   const sourceStatus = {
-    openInterest: !endpointErrors.some((error) => error.endpoint === DERIVATIVES_PUBLIC_ENDPOINTS.openInterestHistory || error.endpoint === DERIVATIVES_PUBLIC_ENDPOINTS.openInterest),
+    openInterest: unavailableEndpoint(DERIVATIVES_PUBLIC_ENDPOINTS.openInterestHistory) || unavailableEndpoint(DERIVATIVES_PUBLIC_ENDPOINTS.openInterest)
+      ? "UNAVAILABLE_API_KEY_REQUIRED" : !endpointErrors.some((error) => error.endpoint === DERIVATIVES_PUBLIC_ENDPOINTS.openInterestHistory || error.endpoint === DERIVATIVES_PUBLIC_ENDPOINTS.openInterest),
     funding: !endpointErrors.some((error) => error.endpoint === DERIVATIVES_PUBLIC_ENDPOINTS.fundingHistory),
     basis: !endpointErrors.some((error) => error.endpoint === DERIVATIVES_PUBLIC_ENDPOINTS.basis),
     takerFlow: !endpointErrors.some((error) => error.endpoint === DERIVATIVES_PUBLIC_ENDPOINTS.takerFlow),
     globalLongShort: !endpointErrors.some((error) => error.endpoint === DERIVATIVES_PUBLIC_ENDPOINTS.globalLongShort),
-    topTraderAccount: !endpointErrors.some((error) => error.endpoint === DERIVATIVES_PUBLIC_ENDPOINTS.topTraderAccount),
-    topTraderPosition: !endpointErrors.some((error) => error.endpoint === DERIVATIVES_PUBLIC_ENDPOINTS.topTraderPosition),
+    topTraderAccount: unavailableEndpoint(DERIVATIVES_PUBLIC_ENDPOINTS.topTraderAccount)
+      ? "UNAVAILABLE_API_KEY_REQUIRED" : !endpointErrors.some((error) => error.endpoint === DERIVATIVES_PUBLIC_ENDPOINTS.topTraderAccount),
+    topTraderPosition: unavailableEndpoint(DERIVATIVES_PUBLIC_ENDPOINTS.topTraderPosition)
+      ? "UNAVAILABLE_API_KEY_REQUIRED" : !endpointErrors.some((error) => error.endpoint === DERIVATIVES_PUBLIC_ENDPOINTS.topTraderPosition),
     liquidation: "insufficient_historical_public_data"
   };
 
@@ -488,6 +640,10 @@ export function buildDerivativesMetric(input: CollectionInput): DerivativesMetri
     priceChange5m,
     priceOiState: classifyPriceOiState(priceChange5m, oiChanges[0]),
     sourceTimestamp: sourceTimestamps.length > 0 ? Math.min(...sourceTimestamps) : null,
+    periodStart: metricTime,
+    periodEnd: decisionTime,
+    availableAt: decisionTime,
+    sourceAgeMs: Object.values(sourceTiming).map((timing) => timing.sourceAgeMs).filter((value): value is number => value !== null).reduce((max, value) => Math.max(max, value), 0) || null,
     fetchedAt: input.now,
     sourceEndpoint: Object.values(DERIVATIVES_PUBLIC_ENDPOINTS).join(","),
     sourceVersion: DERIVATIVES_SOURCE_VERSION,
@@ -496,6 +652,15 @@ export function buildDerivativesMetric(input: CollectionInput): DerivativesMetri
       closedPeriod: metricTime < input.now,
       futureObservationsExcluded: true,
       sourceStatus,
+      sourceTiming,
+      staleFamilies: Object.entries(sourceTiming).filter(([, timing]) => timing.stale).map(([family]) => family),
+      priceReference: {
+        interval: input.priceReference?.interval ?? null,
+        currentTime: input.priceReference?.currentTime ?? null,
+        previousTime: input.priceReference?.previousTime ?? null,
+        valid: Boolean(priceReferenceIs5m),
+        source: "Binance USD-M /fapi/v1/klines interval=5m closed candles"
+      },
       missingFields,
       endpointErrors,
       revisionRisk: {
@@ -505,8 +670,8 @@ export function buildDerivativesMetric(input: CollectionInput): DerivativesMetri
         liquidation: "no_historical_public_rest_backfill"
       },
       topTraderPositioning: {
-        account: topAccount ? "public_market_data" : "unavailable",
-        position: topPosition ? "public_market_data" : "unavailable"
+        account: topAccount ? "market_data_api_key" : "unavailable",
+        position: topPosition ? "market_data_api_key" : "unavailable"
       },
       liquidation: "INSUFFICIENT_HISTORICAL_LIQUIDATION_DATA"
     }
@@ -616,6 +781,10 @@ export function toDerivativesMetricRow(metric: DerivativesMetric) {
     price_change_5m: metric.priceChange5m,
     price_oi_state: metric.priceOiState,
     source_timestamp: metric.sourceTimestamp === null ? null : new Date(metric.sourceTimestamp).toISOString(),
+    period_start: metric.periodStart === null ? null : new Date(metric.periodStart).toISOString(),
+    period_end: metric.periodEnd === null ? null : new Date(metric.periodEnd).toISOString(),
+    available_at: metric.availableAt === null ? null : new Date(metric.availableAt).toISOString(),
+    source_age_ms: metric.sourceAgeMs,
     fetched_at: new Date(metric.fetchedAt).toISOString(),
     data_quality_flags: metric.dataQualityFlags,
     source_endpoint: metric.sourceEndpoint,
@@ -642,10 +811,75 @@ export function classifyPriceOiState(priceChangePct: number | null, oiChangePct:
   return "price_down_oi_down";
 }
 
+type TimedObservation = {
+  timestamp?: number;
+  fundingTime?: number;
+  sourceTimestamp?: number;
+  periodStart?: number | null;
+  periodEnd?: number | null;
+  availableAt?: number | null;
+};
+
+type TimingFamily = keyof typeof DERIVATIVES_FAMILY_FRESHNESS_TOLERANCE_MS | "premium";
+
+export function observationAvailableAt(row: TimedObservation | null | undefined, family: TimingFamily) {
+  if (!row) return Number.NEGATIVE_INFINITY;
+  if (Number.isFinite(row.availableAt)) return row.availableAt!;
+  const timestamp = row.sourceTimestamp ?? row.timestamp ?? row.fundingTime;
+  if (!Number.isFinite(timestamp)) return Number.NEGATIVE_INFINITY;
+  if (family === "funding" || family === "liquidation" || family === "premium") return timestamp!;
+  return timestamp! + DERIVATIVES_INTERVAL_MS;
+}
+
+export function observationSourceTimestamp(row: TimedObservation | null | undefined) {
+  if (!row) return null;
+  const value = row.sourceTimestamp ?? row.timestamp ?? row.fundingTime;
+  return Number.isFinite(value) ? value! : null;
+}
+
+export function sourceTimingFor(
+  row: TimedObservation | null | undefined,
+  family: keyof typeof DERIVATIVES_FAMILY_FRESHNESS_TOLERANCE_MS,
+  decisionTime: number
+): SourceTiming {
+  if (!row) return { sourceTimestamp: null, periodStart: null, periodEnd: null, availableAt: null, sourceAgeMs: null, stale: false, status: "MISSING" };
+  const sourceTimestamp = observationSourceTimestamp(row);
+  const periodStart = row.periodStart === undefined ? (family === "funding" ? null : sourceTimestamp) : row.periodStart;
+  const periodEnd = row.periodEnd === undefined
+    ? (family === "funding" ? sourceTimestamp : sourceTimestamp === null ? null : sourceTimestamp + DERIVATIVES_INTERVAL_MS)
+    : row.periodEnd;
+  const availableAt = observationAvailableAt(row, family);
+  const sourceAgeMs = Number.isFinite(availableAt) ? Math.max(0, decisionTime - availableAt) : null;
+  const stale = sourceAgeMs !== null && sourceAgeMs > DERIVATIVES_FAMILY_FRESHNESS_TOLERANCE_MS[family];
+  return {
+    sourceTimestamp,
+    periodStart: periodStart ?? null,
+    periodEnd: periodEnd ?? null,
+    availableAt: Number.isFinite(availableAt) ? availableAt : null,
+    sourceAgeMs,
+    stale,
+    status: stale ? "STALE_SOURCE_DATA" : "FRESH"
+  };
+}
+
+export function isFreshObservation<T extends TimedObservation>(row: T | null | undefined, family: keyof typeof DERIVATIVES_FAMILY_FRESHNESS_TOLERANCE_MS, decisionTime: number) {
+  const timing = sourceTimingFor(row, family, decisionTime);
+  return timing.status === "FRESH" && timing.availableAt !== null && timing.availableAt <= decisionTime;
+}
+
+function unavailableTiming(): SourceTiming {
+  return { sourceTimestamp: null, periodStart: null, periodEnd: null, availableAt: null, sourceAgeMs: null, stale: false, status: "UNAVAILABLE_API_KEY_REQUIRED" };
+}
+
 async function requestJson<T>(endpoint: string, params: Record<string, string | number>, options: DerivativesRequestOptions) {
   const url = new URL(endpoint, options.baseUrl || process.env.BINANCE_FUTURES_BASE_URL || DEFAULT_BASE_URL);
   for (const [key, value] of Object.entries(params)) url.searchParams.set(key, String(value));
-  const response = await (options.fetchImpl ?? fetch)(url, { cache: "no-store" });
+  const requiresMarketDataKey = DERIVATIVES_MARKET_DATA_KEY_ENDPOINTS.includes(endpoint as typeof DERIVATIVES_MARKET_DATA_KEY_ENDPOINTS[number]);
+  const marketDataApiKey = process.env.BINANCE_MARKET_DATA_API_KEY?.trim();
+  if (requiresMarketDataKey && !marketDataApiKey) throw new Error("UNAVAILABLE_API_KEY_REQUIRED");
+  const headers: Record<string, string> = {};
+  if (requiresMarketDataKey && marketDataApiKey) headers[MARKET_DATA_KEY_HEADER] = marketDataApiKey;
+  const response = await (options.fetchImpl ?? fetch)(url, { cache: "no-store", ...(Object.keys(headers).length ? { headers } : {}) });
   if (!response.ok) throw new Error(`${endpoint} failed: ${response.status} ${response.statusText}`);
   return await response.json() as T;
 }

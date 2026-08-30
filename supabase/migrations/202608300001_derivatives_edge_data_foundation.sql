@@ -45,6 +45,10 @@ create table if not exists public.gpt_derivatives_metrics (
   price_change_5m numeric,
   price_oi_state text,
   source_timestamp timestamptz,
+  period_start timestamptz,
+  period_end timestamptz,
+  available_at timestamptz,
+  source_age_ms bigint,
   fetched_at timestamptz not null default now(),
   data_quality_flags jsonb not null default '{}'::jsonb,
   source_endpoint text not null,
@@ -83,5 +87,13 @@ comment on table public.gpt_derivatives_metrics is
   'Append-only, point-in-time public Binance USD-M derivatives market metrics. Never user account, user position, order, or user-trade data.';
 comment on column public.gpt_derivatives_metrics.metric_time is
   'Closed 5-minute source period used for research alignment; future observations are excluded.';
+comment on column public.gpt_derivatives_metrics.period_start is
+  'Source period start; provider timestamps are not assumed to be availability timestamps.';
+comment on column public.gpt_derivatives_metrics.period_end is
+  'Source period close used as the earliest availability boundary for periodic observations.';
+comment on column public.gpt_derivatives_metrics.available_at is
+  'Earliest timestamp at which this metric row is permitted in a point-in-time join.';
+comment on column public.gpt_derivatives_metrics.source_age_ms is
+  'Age of the oldest selected source observation at available_at; stale source rows are nulled.';
 comment on column public.gpt_derivatives_metrics.data_quality_flags is
   'Collection availability, timestamp alignment, missing-field, and revision-risk metadata.';

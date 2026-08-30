@@ -14,7 +14,8 @@ import {
   GPT_PROFIT_004_FORWARD_START,
   GPT_PROFIT_004_RESEARCH_CUTOFF,
   buildDerivativeAblation,
-  evaluateDerivativesGate
+  evaluateDerivativesGate,
+  DERIVATIVE_FAMILIES
 } from "../src/lib/signal/derivatives-research.ts";
 import { forwardLiquidationCollectorStatus } from "../src/lib/binance/liquidation-forward.ts";
 
@@ -49,8 +50,12 @@ const metricTimes = metrics.map((row) => metricTime(row)).filter(Number.isFinite
 const metricStart = metricTimes.length ? Math.min(...metricTimes) : null;
 const analysisStart = metricStart === null ? CUTOFF : metricStart;
 const events = buildPriceOnlyEvents(candlesBySymbol, Math.max(analysisStart, Date.parse("2025-01-01T00:00:00.000Z")), DECISION_END);
-const historyDays = Number(manifest.historicalCoverageDays ?? (metricTimes.length ? (Math.max(...metricTimes) - Math.min(...metricTimes)) / 86_400_000 : 0));
-const ablation = buildDerivativeAblation({ events, metrics, historyDays });
+const familyCoverageDays = Object.fromEntries(DERIVATIVE_FAMILIES.map((family) => [
+  family,
+  Number(manifest.familyCoverageDays?.[family] ?? manifest.familyCoverageSummaries?.[family]?.calendarCoverageDays ?? manifest.historicalCoverageDays ?? 0)
+]));
+const historyDays = Number(manifest.combinedCoverageDays ?? manifest.historicalCoverageDays ?? (metricTimes.length ? (Math.max(...metricTimes) - Math.min(...metricTimes)) / 86_400_000 : 0));
+const ablation = buildDerivativeAblation({ events, metrics, historyDays, familyCoverageDays });
 const bestFamily = ablation.families
   .filter((summary) => summary.status === "EVALUATED" && Number.isFinite(summary.deltaNetExpectancyR))
   .sort((left, right) => (right.deltaNetExpectancyR ?? -Infinity) - (left.deltaNetExpectancyR ?? -Infinity))[0] ?? null;
@@ -60,7 +65,9 @@ const gate = bestFamily ? evaluateDerivativesGate({ historyDays, summary: bestFa
   reasons: [historyDays < 90 ? "no family can be evaluated with >=90d coverage" : "no evaluated family"],
   checks: { historyAtLeast90d: historyDays >= 90 }
 };
-const result = historyDays < 90 ? "INSUFFICIENT_DERIVATIVES_HISTORY" : gate.passed ? "DERIVATIVES_EDGE_REQUIRES_SEPARATE_REVIEW" : "NO DERIVATIVES EDGE FOUND";
+const result = historyDays < 90 || ablation.families.every((summary) => summary.status === "INSUFFICIENT_DERIVATIVES_HISTORY")
+  ? "INSUFFICIENT_DERIVATIVES_HISTORY"
+  : gate.passed ? "DERIVATIVES_EDGE_REQUIRES_SEPARATE_REVIEW" : "NO DERIVATIVES EDGE FOUND";
 const report = {
   task: "GPT-PROFIT-004 — Derivatives Edge Data Foundation",
   generatedAt: new Date().toISOString(),
@@ -82,7 +89,10 @@ const report = {
     earliestMetric: metricTimes.length ? new Date(Math.min(...metricTimes)).toISOString() : null,
     latestMetric: metricTimes.length ? new Date(Math.max(...metricTimes)).toISOString() : null,
     historicalCoverageDays: historyDays,
-    historicalCoverageAtLeast90d: historyDays >= 90
+    historicalCoverageAtLeast90d: historyDays >= 90,
+    familyCoverageDays,
+    familyCoverage: manifest.familyCoverageSummaries ?? {},
+    coverageMethod: "family-specific; combined coverage is selected-family intersection"
   },
   labels: {
     primary: "+1R before -1R",
@@ -100,7 +110,7 @@ const report = {
   bestIncrementalFamily: bestFamily?.family ?? null,
   internalGate: gate,
   candidateSearch: { maxCandidates: 8, candidatesGenerated: 0, bestCandidate: null, status: "NO_CANDIDATE_SEARCH_IN_DATA_FOUNDATION" },
-  prospectiveCollector: { enabled: true, integratedInto: "src/app/api/jobs/sync-market/route.ts", failSoft: true, appendOnlyTable: "gpt_derivatives_metrics" },
+  prospectiveCollector: { enabled: true, integratedInto: "src/app/api/jobs/sync-market/route.ts", failSoft: true, appendOnlyTable: "gpt_derivatives_metrics", priceChange5mSource: "Binance USD-M /fapi/v1/klines interval=5m closed candles" },
   liquidationForwardCollector: forwardLiquidationCollectorStatus(),
   safety: {
     mainV2DeliveryMode: "shadow",
@@ -181,22 +191,30 @@ function readMetricCache() {
     for (const value of values) {
       const timestamp = Number(value?.timestamp);
       if (!Number.isFinite(timestamp)) continue;
+      const family = match[2];
       const key = `${symbol}:${timestamp}`;
-      const row = byKey.get(key) ?? { symbol, metric_time: new Date(timestamp).toISOString(), timestamp };
-      if (match[2] === "open_interest") Object.assign(row, { open_interest: NumberOrNull(value.openInterest), open_interest_value: NumberOrNull(value.openInterestValue) });
-      if (match[2] === "funding") Object.assign(row, { funding_rate: NumberOrNull(value.fundingRate), last_settled_funding: NumberOrNull(value.fundingRate) });
-      if (match[2] === "basis") Object.assign(row, { basis_bps: basisBps(value), basis_rate: NumberOrNull(value.basisRate) });
-      if (match[2] === "taker_flow") Object.assign(row, { taker_buy_ratio: NumberOrNull(value.buySellRatio), taker_imbalance: imbalance(value.buyVolume, value.sellVolume) });
-      if (match[2] === "positioning") Object.assign(row, { global_long_short_ratio: NumberOrNull(value.longShortRatio) });
-      if (match[2] === "top_trader_account") Object.assign(row, { top_account_long_short_ratio: NumberOrNull(value.longShortRatio) });
-      if (match[2] === "top_trader_position") Object.assign(row, { top_position_long_short_ratio: NumberOrNull(value.longShortRatio) });
+      const row = byKey.get(key) ?? { symbol, metric_time: new Date(timestamp).toISOString(), timestamp, family_timing: {} };
+      const timing = {
+        source_timestamp: NumberOrNull(value.source_timestamp ?? timestamp),
+        period_start: NumberOrNull(value.period_start),
+        period_end: NumberOrNull(value.period_end),
+        available_at: NumberOrNull(value.available_at ?? (family === "funding" ? timestamp : timestamp + 5 * 60 * 1000)),
+        stale: false
+      };
+      row.family_timing[family] = timing;
+      if (row.available_at === undefined || timing.available_at < row.available_at) row.available_at = timing.available_at;
+      if (family === "open_interest") Object.assign(row, { open_interest: NumberOrNull(value.openInterest), open_interest_value: NumberOrNull(value.openInterestValue) });
+      if (family === "funding") Object.assign(row, { funding_rate: NumberOrNull(value.fundingRate), last_settled_funding: NumberOrNull(value.fundingRate) });
+      if (family === "basis") Object.assign(row, { basis_bps: basisBps(value), basis_rate: NumberOrNull(value.basisRate) });
+      if (family === "taker_flow") Object.assign(row, { taker_buy_ratio: NumberOrNull(value.buySellRatio), taker_imbalance: imbalance(value.buyVolume, value.sellVolume) });
+      if (family === "positioning") Object.assign(row, { global_long_short_ratio: NumberOrNull(value.longShortRatio) });
+      if (family === "top_trader_account") Object.assign(row, { top_account_long_short_ratio: NumberOrNull(value.longShortRatio) });
+      if (family === "top_trader_position") Object.assign(row, { top_position_long_short_ratio: NumberOrNull(value.longShortRatio) });
       byKey.set(key, row);
     }
   }
   const rows = [...byKey.values()].sort((left, right) => metricTime(left) - metricTime(right));
   const lastOiBySymbol = new Map();
-  const lastFamilyValues = new Map();
-  const familyKeys = ["open_interest", "open_interest_value", "oi_change_5m", "funding_rate", "last_settled_funding", "basis_bps", "basis_rate", "taker_buy_ratio", "taker_imbalance", "global_long_short_ratio", "top_account_long_short_ratio", "top_position_long_short_ratio"];
   const lastPositioningBySymbol = new Map();
   const lastTopAccountBySymbol = new Map();
   const lastTopPositionBySymbol = new Map();
@@ -204,21 +222,18 @@ function readMetricCache() {
     const hasPositioning = Number.isFinite(row.global_long_short_ratio);
     const hasTopAccount = Number.isFinite(row.top_account_long_short_ratio);
     const hasTopPosition = Number.isFinite(row.top_position_long_short_ratio);
-    const previousFamilyValues = lastFamilyValues.get(row.symbol) ?? {};
-    for (const key of familyKeys) if (row[key] === undefined && previousFamilyValues[key] !== undefined) row[key] = previousFamilyValues[key];
     const previousOi = lastOiBySymbol.get(row.symbol);
-    if (row.open_interest !== undefined && row.open_interest !== null && previousOi > 0) row.oi_change_5m = (row.open_interest - previousOi) / previousOi * 100;
-    if (row.open_interest !== undefined && row.open_interest !== null) lastOiBySymbol.set(row.symbol, row.open_interest);
+    if (row.open_interest !== undefined && row.open_interest !== null && previousOi?.value > 0 && row.timestamp - previousOi.timestamp <= 2 * 5 * 60 * 1000) row.oi_change_5m = (row.open_interest - previousOi.value) / previousOi.value * 100;
+    if (row.open_interest !== undefined && row.open_interest !== null) lastOiBySymbol.set(row.symbol, { value: row.open_interest, timestamp: row.timestamp });
     const previousPositioning = lastPositioningBySymbol.get(row.symbol);
     const previousTopAccount = lastTopAccountBySymbol.get(row.symbol);
     const previousTopPosition = lastTopPositionBySymbol.get(row.symbol);
-    if (hasPositioning && Number.isFinite(previousPositioning)) row.global_long_short_change = row.global_long_short_ratio - previousPositioning;
-    if (hasTopAccount && Number.isFinite(previousTopAccount)) row.top_account_long_short_change = row.top_account_long_short_ratio - previousTopAccount;
-    if (hasTopPosition && Number.isFinite(previousTopPosition)) row.top_position_long_short_change = row.top_position_long_short_ratio - previousTopPosition;
-    if (hasPositioning) lastPositioningBySymbol.set(row.symbol, row.global_long_short_ratio);
-    if (hasTopAccount) lastTopAccountBySymbol.set(row.symbol, row.top_account_long_short_ratio);
-    if (hasTopPosition) lastTopPositionBySymbol.set(row.symbol, row.top_position_long_short_ratio);
-    lastFamilyValues.set(row.symbol, Object.fromEntries(familyKeys.filter((key) => row[key] !== undefined).map((key) => [key, row[key]])));
+    if (hasPositioning && Number.isFinite(previousPositioning?.value) && row.timestamp - previousPositioning.timestamp <= 2 * 5 * 60 * 1000) row.global_long_short_change = row.global_long_short_ratio - previousPositioning.value;
+    if (hasTopAccount && Number.isFinite(previousTopAccount?.value) && row.timestamp - previousTopAccount.timestamp <= 2 * 5 * 60 * 1000) row.top_account_long_short_change = row.top_account_long_short_ratio - previousTopAccount.value;
+    if (hasTopPosition && Number.isFinite(previousTopPosition?.value) && row.timestamp - previousTopPosition.timestamp <= 2 * 5 * 60 * 1000) row.top_position_long_short_change = row.top_position_long_short_ratio - previousTopPosition.value;
+    if (hasPositioning) lastPositioningBySymbol.set(row.symbol, { value: row.global_long_short_ratio, timestamp: row.timestamp });
+    if (hasTopAccount) lastTopAccountBySymbol.set(row.symbol, { value: row.top_account_long_short_ratio, timestamp: row.timestamp });
+    if (hasTopPosition) lastTopPositionBySymbol.set(row.symbol, { value: row.top_position_long_short_ratio, timestamp: row.timestamp });
   }
   return rows;
 }
@@ -267,16 +282,19 @@ function renderMarkdown(report) {
     "",
     `Research cutoff: ${report.boundary.researchCutoff}; forward validation starts: ${report.boundary.forwardValidationStarts}. This is separate from GPT-PROFIT-003 Final Unseen, which remains at ${report.holdoutExecutions} executions.`,
     "",
-    `Source observations: ${report.sources.sourceObservationRows}; consolidated PIT metric rows: ${report.sources.metricRows} across ${report.sources.metricFiles} cache files; earliest: ${report.sources.earliestMetric ?? "none"}; latest: ${report.sources.latestMetric ?? "none"}; common history: ${report.sources.historicalCoverageDays.toFixed(2)} days; >=90d: **${report.sources.historicalCoverageAtLeast90d}**.`,
+    `Source observations: ${report.sources.sourceObservationRows}; consolidated PIT metric rows: ${report.sources.metricRows} across ${report.sources.metricFiles} cache files; earliest: ${report.sources.earliestMetric ?? "none"}; latest: ${report.sources.latestMetric ?? "none"}; combined selected-family history: ${report.sources.historicalCoverageDays.toFixed(2)} days; >=90d: **${report.sources.historicalCoverageAtLeast90d}**.`,
+    `Family coverage (independent): ${Object.entries(report.sources.familyCoverageDays).map(([family, days]) => `${family}=${Number(days).toFixed(2)}d`).join(", ")}.`,
     `Price-only diagnostic events: ${report.events.priceOnlyEvents}; label horizon: ${report.labels.horizonBars} bars; costs: fee ${report.labels.feePerSide} + slippage ${report.labels.slippagePerSide} per side; same-candle priority: ${report.labels.sameCandlePriority}.`,
     "",
     "## Incremental information ablation",
     "",
-    "| Family | Events | Settled | Gross E[R] | Net E[R] | PF | Spearman | Δ Net E[R] | Δ PF | Symbols | Months | Fold consistency | Status |",
-    "|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---|---|",
+    "| Family | Events | Settled | Gross E[R] | Net E[R] | PF | Spearman | Top lift | Δ Net E[R] | Δ PF | Symbols | Missing | Stale | Status |",
+    "|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---|",
     row(report.baseline),
     ...report.families.map(row),
     row(report.combinedPermitted),
+    "",
+    ...report.families.map((summary) => `- ${summary.family} net-R contribution concentration: largest absolute=${format(summary.largestSymbolAbsoluteContributionShare)}, largest positive=${format(summary.largestSymbolPositiveContributionShare)}; future Gate requires each <= 0.50.`),
     "",
     `Best incremental family: **${report.bestIncrementalFamily ?? "none"}**. No candidate search was run (candidates generated: ${report.candidateSearch.candidatesGenerated}).`,
     "",
@@ -286,7 +304,7 @@ function renderMarkdown(report) {
     "",
     "The prospective collector is enabled in the existing market sync, writes append-only `gpt_derivatives_metrics`, and is fail-soft: endpoint or table errors are returned in sync metadata without failing the candle/signal sync.",
     "",
-    `Liquidation remains \`INSUFFICIENT_HISTORICAL_LIQUIDATION_DATA\`; the forward-only public stream adapter is ${report.liquidationForwardCollector.enabled ? "available" : "disabled"} with historicalBackfill=${report.liquidationForwardCollector.historicalBackfill}; top-trader account/position ratios are public aggregate observations and are retained for positioning research without account credentials.`,
+    `Liquidation remains \`INSUFFICIENT_HISTORICAL_LIQUIDATION_DATA\`; adapterImplemented=${report.liquidationForwardCollector.adapterImplemented}, runtimeCollectorEnabled=${report.liquidationForwardCollector.runtimeCollectorEnabled}, status=${report.liquidationForwardCollector.status}. Top-trader account/position ratios require the optional MARKET_DATA key and are excluded when unavailable.`,
     "",
     "## Safety",
     "",
@@ -295,6 +313,6 @@ function renderMarkdown(report) {
   return lines.join("\n") + "\n";
 }
 function row(summary) {
-  return `| ${summary.family} | ${summary.eventCount} | ${summary.settled} | ${format(summary.grossExpectancyR)} | ${format(summary.netExpectancyR)} | ${format(summary.profitFactor)} | ${format(summary.spearman)} | ${format(summary.deltaNetExpectancyR)} | ${format(summary.deltaProfitFactor)} | ${summary.symbolBreadth} | ${summary.monthBreadth} | ${summary.foldConsistency} | ${summary.status} |`;
+  return `| ${summary.family} | ${summary.eventCount} | ${summary.settled} | ${format(summary.grossExpectancyR)} | ${format(summary.netExpectancyR)} | ${format(summary.profitFactor)} | ${format(summary.spearman)} | ${format(summary.conditionalLiftR)} | ${format(summary.deltaNetExpectancyR)} | ${format(summary.deltaProfitFactor)} | ${summary.symbolBreadth} | ${summary.missingExcludedCount} | ${summary.staleExcludedCount} | ${summary.status} |`;
 }
 function format(value) { return value === null || value === undefined ? "n/a" : Number.isFinite(value) ? value.toFixed(6) : String(value); }

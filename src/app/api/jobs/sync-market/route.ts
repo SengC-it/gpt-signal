@@ -54,11 +54,20 @@ async function runSync(request: Request) {
 
   const symbols = Array.from(new Set(["BTCUSDT", ...configuredSymbols()]));
   const candleSets = new Map<string, Candle[]>();
+  const priceCandleSets = new Map<string, Candle[]>();
 
   for (const symbol of symbols) {
     for (const interval of SYNC_INTERVALS) {
       const candles = await fetchFuturesKlines({ symbol, interval, limit: 120 });
       candleSets.set(candleKey(symbol, interval), candles);
+    }
+    // Derivatives price interactions require a real closed 5m reference;
+    // strategy 15m candles must never be used as a proxy.
+    try {
+      priceCandleSets.set(candleKey(symbol, "5m"), await fetchFuturesKlines({ symbol, interval: "5m", limit: 120 }));
+    } catch {
+      // Keep the primary strategy sync available when the optional reference fails.
+      priceCandleSets.set(candleKey(symbol, "5m"), []);
     }
   }
 
@@ -203,7 +212,7 @@ async function runSync(request: Request) {
       { onConflict: "symbol" }
     );
 
-    const candleRows = Array.from(candleSets.values()).flat().map(candleToRow);
+    const candleRows = [...Array.from(candleSets.values()).flat(), ...Array.from(priceCandleSets.values()).flat()].map(candleToRow);
     if (candleRows.length > 0) {
       await supabase.from("gpt_candles").upsert(candleRows, {
         onConflict: "symbol,interval,open_time"
@@ -214,7 +223,7 @@ async function runSync(request: Request) {
     // Derivatives metrics are an independent, fail-soft data foundation. A
     // provider outage must never prevent the primary candle/signal sync.
     try {
-      const priceReferences = buildPriceReferences(symbols, candleSets);
+      const priceReferences = buildPriceReferences(symbols, priceCandleSets);
       const collection = await collectDerivativesMetrics(symbols, { priceReferences });
       const metricRows = collection.rows.map(toDerivativesMetricRow);
       let rowsInserted = 0;
@@ -570,11 +579,17 @@ function candleToRow(candle: Candle) {
 
 function buildPriceReferences(symbols: string[], candleSets: Map<string, Candle[]>): Record<string, PriceReference> {
   return Object.fromEntries(symbols.flatMap((symbol) => {
-    const closed = closedCandles(candleSets.get(candleKey(symbol, "15m")) ?? []);
+    const closed = closedCandles(candleSets.get(candleKey(symbol, "5m")) ?? []);
     const current = closed.at(-1);
     const previous = closed.at(-2);
     return current && previous && previous.close > 0
-      ? [[symbol, { current: current.close, previous: previous.close } satisfies PriceReference]]
+      ? [[symbol, {
+        current: current.close,
+        previous: previous.close,
+        interval: "5m",
+        currentTime: current.closeTime,
+        previousTime: previous.closeTime
+      } satisfies PriceReference]]
       : [];
   }));
 }
