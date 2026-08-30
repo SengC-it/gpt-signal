@@ -33,7 +33,17 @@ import {
   summarizeR1Outcomes,
   summarizeR1ScoreRows,
 } from "../src/lib/signal/entry-edge-r1.ts";
+import {
+  assertR2FinalUnseenCanExecute,
+  classifyR2FeatureStatus,
+  ensureR2CandidateFreeze,
+  ensureR2FinalModelFreeze,
+  hashR2File,
+  selectR2Features
+} from "../src/lib/signal/entry-edge-r2.ts";
 
+const R2_MODE = process.argv.includes("--r2");
+const REPORT_PREFIX = R2_MODE ? "GPT-PROFIT-003-R2" : "GPT-PROFIT-003-R1";
 const SYMBOLS = ["BTCUSDT", "ETHUSDT", "SOLUSDT", "BNBUSDT", "LINKUSDT", "AVAXUSDT", "DOGEUSDT"];
 const TRADE_SYMBOLS = SYMBOLS.filter((symbol) => symbol !== "BTCUSDT");
 const DATA_DIR = path.join(process.cwd(), ".cache", "historical-backtest", process.env.PROFITABILITY_003_CACHE_KEY || "profit-002-latest");
@@ -42,12 +52,24 @@ const DATASET_MANIFEST_PATH = path.join(REPORT_DIR, "GPT-PROFIT-002-DATA-MANIFES
 const V1_FREEZE_PATH = path.join(REPORT_DIR, "GPT-PROFIT-003-CANDIDATE-FREEZE.json");
 const R1_FREEZE_PATH = path.join(REPORT_DIR, "GPT-PROFIT-003-R1-CANDIDATE-FREEZE.json");
 const R1_FREEZE_HASH_PATH = path.join(REPORT_DIR, "GPT-PROFIT-003-R1-CANDIDATE-FREEZE.sha256");
+const R2_FREEZE_PATH = path.join(REPORT_DIR, "GPT-PROFIT-003-R2-CANDIDATE-FREEZE.json");
+const R2_FREEZE_HASH_PATH = path.join(REPORT_DIR, "GPT-PROFIT-003-R2-CANDIDATE-FREEZE.sha256");
+const FINAL_MODEL_PATH = path.join(REPORT_DIR, "GPT-PROFIT-003-FINAL-MODEL-FREEZE.json");
+const FINAL_MODEL_HASH_PATH = path.join(REPORT_DIR, "GPT-PROFIT-003-FINAL-MODEL-FREEZE.sha256");
 const V1_HOLDOUT_MARKER = path.join(REPORT_DIR, "GPT-PROFIT-003-FINAL-UNSEEN-EXECUTION.json");
 const R1_HOLDOUT_MARKER = path.join(REPORT_DIR, "GPT-PROFIT-003-R1-FINAL-UNSEEN-EXECUTION.json");
+const R2_HOLDOUT_MARKER = path.join(REPORT_DIR, "GPT-PROFIT-003-R2-FINAL-UNSEEN-EXECUTION.json");
 const CUTOFF = Date.parse(GPT_PROFIT_003_DISCOVERY_CUTOFF);
 const HOLDOUT_START = Date.parse(GPT_PROFIT_003_FINAL_UNSEEN_START);
 const HOLDOUT_END = Date.parse(GPT_PROFIT_003_FINAL_UNSEEN_END);
 const FEATURE_START_INDEX = 80;
+if (R2_MODE && process.argv.includes("--execute-final-unseen")) {
+  const forbiddenRunner = runFinalUnseen;
+  throw new Error(`GPT-PROFIT-003-R2 closeout refuses automatic Final Unseen execution; ${forbiddenRunner.name} requires separate approval`);
+}
+if (ENTRY_EDGE_R1_LABEL_HORIZON_BARS !== ENTRY_EDGE_HORIZON_BARS) {
+  throw new Error(`Research label horizon mismatch: R1=${ENTRY_EDGE_R1_LABEL_HORIZON_BARS}, benchmark=${ENTRY_EDGE_HORIZON_BARS}`);
+}
 const FEATURE_GROUPS = {
   trend: ["trend_return_15m", "trend_return_1h", "trend_return_4h", "trend_return_12h", "trend_slope_short", "trend_slope_medium", "trend_alignment_long"],
   structure: ["structure_distance_rolling_high", "structure_distance_rolling_low", "breakout_distance_atr", "pullback_depth_atr", "retracement_ratio", "structure_age"],
@@ -58,8 +80,8 @@ const FEATURE_GROUPS = {
 };
 
 fs.mkdirSync(REPORT_DIR, { recursive: true });
-if (fs.existsSync(V1_HOLDOUT_MARKER) || fs.existsSync(R1_HOLDOUT_MARKER)) {
-  throw new Error("GPT-PROFIT-003 Final Unseen marker exists; R1 refuses a second holdout execution");
+if (fs.existsSync(V1_HOLDOUT_MARKER) || fs.existsSync(R1_HOLDOUT_MARKER) || fs.existsSync(R2_HOLDOUT_MARKER)) {
+  throw new Error(`GPT-PROFIT-003 Final Unseen marker exists; ${REPORT_PREFIX} refuses a second holdout execution`);
 }
 
 const candlesBySymbol = Object.fromEntries(SYMBOLS.map((symbol) => [symbol, readCandles(symbol)]));
@@ -80,8 +102,11 @@ const provenance = {
   sourceParentSha: resolveParentSha(),
   r1ResearchScriptSha256: hashR1File(path.resolve(process.cwd(), "scripts", "gpt-profit-003-r1-research.mjs")),
   r1ModuleSha256: hashR1File(path.resolve(process.cwd(), "src", "lib", "signal", "entry-edge-r1.ts")),
+  r2ResearchScriptSha256: hashR2File(path.resolve(process.cwd(), "scripts", "gpt-profit-003-r1-research.mjs")),
+  r2ModuleSha256: hashR2File(path.resolve(process.cwd(), "src", "lib", "signal", "entry-edge-r2.ts")),
   v1CandidateFreezeSha256: fs.existsSync(V1_FREEZE_PATH) ? hashR1File(V1_FREEZE_PATH) : null,
-  r1CandidateFreezeSha256: null,
+  r1CandidateFreezeSha256: fs.existsSync(R1_FREEZE_PATH) ? hashR1File(R1_FREEZE_PATH) : null,
+  r2CandidateFreezeSha256: null,
   datasetManifestSha256: hashR1File(DATASET_MANIFEST_PATH)
 };
 
@@ -98,9 +123,9 @@ if (outerFolds.length !== 3) throw new Error(`Expected 3 outer folds, received $
 const outerSets = outerFolds.map((fold) => makeFoldSet(fold));
 const rawFeaturePanel = [...ENTRY_EDGE_FEATURE_NAMES];
 const freezeDefinition = {
-  freezeVersion: "GPT-PROFIT-003-entry-edge-r1-v1",
+  freezeVersion: R2_MODE ? "GPT-PROFIT-003-entry-edge-r2-v1" : "GPT-PROFIT-003-entry-edge-r1-v1",
   discoveryCutoff: GPT_PROFIT_003_DISCOVERY_CUTOFF,
-  holdoutDefinition: `closed candles strictly after ${GPT_PROFIT_003_FINAL_UNSEEN_START} through ${GPT_PROFIT_003_FINAL_UNSEEN_END}; execute once only after R1 Internal OOS Gate PASS`,
+  holdoutDefinition: `closed candles strictly after ${GPT_PROFIT_003_FINAL_UNSEEN_START} through ${GPT_PROFIT_003_FINAL_UNSEEN_END}; ${R2_MODE ? "R2 does not execute Final Unseen; a separately approved run may execute once only after a valid Final Model Freeze" : "execute once only after R1 Internal OOS Gate PASS"}`,
   setupDefinitions: ENTRY_EDGE_SETUP_DEFINITIONS,
   rawFeaturePanel,
   nestedValidationProtocol: {
@@ -110,14 +135,15 @@ const freezeDefinition = {
     innerPurgeBars: ENTRY_EDGE_R1_INNER_PURGE_BARS,
     labelHorizonBars: ENTRY_EDGE_R1_LABEL_HORIZON_BARS,
     trainLabelRule: "every train event must satisfy decisionIndex + labelHorizonBars < testStartIndex",
-    selection: "inner time-series folds only; outer test is evaluation only",
+    selection: R2_MODE ? "inner time-series OOS robustness only; outer test is evaluation only" : "inner time-series folds only; outer test is evaluation only",
+    ...(R2_MODE ? { innerOosRobustness: "INNER_OOS_ROBUST requires positive directional lift in at least 2/3 inner OOS folds, aggregate inner OOS lift > 0, monotonic violations <= 2, sample >= 150, symbol breadth >= 3" } : {}),
     thresholdCalibration: "top 30% entry_edge_score within setup family, fitted separately inside each outer train",
     testIsolation: "outer-test outcomes cannot affect features, orientation, weights, or thresholds"
   },
   featureDeduplication: {
     exactAlias: true,
     correlationThreshold: 0.98,
-    groupRule: "at most one representative per highly correlated feature group; representative selected from training effect size"
+    groupRule: R2_MODE ? "at most one representative per highly correlated feature group; representative selected from inner OOS effect size" : "at most one representative per highly correlated feature group; representative selected from training effect size"
   },
   candidateTemplates: Object.keys(ENTRY_EDGE_SETUP_DEFINITIONS).map((family, index) => ({
     id: `p003-r1-${String(index + 1).padStart(2, "0")}-${family}`,
@@ -139,11 +165,14 @@ const freezeDefinition = {
     dataset: "public Binance USDⓈ-M Futures 15m closed candles",
     symbols: SYMBOLS,
     rawFeatureCount: rawFeaturePanel.length,
-    finalUnseenGuard: "R1 freeze hash valid + Internal OOS Gate PASS + frozen candidate + no prior marker"
+    finalUnseenGuard: R2_MODE ? "R2 candidate freeze + full-discovery Final Model Freeze + both SHA256 values valid + Internal OOS Gate PASS + frozen candidate + no prior marker; R2 runner never auto-executes holdout" : "R1 freeze hash valid + Internal OOS Gate PASS + frozen candidate + no prior marker"
   }
 };
-const freezeResult = ensureR1CandidateFreeze({ freezePath: R1_FREEZE_PATH, hashPath: R1_FREEZE_HASH_PATH, definition: freezeDefinition });
-provenance.r1CandidateFreezeSha256 = freezeResult.sha256;
+const freezeResult = R2_MODE
+  ? ensureR2CandidateFreeze({ freezePath: R2_FREEZE_PATH, hashPath: R2_FREEZE_HASH_PATH, definition: freezeDefinition })
+  : ensureR1CandidateFreeze({ freezePath: R1_FREEZE_PATH, hashPath: R1_FREEZE_HASH_PATH, definition: freezeDefinition });
+if (R2_MODE) provenance.r2CandidateFreezeSha256 = freezeResult.sha256;
+else provenance.r1CandidateFreezeSha256 = freezeResult.sha256;
 
 const foldReports = outerSets.map((set) => analyzeOuterFold(set));
 const trainScoreRows = foldReports.flatMap((report) => report.trainScoreRows);
@@ -177,16 +206,58 @@ const internalGate = bestCandidate
     })
   : { passed: false, status: "FAIL", reasons: ["no_candidate"], checks: { candidateExists: false } };
 
+let finalModelFreeze = null;
+let finalModelForGuard = null;
 let finalUnseen = {
   executed: false,
-  status: internalGate.passed ? "PENDING_EXECUTION" : "NO_CANDIDATE_FOR_FINAL_HOLDOUT",
+  status: R2_MODE
+    ? (internalGate.passed ? "INTERNAL_PASS_FINAL_HOLDOUT_NOT_EXECUTED" : "NO_CANDIDATE_FOR_FINAL_HOLDOUT")
+    : (internalGate.passed ? "PENDING_EXECUTION" : "NO_CANDIDATE_FOR_FINAL_HOLDOUT"),
   candidateId: null,
   range: { start: GPT_PROFIT_003_FINAL_UNSEEN_START, end: GPT_PROFIT_003_FINAL_UNSEEN_END },
   grossSummary: null,
   netSummary: null
 };
 const holdoutExecutions = readHoldoutExecutions();
-if (internalGate.passed && bestCandidate) {
+if (R2_MODE) {
+  finalModelFreeze = {
+    path: path.relative(process.cwd(), FINAL_MODEL_PATH).replaceAll("\\", "/"),
+    sha256: null,
+    generated: false,
+    exists: fs.existsSync(FINAL_MODEL_PATH),
+    reason: internalGate.passed ? "pending full-discovery model fit" : "Internal Gate FAIL; Final Model Freeze is not generated"
+  };
+  if (internalGate.passed && bestCandidate) {
+    const finalModelDefinition = buildR2FinalModelDefinition(bestCandidate);
+    const finalModelResult = ensureR2FinalModelFreeze({
+      modelPath: FINAL_MODEL_PATH,
+      hashPath: FINAL_MODEL_HASH_PATH,
+      definition: finalModelDefinition
+    });
+    finalModelForGuard = finalModelResult.model;
+    assertR2FinalUnseenCanExecute({
+      candidateFreezeExists: true,
+      candidateFreezeHashValid: freezeResult.sha256 === hashR2File(R2_FREEZE_PATH),
+      internalGatePassed: true,
+      selectedCandidateId: bestCandidate.id,
+      frozenCandidateIds: freezeDefinition.candidateTemplates.map((candidate) => candidate.id),
+      finalModelExists: true,
+      finalModelHashValid: finalModelResult.sha256 === hashR2File(FINAL_MODEL_PATH),
+      finalModel: finalModelForGuard,
+      discoveryCutoff: GPT_PROFIT_003_DISCOVERY_CUTOFF,
+      markerPath: R2_HOLDOUT_MARKER
+    });
+    finalModelFreeze = {
+      path: path.relative(process.cwd(), FINAL_MODEL_PATH).replaceAll("\\", "/"),
+      sha256: finalModelResult.sha256,
+      generated: true,
+      exists: true,
+      created: finalModelResult.created,
+      candidateId: finalModelResult.model.candidateId,
+      modelOrigin: finalModelResult.model.modelOrigin
+    };
+  }
+} else if (internalGate.passed && bestCandidate) {
   assertR1FinalUnseenCanExecute({
     freezeExists: true,
     freezeHashValid: freezeResult.sha256 === hashR1File(R1_FREEZE_PATH),
@@ -195,13 +266,15 @@ if (internalGate.passed && bestCandidate) {
     frozenCandidateIds: freezeDefinition.candidateTemplates.map((candidate) => candidate.id),
     markerPath: R1_HOLDOUT_MARKER
   });
-  finalUnseen = runFinalUnseen(bestCandidate);
+  finalUnseen = runLegacyFinalUnseen(bestCandidate);
 }
 
 const report = {
-  task: "GPT-PROFIT-003-R1",
+  task: REPORT_PREFIX,
   generatedAt: new Date().toISOString(),
-  result: internalGate.passed && finalUnseen.status === "PASS" ? "SHADOW_CANDIDATE_ONLY" : "NO ENTRY EDGE FOUND",
+  result: R2_MODE
+    ? (internalGate.passed ? "INTERNAL_PASS_FINAL_HOLDOUT_NOT_EXECUTED" : "NO ENTRY EDGE FOUND")
+    : (internalGate.passed && finalUnseen.status === "PASS" ? "SHADOW_CANDIDATE_ONLY" : "NO ENTRY EDGE FOUND"),
   provenance,
   safety: {
     mainV2DeliveryMode: "shadow",
@@ -256,7 +329,8 @@ const report = {
     labelHorizonBars: ENTRY_EDGE_R1_LABEL_HORIZON_BARS,
     leakageAssertion,
     outerTestIsEvaluationOnly: true,
-    thresholdRule: "top 30% entry_edge_score within setup family, fitted from each outer train"
+    thresholdRule: "top 30% entry_edge_score within setup family, fitted from each outer train",
+    ...(R2_MODE ? { innerOosRobustnessRule: "INNER_OOS_ROBUST requires positive directional lift in at least 2/3 inner OOS folds, aggregate inner OOS lift > 0, acceptable monotonicity, sample >= 150, symbol breadth >= 3" } : {})
   },
   featureResearch: {
     rawFeaturesTested: rawFeaturePanel.length,
@@ -301,20 +375,22 @@ const report = {
   },
   internalGate,
   candidateFreeze: {
-    path: path.relative(process.cwd(), R1_FREEZE_PATH).replaceAll("\\", "/"),
+    path: path.relative(process.cwd(), R2_MODE ? R2_FREEZE_PATH : R1_FREEZE_PATH).replaceAll("\\", "/"),
     sha256: freezeResult.sha256,
     created: freezeResult.created,
-    v1Preserved: fs.existsSync(V1_FREEZE_PATH)
+    v1Preserved: fs.existsSync(V1_FREEZE_PATH),
+    ...(R2_MODE ? { r1Preserved: fs.existsSync(R1_FREEZE_PATH) } : {})
   },
+  ...(R2_MODE ? { finalModelFreeze } : {}),
   finalUnseen,
   holdoutExecutions,
-  shadowCandidateCreated: internalGate.passed && finalUnseen.status === "PASS",
+  shadowCandidateCreated: R2_MODE ? false : internalGate.passed && finalUnseen.status === "PASS",
   productionEnabledStrategies: []
 };
 
-fs.writeFileSync(path.join(REPORT_DIR, "GPT-PROFIT-003-R1-ENTRY-EDGE.json"), JSON.stringify(report, null, 2));
-fs.writeFileSync(path.join(REPORT_DIR, "GPT-PROFIT-003-R1-FEATURE-DIAGNOSTICS.md"), renderDiagnostics(report));
-fs.writeFileSync(path.join(REPORT_DIR, "GPT-PROFIT-003-R1.md"), renderSummary(report));
+fs.writeFileSync(path.join(REPORT_DIR, `${REPORT_PREFIX}-ENTRY-EDGE.json`), JSON.stringify(report, null, 2));
+fs.writeFileSync(path.join(REPORT_DIR, `${REPORT_PREFIX}-FEATURE-DIAGNOSTICS.md`), renderDiagnostics(report));
+fs.writeFileSync(path.join(REPORT_DIR, `${REPORT_PREFIX}.md`), renderSummary(report));
 console.log(JSON.stringify(report, null, 2));
 
 function makeFoldSet(fold) {
@@ -338,13 +414,15 @@ function analyzeOuterFold(set) {
     return { fold, trainEvents, testEvents, leakageAssertion: true };
   });
   const featureDiagnostics = ENTRY_EDGE_FEATURE_NAMES.map((feature) => diagnoseNestedFeature(feature, innerSets));
-  const selectedRawFeatures = featureDiagnostics
-    .filter((diagnostic) => diagnostic.status === "ROBUST")
-    .sort((left, right) => right.trainDirectionalLift - left.trainDirectionalLift || right.sample - left.sample)
-    .slice(0, 8)
-    .map((diagnostic) => diagnostic.feature);
-  const trainDirectionalLift = Object.fromEntries(featureDiagnostics.map((diagnostic) => [diagnostic.feature, diagnostic.trainDirectionalLift]));
-  const aliasDeduplication = deduplicateR1Features({ events: set.trainEvents, features: selectedRawFeatures, trainDirectionalLift });
+  const selectedRawFeatures = R2_MODE
+    ? selectR2Features(featureDiagnostics)
+    : featureDiagnostics
+      .filter((diagnostic) => diagnostic.status === "ROBUST")
+      .sort((left, right) => right.trainDirectionalLift - left.trainDirectionalLift || right.sample - left.sample)
+      .slice(0, 8)
+      .map((diagnostic) => diagnostic.feature);
+  const featureLiftForAlias = Object.fromEntries(featureDiagnostics.map((diagnostic) => [diagnostic.feature, R2_MODE ? diagnostic.oosDirectionalLift : diagnostic.trainDirectionalLift]));
+  const aliasDeduplication = deduplicateR1Features({ events: set.trainEvents, features: selectedRawFeatures, trainDirectionalLift: featureLiftForAlias });
   const selectedFeatures = aliasDeduplication.retainedFeatures;
   const scoreSpec = fitR1GrossScoreSpec(set.trainEvents, selectedFeatures);
   const trainRows = bucketRows(set.trainEvents.map((event) => ({ event, score: calculateR1Score(event, scoreSpec) })), set.trainEvents.map((event) => ({ event, score: calculateR1Score(event, scoreSpec) })));
@@ -419,11 +497,25 @@ function diagnoseNestedFeature(feature, innerSets) {
   const trainDirectionalLift = average(foldReports.map((fold) => fold.trainDirectionalLift));
   const oosDirectionalLift = average(foldReports.map((fold) => fold.oosDirectionalLift));
   const positiveFolds = foldReports.filter((fold) => fold.trainDirectionalLift > 0).length;
+  const innerOosPositiveFolds = foldReports.filter((fold) => fold.oosDirectionalLift > 0).length;
   const monotonicViolations = Math.round(average(foldReports.map((fold) => fold.trainMonotonicViolations)));
   const oosMonotonicViolations = Math.round(average(foldReports.map((fold) => fold.oosMonotonicViolations)));
-  const sample = innerSets.at(-1)?.trainEvents.length ?? 0;
-  const symbolBreadth = new Set(innerSets.at(-1)?.trainEvents.filter((event) => event.labelOneR.grossR !== null).map((event) => event.symbol) ?? []).size;
-  const status = classifyR1FeatureStatus({ sample, symbolBreadth, positiveFolds, foldCount: foldReports.length, monotonicViolations, directionalLift: trainDirectionalLift });
+  const sample = R2_MODE
+    ? innerSets.reduce((total, inner) => total + inner.testEvents.filter((event) => event.labelOneR.grossR !== null).length, 0)
+    : innerSets.at(-1)?.trainEvents.length ?? 0;
+  const symbolBreadth = R2_MODE
+    ? new Set(innerSets.flatMap((inner) => inner.testEvents.filter((event) => event.labelOneR.grossR !== null).map((event) => event.symbol))).size
+    : new Set(innerSets.at(-1)?.trainEvents.filter((event) => event.labelOneR.grossR !== null).map((event) => event.symbol) ?? []).size;
+  const status = R2_MODE
+    ? classifyR2FeatureStatus({
+        sample,
+        symbolBreadth,
+        innerOosPositiveFolds,
+        innerOosFolds: foldReports.length,
+        innerOosDirectionalLift: oosDirectionalLift,
+        innerOosMonotonicViolations: oosMonotonicViolations
+      })
+    : classifyR1FeatureStatus({ sample, symbolBreadth, positiveFolds, foldCount: foldReports.length, monotonicViolations, directionalLift: trainDirectionalLift });
   return {
     feature,
     status,
@@ -431,6 +523,10 @@ function diagnoseNestedFeature(feature, innerSets) {
     symbolBreadth,
     positiveFolds,
     folds: foldReports.length,
+    innerOosPositiveFolds,
+    innerOosFolds: foldReports.length,
+    innerOosDirectionalLift: oosDirectionalLift,
+    innerOosMonotonicViolations: oosMonotonicViolations,
     trainDirectionalLift,
     oosDirectionalLift,
     monotonicViolations,
@@ -481,6 +577,67 @@ function buildCandidateLeaderboard() {
   });
 }
 
+function buildR2FinalModelDefinition(candidate) {
+  const innerFolds = buildR1TimeFolds({
+    startIndex: FEATURE_START_INDEX,
+    endIndex: discoveryEndIndex,
+    foldCount: 3,
+    purgeBars: ENTRY_EDGE_R1_INNER_PURGE_BARS
+  });
+  const innerSets = innerFolds.map((fold) => {
+    const trainEvents = events.filter((event) => event.decisionIndex >= fold.trainStartIndex && event.decisionIndex <= fold.trainEndIndex);
+    const testEvents = events.filter((event) => event.decisionIndex >= fold.testStartIndex && event.decisionIndex <= fold.testEndIndex);
+    assertTrainLabelsBeforeTest({ trainEvents, testStartIndex: fold.testStartIndex, horizonBars: ENTRY_EDGE_R1_LABEL_HORIZON_BARS });
+    return { fold, trainEvents, testEvents, leakageAssertion: true };
+  });
+  const diagnostics = rawFeaturePanel.map((feature) => diagnoseNestedFeature(feature, innerSets));
+  const selectedRawFeatures = selectR2Features(diagnostics);
+  const featureLiftForAlias = Object.fromEntries(diagnostics.map((diagnostic) => [diagnostic.feature, diagnostic.innerOosDirectionalLift]));
+  const aliasDeduplication = deduplicateR1Features({ events, features: selectedRawFeatures, trainDirectionalLift: featureLiftForAlias });
+  const selectedFeatures = aliasDeduplication.retainedFeatures;
+  if (!selectedFeatures.length) throw new Error("R2 Final Model Freeze requires at least one INNER_OOS_ROBUST feature");
+  const scoreSpec = fitR1GrossScoreSpec(events, selectedFeatures);
+  const scoredRows = events.map((event) => ({ event, score: calculateR1Score(event, scoreSpec) }));
+  const thresholds = Object.fromEntries(Object.keys(ENTRY_EDGE_SETUP_DEFINITIONS).map((family) => {
+    const familyRows = scoredRows.filter((row) => row.event.setupFamily === family);
+    return [family, {
+      rule: `top ${(1 - ENTRY_EDGE_R1_THRESHOLD_QUANTILE) * 100}% within family, fitted on full discovery`,
+      quantile: ENTRY_EDGE_R1_THRESHOLD_QUANTILE,
+      threshold: quantileThreshold(familyRows.map((row) => row.score), ENTRY_EDGE_R1_THRESHOLD_QUANTILE)
+    }];
+  }));
+  return {
+    modelVersion: "GPT-PROFIT-003-final-model-r2-v1",
+    modelOrigin: "full_discovery",
+    candidateId: candidate.id,
+    setupFamily: candidate.setupFamily,
+    selectedFeatures,
+    aliasRemovals: aliasDeduplication.aliasGroups,
+    scoreSpec,
+    thresholds,
+    fitDataBoundary: {
+      start: iso(commonTimes[FEATURE_START_INDEX]),
+      end: iso(commonTimes[discoveryEndIndex]),
+      cutoff: GPT_PROFIT_003_DISCOVERY_CUTOFF
+    },
+    labelAssumptions: {
+      horizonBars: ENTRY_EDGE_HORIZON_BARS,
+      labelOneR: "+1.0R before -1.0R",
+      labelOne25R: "+1.25R before -1.0R",
+      sameCandlePriority: "STOP FIRST",
+      feePerSide: ENTRY_EDGE_FEE_RATE,
+      slippagePerSide: ENTRY_EDGE_SLIPPAGE_RATE
+    },
+    candidateFreezeSha256: freezeResult.sha256,
+    datasetManifestSha256: provenance.datasetManifestSha256,
+    sourceCodeHashes: {
+      researchScript: provenance.r2ResearchScriptSha256,
+      r2Module: provenance.r2ModuleSha256,
+      benchmarkModule: hashR2File(path.resolve(process.cwd(), "src", "lib", "signal", "entry-edge.ts"))
+    }
+  };
+}
+
 function buildNestedAblation() {
   const baseRows = foldReports.flatMap((report) => report.testScoreRows.map((row) => row.event));
   const base = summarizeR1Outcomes(baseRows, "netR");
@@ -529,7 +686,7 @@ function buildNestedAblation() {
   });
 }
 
-function runFinalUnseen(candidate) {
+function runLegacyFinalUnseen(candidate) {
   const events = [];
   for (const symbol of TRADE_SYMBOLS) {
     const series = aligned[symbol];
@@ -567,6 +724,47 @@ function runFinalUnseen(candidate) {
     datasetManifestSha256: provenance.datasetManifestSha256
   };
   fs.writeFileSync(R1_HOLDOUT_MARKER, JSON.stringify({ ...marker, status, completedAt: new Date().toISOString(), grossSummary, netSummary }, null, 2));
+  return { executed: true, status, candidateId: candidate.id, range: { start: GPT_PROFIT_003_FINAL_UNSEEN_START, end: GPT_PROFIT_003_FINAL_UNSEEN_END }, grossSummary, netSummary };
+}
+
+function runFinalUnseen(candidate, finalModel) {
+  const events = [];
+  for (const symbol of TRADE_SYMBOLS) {
+    const series = aligned[symbol];
+    for (let index = Math.max(FEATURE_START_INDEX, holdoutStartIndex); index <= holdoutEndIndex; index += 1) {
+      if (commonTimes[index] < HOLDOUT_START || commonTimes[index] > HOLDOUT_END) continue;
+      const breadth = breadthAt(index);
+      const setups = detectEntrySetups({
+        symbolCandles: series.slice(Math.max(0, index - 90), index + 1),
+        btcCandles: aligned.BTCUSDT.slice(Math.max(0, index - 90), index + 1),
+        breadthBullishPct: breadth.bullishPct,
+        breadthBearishPct: breadth.bearishPct,
+        crossSectionalDispersion: breadth.dispersion
+      }).filter((setup) => setup.family === candidate.setupFamily);
+      for (const setup of setups) {
+        const event = createEventWithBoundary(symbol, setup, index, series, holdoutEndIndex);
+        if (!event) continue;
+        const score = calculateR1Score(event, finalModel.scoreSpec);
+        const threshold = finalModel.thresholds[candidate.setupFamily].threshold;
+        if (score >= threshold) events.push(event);
+      }
+    }
+  }
+  const grossSummary = summarizeR1Outcomes(events, "grossR");
+  const netSummary = summarizeR1Outcomes(events, "netR");
+  const status = netSummary.settled < 50 ? "INSUFFICIENT_SAMPLE" : netSummary.totalR > 0 && netSummary.profitFactor >= 1.2 && netSummary.expectancyR > 0 && netSummary.payoff >= 0.8 ? "PASS" : "FAIL";
+  const marker = {
+    status: "started",
+    executionCount: 1,
+    startedAt: new Date().toISOString(),
+    candidateId: candidate.id,
+    finalModelFreezeSha256: hashR2File(FINAL_MODEL_PATH),
+    candidateFreezeSha256: provenance.r2CandidateFreezeSha256,
+    datasetManifestSha256: provenance.datasetManifestSha256,
+    discoveryCutoff: GPT_PROFIT_003_DISCOVERY_CUTOFF,
+    holdoutRange: { start: GPT_PROFIT_003_FINAL_UNSEEN_START, end: GPT_PROFIT_003_FINAL_UNSEEN_END }
+  };
+  fs.writeFileSync(R2_HOLDOUT_MARKER, JSON.stringify({ ...marker, status, completedAt: new Date().toISOString(), grossSummary, netSummary }, null, 2));
   return { executed: true, status, candidateId: candidate.id, range: { start: GPT_PROFIT_003_FINAL_UNSEEN_START, end: GPT_PROFIT_003_FINAL_UNSEEN_END }, grossSummary, netSummary };
 }
 
@@ -664,7 +862,8 @@ function classifyR1FeatureStatus(input) {
 }
 
 function statusCounts(items) {
-  return Object.fromEntries(["ROBUST", "WEAK", "UNSTABLE", "NO_EDGE"].map((status) => [status, items.filter((item) => item.status === status).length]));
+  const statuses = R2_MODE ? ["INNER_OOS_ROBUST", "WEAK", "UNSTABLE", "NO_EDGE"] : ["ROBUST", "WEAK", "UNSTABLE", "NO_EDGE"];
+  return Object.fromEntries(statuses.map((status) => [status, items.filter((item) => item.status === status).length]));
 }
 
 function sampleEvents(events, maximum) {
@@ -676,7 +875,7 @@ function sampleEvents(events, maximum) {
 }
 
 function readHoldoutExecutions() {
-  for (const markerPath of [V1_HOLDOUT_MARKER, R1_HOLDOUT_MARKER]) {
+  for (const markerPath of [V1_HOLDOUT_MARKER, R1_HOLDOUT_MARKER, R2_HOLDOUT_MARKER]) {
     if (!fs.existsSync(markerPath)) continue;
     const marker = JSON.parse(fs.readFileSync(markerPath, "utf8"));
     return Number(marker.executionCount ?? 0);
@@ -685,13 +884,19 @@ function readHoldoutExecutions() {
 }
 
 function renderDiagnostics(report) {
+  const isR2 = report.task.endsWith("-R2");
+  const robustStatus = isR2 ? "INNER_OOS_ROBUST" : "ROBUST";
+  const scriptHash = isR2 ? report.provenance.r2ResearchScriptSha256 : report.provenance.r1ResearchScriptSha256;
+  const moduleHash = isR2 ? report.provenance.r2ModuleSha256 : report.provenance.r1ModuleSha256;
+  const freezeHash = isR2 ? report.provenance.r2CandidateFreezeSha256 : report.provenance.r1CandidateFreezeSha256;
   const lines = [
-    "# GPT-PROFIT-003-R1 — Nested OOS & Entry-Edge Integrity",
+    `# ${report.task} — Nested OOS & Entry-Edge Integrity`,
     "",
     `- Result: **${report.result}**`,
     `- Entry events: ${report.data.entryEvents}; raw features tested: ${report.featureResearch.rawFeaturesTested}; outer folds: ${report.nestedProtocol.outerFolds.length}; inner folds/outer: ${report.nestedProtocol.innerFoldsPerOuter}.`,
     `- Discovery: ${report.data.discoveryBoundary.start} → ${report.data.discoveryBoundary.end}; protected Final Unseen: ${report.data.finalUnseenBoundary.start} → ${report.data.finalUnseenBoundary.end}.`,
     `- Label horizon: ${report.nestedProtocol.labelHorizonBars} bars; outer purge: ${report.nestedProtocol.outerPurgeBars}; inner purge: ${report.nestedProtocol.innerPurgeBars}; leakage assertion: ${report.nestedProtocol.leakageAssertion}.`,
+    ...(isR2 ? [`- Inner OOS robustness rule: ${report.nestedProtocol.innerOosRobustnessRule}.`] : []),
     "",
     "## Predictive versus economic score",
     "",
@@ -706,8 +911,8 @@ function renderDiagnostics(report) {
     "",
     "## Feature status",
     "",
-    `- ROBUST (${report.featureResearch.aggregateStatusCounts.ROBUST} diagnostic rows): ${report.featureResearch.outerFolds.flatMap((fold) => fold.selectedRawFeatures).filter((feature, index, list) => list.indexOf(feature) === index).join(", ") || "none"}.`,
-    `- Non-predictive or unstable: ${report.featureResearch.outerFolds.flatMap((fold) => fold.diagnostics.filter((item) => item.status !== "ROBUST").map((item) => `${item.status}:${item.feature}`)).filter((item, index, list) => list.indexOf(item) === index).join(", ") || "none"}.`,
+    `- ${robustStatus} (${report.featureResearch.aggregateStatusCounts[robustStatus] ?? 0} diagnostic rows): ${report.featureResearch.outerFolds.flatMap((fold) => fold.selectedRawFeatures).filter((feature, index, list) => list.indexOf(feature) === index).join(", ") || "none"}.`,
+    `- Non-predictive or unstable: ${report.featureResearch.outerFolds.flatMap((fold) => fold.diagnostics.filter((item) => item.status !== robustStatus).map((item) => `${item.status}:${item.feature}`)).filter((item, index, list) => list.indexOf(item) === index).join(", ") || "none"}.`,
     "",
     "## Per-outer-fold nested artifacts",
     "",
@@ -728,8 +933,9 @@ function renderDiagnostics(report) {
     ...report.candidates.leaderboard.map((candidate) => `| ${candidate.id} | ${candidate.netSummary.settled} | ${format(candidate.netSummary.totalR)} | ${format(candidate.netSummary.profitFactor)} | ${format(candidate.netSummary.expectancyR)} | ${format(candidate.netSummary.payoff)} | ${format(candidate.netSummary.maxDrawdownR)} | ${candidate.positiveFoldCount}/${report.nestedProtocol.outerFolds.length} |`),
     "",
     `- Internal Gate: **${report.internalGate.status}** (${report.internalGate.reasons.join(", ") || "all checks passed"}).`,
-    `- R1 freeze: ${report.candidateFreeze.sha256}; Final Unseen executed=${report.finalUnseen.executed}; holdout executions=${report.holdoutExecutions}.`,
-    `- Reproducibility: main ${report.provenance.mainBaseSha}; branch ${report.provenance.branchHeadSha}; parent ${report.provenance.sourceParentSha}; script ${report.provenance.r1ResearchScriptSha256}; module ${report.provenance.r1ModuleSha256}; freeze ${report.provenance.r1CandidateFreezeSha256}; dataset ${report.provenance.datasetManifestSha256}.`,
+    `- ${isR2 ? "R2" : "R1"} freeze: ${freezeHash}; Final Unseen executed=${report.finalUnseen.executed}; holdout executions=${report.holdoutExecutions}.`,
+    ...(isR2 ? [`- Final Model Freeze generated=${report.finalModelFreeze.generated}; path=${report.finalModelFreeze.path}; hash=${report.finalModelFreeze.sha256 ?? "none"}.`] : []),
+    `- Reproducibility: main ${report.provenance.mainBaseSha}; branch ${report.provenance.branchHeadSha}; parent ${report.provenance.sourceParentSha}; script ${scriptHash}; module ${moduleHash}; freeze ${freezeHash}; dataset ${report.provenance.datasetManifestSha256}.`,
     "",
     "Research-only: Main V2 and ALT Basket remain Shadow; PRODUCTION_SIGNAL_STRATEGIES=[]; no account, position, automatic order, leverage, or private Binance API access."
   ];
@@ -737,7 +943,7 @@ function renderDiagnostics(report) {
 }
 
 function renderSummary(report) {
-  return `# GPT-PROFIT-003-R1\n\nResult: **${report.result}**\n\nNested outer folds: ${report.nestedProtocol.outerFolds.length}; entry events: ${report.data.entryEvents}; candidates: ${report.candidates.count}; Internal Gate: ${report.internalGate.status}; Final Unseen executed: ${report.finalUnseen.executed}; holdout executions: ${report.holdoutExecutions}.\n\nProduction remains disabled (PRODUCTION_SIGNAL_STRATEGIES=[]); Main V2 and ALT Basket are Shadow Only.\n`;
+  return `# ${report.task}\n\nResult: **${report.result}**\n\nNested outer folds: ${report.nestedProtocol.outerFolds.length}; entry events: ${report.data.entryEvents}; candidates: ${report.candidates.count}; Internal Gate: ${report.internalGate.status}; Final Unseen executed: ${report.finalUnseen.executed}; holdout executions: ${report.holdoutExecutions}.\n\nProduction remains disabled (PRODUCTION_SIGNAL_STRATEGIES=[]); Main V2 and ALT Basket are Shadow Only.\n`;
 }
 
 function readCandles(symbol) {
