@@ -1,0 +1,148 @@
+{
+  "freezeVersion": "GPT-PROFIT-003-entry-edge-r1-v1",
+  "discoveryCutoff": "2026-08-02T03:15:00.000Z",
+  "holdoutDefinition": "closed candles strictly after 2026-08-02T03:30:00.000Z through 2026-08-29T23:45:00.000Z; execute once only after R1 Internal OOS Gate PASS",
+  "setupDefinitions": {
+    "trend_pullback_continuation": {
+      "label": "A. Trend Pullback Continuation",
+      "requirements": [
+        "higher-timeframe trend",
+        "pullback depth",
+        "structure position",
+        "recovery confirmation"
+      ]
+    },
+    "breakout_retest": {
+      "label": "B. Breakout + Retest",
+      "requirements": [
+        "structure breakout",
+        "breakout distance / ATR",
+        "retest",
+        "hold or rejection confirmation"
+      ]
+    },
+    "volatility_compression_expansion": {
+      "label": "C. Volatility Compression → Expansion",
+      "requirements": [
+        "ATR/range compression",
+        "volume compression",
+        "range/volume expansion",
+        "trend direction alignment"
+      ]
+    },
+    "relative_strength_continuation": {
+      "label": "D. Relative Strength Continuation",
+      "requirements": [
+        "asset vs BTC relative strength",
+        "multi-horizon relative strength",
+        "BTC direction/regime alignment"
+      ]
+    }
+  },
+  "rawFeaturePanel": [
+    "trend_return_15m",
+    "trend_return_1h",
+    "trend_return_4h",
+    "trend_return_12h",
+    "trend_slope_short",
+    "trend_slope_medium",
+    "trend_alignment_long",
+    "structure_distance_rolling_high",
+    "structure_distance_rolling_low",
+    "breakout_distance_atr",
+    "pullback_depth_atr",
+    "retracement_ratio",
+    "structure_age",
+    "atr_pct",
+    "atr_percentile",
+    "recent_range_atr",
+    "compression_ratio",
+    "expansion_ratio",
+    "body_range_ratio",
+    "upper_wick_ratio",
+    "lower_wick_ratio",
+    "close_location_value",
+    "volume_ratio",
+    "quote_volume_ratio",
+    "volume_percentile",
+    "volume_expansion",
+    "relative_strength_1h",
+    "relative_strength_4h",
+    "relative_strength_12h",
+    "btc_trend_1h",
+    "btc_trend_4h",
+    "btc_volatility_state",
+    "breadth_bullish_pct",
+    "breadth_bearish_pct",
+    "cross_sectional_dispersion",
+    "sl_distance_pct",
+    "estimated_round_trip_cost_pct",
+    "cost_coverage_ratio"
+  ],
+  "nestedValidationProtocol": {
+    "outerFolds": 3,
+    "innerFoldsPerOuter": 3,
+    "outerPurgeBars": 96,
+    "innerPurgeBars": 96,
+    "labelHorizonBars": 96,
+    "trainLabelRule": "every train event must satisfy decisionIndex + labelHorizonBars < testStartIndex",
+    "selection": "inner time-series folds only; outer test is evaluation only",
+    "thresholdCalibration": "top 30% entry_edge_score within setup family, fitted separately inside each outer train",
+    "testIsolation": "outer-test outcomes cannot affect features, orientation, weights, or thresholds"
+  },
+  "featureDeduplication": {
+    "exactAlias": true,
+    "correlationThreshold": 0.98,
+    "groupRule": "at most one representative per highly correlated feature group; representative selected from training effect size"
+  },
+  "candidateTemplates": [
+    {
+      "id": "p003-r1-01-trend_pullback_continuation",
+      "setupFamily": "trend_pullback_continuation",
+      "thresholdRule": "top 30% of entry_edge_score within this family in each outer training window",
+      "deliveryMode": "shadow_candidate"
+    },
+    {
+      "id": "p003-r1-02-breakout_retest",
+      "setupFamily": "breakout_retest",
+      "thresholdRule": "top 30% of entry_edge_score within this family in each outer training window",
+      "deliveryMode": "shadow_candidate"
+    },
+    {
+      "id": "p003-r1-03-volatility_compression_expansion",
+      "setupFamily": "volatility_compression_expansion",
+      "thresholdRule": "top 30% of entry_edge_score within this family in each outer training window",
+      "deliveryMode": "shadow_candidate"
+    },
+    {
+      "id": "p003-r1-04-relative_strength_continuation",
+      "setupFamily": "relative_strength_continuation",
+      "thresholdRule": "top 30% of entry_edge_score within this family in each outer training window",
+      "deliveryMode": "shadow_candidate"
+    }
+  ],
+  "executionAssumptions": {
+    "entry": "decision candle close; labels inspect only later closed candles",
+    "labelOneR": "+1.0R before -1.0R",
+    "labelOne25R": "+1.25R before -1.0R",
+    "horizonBars": 96,
+    "sameCandlePriority": "STOP FIRST",
+    "feePerSide": 0.001,
+    "slippagePerSide": 0.0005,
+    "costApplied": "round-trip fee + slippage converted to R"
+  },
+  "validationProtocol": {
+    "dataset": "public Binance USDⓈ-M Futures 15m closed candles",
+    "symbols": [
+      "BTCUSDT",
+      "ETHUSDT",
+      "SOLUSDT",
+      "BNBUSDT",
+      "LINKUSDT",
+      "AVAXUSDT",
+      "DOGEUSDT"
+    ],
+    "rawFeatureCount": 38,
+    "finalUnseenGuard": "R1 freeze hash valid + Internal OOS Gate PASS + frozen candidate + no prior marker"
+  }
+}
