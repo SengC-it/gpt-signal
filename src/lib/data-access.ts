@@ -4,6 +4,7 @@ import { sampleRadar, sampleSignals } from "@/lib/sample-data";
 import type { ReviewFinalStatus } from "@/lib/signal/review";
 import type { BenchmarkTimeSeriesSummary } from "@/lib/signal/profitability-analytics";
 import { evaluateSchedulerHealth } from "@/lib/signal/scheduler-health";
+import { classifyRuntimeStrategy, type RuntimeStrategyState } from "@/lib/signal/profitability-config";
 import type { Direction, LifecycleStatus, SignalEvaluation, SignalLevel, SignalType } from "@/lib/signal/types";
 
 export type DisplaySignal = SignalEvaluation & {
@@ -34,6 +35,7 @@ export type DisplaySignalReview = {
   signalType: string;
   marketRegime: string;
   deliveryMode: "production" | "shadow";
+  runtimeStrategyState: RuntimeStrategyState;
   symbol: string;
   direction: Direction;
   status: ReviewFinalStatus;
@@ -310,14 +312,18 @@ function signalFromRow(row: DbSignal): DisplaySignal {
 }
 
 function reviewFromRow(row: Record<string, unknown>): DisplaySignalReview {
+  const deliveryMode = row.delivery_mode === "shadow" ? "shadow" : "production";
+  const strategyVersion = nullableText(row.strategy_version);
+  const signalType = text(row.signal_type, "unknown");
   return {
     id: text(row.id, "unknown"),
     signalId: text(row.signal_id, "unknown"),
-    strategyVersion: nullableText(row.strategy_version),
+    strategyVersion,
     strategyFamily: nullableText(row.strategy_family),
-    signalType: text(row.signal_type, "unknown"),
+    signalType,
     marketRegime: text(row.market_regime, "unknown"),
-    deliveryMode: row.delivery_mode === "shadow" ? "shadow" : "production",
+    deliveryMode,
+    runtimeStrategyState: classifyRuntimeStrategy({ deliveryMode, strategyVersion, signalType }),
     symbol: text(row.symbol, "UNKNOWN"),
     direction: direction(row.direction),
     status: reviewStatus(row.final_status),

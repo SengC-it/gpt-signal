@@ -1,0 +1,28 @@
+{
+  "projectId": "jfvbikivtpfjgfsnggiz",
+  "readOnly": true,
+  "queriedAt": "2026-08-30",
+  "checks": {
+    "activeMainV2Production": 0,
+    "activeAltProduction": 0,
+    "activeMainV2Shadow": 142,
+    "activeAltShadow": 6,
+    "allActiveProduction": 316,
+    "legacyNullStrategyProductionTotal": 435,
+    "june2026QueuedNotifications": 6,
+    "queuedShadowNotifications": 0,
+    "supersededOpenStoredArchived": 1,
+    "supersededEligibleForActiveReview": 0,
+    "benchmarkSnapshots": 2,
+    "benchmarkDrawdownRows": 2,
+    "rejectShadowSignalNotificationTrigger": 1
+  },
+  "interpretation": {
+    "productionSignalStrategies": 0,
+    "legacyRowsRetained": true,
+    "supersededRowsDeleted": false,
+    "currentRuntimeSendRequiresExplicitAllowlist": true,
+    "shadowNotificationsQueued": false
+  },
+  "query": "select json_build_object('active_main_v2_production', (select count(*) from public.gpt_signals where strategy_version = 'v2' and delivery_mode = 'production' and lifecycle_status in ('planned','waiting_entry','entered','setup_confirmed')), 'active_alt_production', (select count(*) from public.gpt_signals where signal_type = 'alt_basket_short' and delivery_mode = 'production' and lifecycle_status in ('planned','waiting_entry','entered','setup_confirmed')), 'active_main_v2_shadow', (select count(*) from public.gpt_signals where strategy_version = 'v2' and delivery_mode = 'shadow' and lifecycle_status in ('planned','waiting_entry','entered','setup_confirmed')), 'active_alt_shadow', (select count(*) from public.gpt_signals where signal_type = 'alt_basket_short' and delivery_mode = 'shadow' and lifecycle_status in ('planned','waiting_entry','entered','setup_confirmed')), 'all_active_production', (select count(*) from public.gpt_signals where delivery_mode = 'production' and lifecycle_status in ('planned','waiting_entry','entered','setup_confirmed')), 'legacy_null_strategy_production_total', (select count(*) from public.gpt_signals where strategy_version is null and delivery_mode = 'production'), 'june_2026_queued_notifications', (select count(*) from public.gpt_notifications where status = 'queued' and created_at >= '2026-06-01T00:00:00Z' and created_at < '2026-07-01T00:00:00Z'), 'queued_shadow_notifications', (select count(*) from public.gpt_notifications n join public.gpt_signals s on s.id = n.signal_id where n.status = 'queued' and s.delivery_mode = 'shadow'), 'superseded_open_stored_archived', (select count(*) from public.gpt_signal_results where superseded_at is not null and completed_at is null), 'benchmark_snapshots', (select count(*) from public.gpt_signal_benchmark_snapshots), 'benchmark_drawdown_rows', (select count(*) from public.gpt_signal_benchmark_drawdowns), 'reject_shadow_signal_notification_trigger', (select count(*) from pg_trigger where tgname = 'reject_shadow_signal_notification' and not tgisinternal)) as closeout_audit;"
+}

@@ -13,7 +13,7 @@ import {
 } from "@/lib/signal/alt-basket-strategy";
 import { evaluateSignalCandidate } from "@/lib/signal/engine";
 import { compareSignalConcentration } from "@/lib/signal/concentration-control";
-import { canSendNotifications } from "@/lib/signal/delivery";
+import { canSendNotifications, canSendRuntimeNotification } from "@/lib/signal/delivery";
 import { buildEdgeEvidence, edgeEvidenceKey, type EdgeEvidenceTrade } from "@/lib/signal/edge-evidence";
 import { ALT_BASKET_DELIVERY_MODE, MAIN_STRATEGY_DELIVERY_MODE } from "@/lib/signal/profitability-config";
 import { DEFAULT_REVIEW_EXECUTION_POLICY, isSettledReviewStatus } from "@/lib/signal/review";
@@ -280,8 +280,16 @@ async function runSync(request: Request) {
           } catch {
             reviewErrors += 1;
           }
-        } else {
+        } else if (canSendRuntimeNotification({ deliveryMode, strategyVersion: signal.strategyVersion })) {
           newSignalRecords.push({ id: data.id, signal });
+        } else {
+          // A historical/unknown production row may still be present in the
+          // database, but it is never eligible for the current send path.
+          try {
+            persistedReviews += await ensureSignalReviewsForSignals(supabase, [data.id]);
+          } catch {
+            reviewErrors += 1;
+          }
         }
       }
     }
@@ -320,7 +328,12 @@ async function runSync(request: Request) {
       }
     }
 
-    const strongAlertSignals = strongAlertWindowOpen ? filterStrongAlertSignals(newSignalRecords.map((record) => record.signal)) : [];
+    const strongAlertSignals = strongAlertWindowOpen
+      ? filterStrongAlertSignals(newSignalRecords.filter((record) => canSendRuntimeNotification({
+          deliveryMode: record.signal.deliveryMode ?? "production",
+          strategyVersion: record.signal.strategyVersion
+        })).map((record) => record.signal))
+      : [];
     strongAlerts = strongAlertSignals.length;
 
     if (strongAlertSignals.length > 0) {

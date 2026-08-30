@@ -1,0 +1,89 @@
+{
+  "generatedAt": "2026-08-30T00:04:04.382Z",
+  "source": "public Binance USDⓈ-M Futures /fapi/v1/klines",
+  "interval": "15m",
+  "startTime": "2025-05-09T00:03:21.247Z",
+  "requestedEndTime": "2026-08-30T00:03:21.247Z",
+  "latestClosedCandleAt": "2026-08-29T23:59:59.999Z",
+  "discoveryCutoff": "2026-08-02T03:15:00.000Z",
+  "holdoutDefinition": "closed candles strictly after discoveryCutoff; never used for candidate selection",
+  "symbols": {
+    "BTCUSDT": {
+      "file": ".cache/historical-backtest/profit-002-latest/BTCUSDT-15m.json",
+      "contentSha256": "70eba5df4dba2c1c1217110feb9f36a2f5bc88f19c249368f42e63ebfdb02474",
+      "barCount": 45873,
+      "duplicateCount": 0,
+      "gapCount": 0,
+      "gaps": [],
+      "firstOpenTime": "2025-05-09T03:45:00.000Z",
+      "lastOpenTime": "2026-08-29T23:45:00.000Z",
+      "lastCloseTime": "2026-08-29T23:59:59.999Z"
+    },
+    "ETHUSDT": {
+      "file": ".cache/historical-backtest/profit-002-latest/ETHUSDT-15m.json",
+      "contentSha256": "ca8b34616598cbe348634e9e04a16f29e249dc5b360b6e22922b9d68f48fdc8b",
+      "barCount": 45873,
+      "duplicateCount": 0,
+      "gapCount": 0,
+      "gaps": [],
+      "firstOpenTime": "2025-05-09T03:45:00.000Z",
+      "lastOpenTime": "2026-08-29T23:45:00.000Z",
+      "lastCloseTime": "2026-08-29T23:59:59.999Z"
+    },
+    "SOLUSDT": {
+      "file": ".cache/historical-backtest/profit-002-latest/SOLUSDT-15m.json",
+      "contentSha256": "cf91959b5d11298dc8c972ad63f67dbb5171a9090906805ec7f323380609355b",
+      "barCount": 45873,
+      "duplicateCount": 0,
+      "gapCount": 0,
+      "gaps": [],
+      "firstOpenTime": "2025-05-09T03:45:00.000Z",
+      "lastOpenTime": "2026-08-29T23:45:00.000Z",
+      "lastCloseTime": "2026-08-29T23:59:59.999Z"
+    },
+    "BNBUSDT": {
+      "file": ".cache/historical-backtest/profit-002-latest/BNBUSDT-15m.json",
+      "contentSha256": "86de23bbefb0b325fd11af956f20372951bd63356f48de88af02bdf8a5f3c844",
+      "barCount": 45873,
+      "duplicateCount": 0,
+      "gapCount": 0,
+      "gaps": [],
+      "firstOpenTime": "2025-05-09T03:45:00.000Z",
+      "lastOpenTime": "2026-08-29T23:45:00.000Z",
+      "lastCloseTime": "2026-08-29T23:59:59.999Z"
+    },
+    "LINKUSDT": {
+      "file": ".cache/historical-backtest/profit-002-latest/LINKUSDT-15m.json",
+      "contentSha256": "514cc97d9746364af0ade95bbd335788a4654b5b42a2f2d35a55b8fadd3c5a62",
+      "barCount": 45873,
+      "duplicateCount": 0,
+      "gapCount": 0,
+      "gaps": [],
+      "firstOpenTime": "2025-05-09T03:45:00.000Z",
+      "lastOpenTime": "2026-08-29T23:45:00.000Z",
+      "lastCloseTime": "2026-08-29T23:59:59.999Z"
+    },
+    "AVAXUSDT": {
+      "file": ".cache/historical-backtest/profit-002-latest/AVAXUSDT-15m.json",
+      "contentSha256": "dd2647b93285d6383fea666dcc6c62dd02d4b016df3d37ef8211ceaadaa1762f",
+      "barCount": 45873,
+      "duplicateCount": 0,
+      "gapCount": 0,
+      "gaps": [],
+      "firstOpenTime": "2025-05-09T03:45:00.000Z",
+      "lastOpenTime": "2026-08-29T23:45:00.000Z",
+      "lastCloseTime": "2026-08-29T23:59:59.999Z"
+    },
+    "DOGEUSDT": {
+      "file": ".cache/historical-backtest/profit-002-latest/DOGEUSDT-15m.json",
+      "contentSha256": "c85a7962a12cefe4e7721003e852e587823985fbf94863a79ed55b161e71c36b",
+      "barCount": 45873,
+      "duplicateCount": 0,
+      "gapCount": 0,
+      "gaps": [],
+      "firstOpenTime": "2025-05-09T03:45:00.000Z",
+      "lastOpenTime": "2026-08-29T23:45:00.000Z",
+      "lastCloseTime": "2026-08-29T23:59:59.999Z"
+    }
+  }
+}
