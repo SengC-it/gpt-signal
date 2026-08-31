@@ -16,7 +16,9 @@
     "research:profitability-002": "node scripts/gpt-profit-002-research.mjs",
     "research:profitability-003": "node --experimental-strip-types scripts/gpt-profit-003-research.mjs",
     "research:profitability-003-r1": "node --experimental-strip-types scripts/gpt-profit-003-r1-research.mjs",
-    "research:profitability-003-r2": "node --experimental-strip-types scripts/gpt-profit-003-r1-research.mjs --r2"
+    "research:profitability-003-r2": "node --experimental-strip-types scripts/gpt-profit-003-r1-research.mjs --r2",
+    "data:profitability-004": "node --experimental-strip-types scripts/gpt-profit-004-data-audit.mjs",
+    "research:profitability-004": "node --experimental-strip-types scripts/gpt-profit-004-research.mjs"
   },
   "dependencies": {
     "@supabase/ssr": "^0.7.0",

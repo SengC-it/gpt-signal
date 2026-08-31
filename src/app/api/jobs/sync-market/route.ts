@@ -3,6 +3,8 @@ import { fetchFuturesFundingRate, fetchFuturesKlines, configuredSymbols } from "
 import { sendEmail } from "@/lib/notifications/mailer";
 import { filterStrongAlertSignals, resolveStrongAlertIntervalMinutes, shouldRunStrongAlertWindow } from "@/lib/notifications/policy";
 import { buildSignalEmail, buildSignalSummaryEmail } from "@/lib/notifications/templates";
+import { collectDerivativesMetrics, toDerivativesMetricRow, type PriceReference } from "@/lib/binance/derivatives";
+import { forwardLiquidationCollectorStatus } from "@/lib/binance/liquidation-forward";
 import {
   ALT_BASKET_SHORT_CONFIG_V1,
   ALT_BASKET_SHORT_CONFIG_V2,
@@ -52,11 +54,20 @@ async function runSync(request: Request) {
 
   const symbols = Array.from(new Set(["BTCUSDT", ...configuredSymbols()]));
   const candleSets = new Map<string, Candle[]>();
+  const priceCandleSets = new Map<string, Candle[]>();
 
   for (const symbol of symbols) {
     for (const interval of SYNC_INTERVALS) {
       const candles = await fetchFuturesKlines({ symbol, interval, limit: 120 });
       candleSets.set(candleKey(symbol, interval), candles);
+    }
+    // Derivatives price interactions require a real closed 5m reference;
+    // strategy 15m candles must never be used as a proxy.
+    try {
+      priceCandleSets.set(candleKey(symbol, "5m"), await fetchFuturesKlines({ symbol, interval: "5m", limit: 120 }));
+    } catch {
+      // Keep the primary strategy sync available when the optional reference fails.
+      priceCandleSets.set(candleKey(symbol, "5m"), []);
     }
   }
 
@@ -171,6 +182,22 @@ async function runSync(request: Request) {
   let concentrationComparison = compareSignalConcentration(
     concentrationSignals.map((signal) => ({ signal, evidenceStatus: "UNPROVEN" }))
   );
+  let derivativesCollection: {
+    enabled: boolean;
+    attemptedSymbols: string[];
+    rowsPrepared: number;
+    rowsInserted: number;
+    endpointStatus: Record<string, { ok: number; failed: number; observations: number }>;
+    errors: Array<{ symbol?: string; endpoint?: string; message: string }>;
+  } = {
+    enabled: false,
+    attemptedSymbols: [],
+    rowsPrepared: 0,
+    rowsInserted: 0,
+    endpointStatus: {},
+    errors: []
+  };
+  const liquidationCollector = forwardLiquidationCollectorStatus();
 
   if (hasSupabaseServerEnv()) {
     const supabase = getSupabaseAdmin();
@@ -185,12 +212,43 @@ async function runSync(request: Request) {
       { onConflict: "symbol" }
     );
 
-    const candleRows = Array.from(candleSets.values()).flat().map(candleToRow);
+    const candleRows = [...Array.from(candleSets.values()).flat(), ...Array.from(priceCandleSets.values()).flat()].map(candleToRow);
     if (candleRows.length > 0) {
       await supabase.from("gpt_candles").upsert(candleRows, {
         onConflict: "symbol,interval,open_time"
       });
       persistedCandles = candleRows.length;
+    }
+
+    // Derivatives metrics are an independent, fail-soft data foundation. A
+    // provider outage must never prevent the primary candle/signal sync.
+    try {
+      const priceReferences = buildPriceReferences(symbols, priceCandleSets);
+      const collection = await collectDerivativesMetrics(symbols, { priceReferences });
+      const metricRows = collection.rows.map(toDerivativesMetricRow);
+      let rowsInserted = 0;
+      if (metricRows.length > 0) {
+        const { data, error } = await supabase
+          .from("gpt_derivatives_metrics")
+          .upsert(metricRows, { onConflict: "symbol,interval,metric_time", ignoreDuplicates: true })
+          .select("id");
+        if (error) throw error;
+        rowsInserted = data?.length ?? 0;
+      }
+      derivativesCollection = {
+        enabled: true,
+        attemptedSymbols: collection.attemptedSymbols,
+        rowsPrepared: metricRows.length,
+        rowsInserted,
+        endpointStatus: collection.endpointStatus,
+        errors: collection.errors
+      };
+    } catch (error) {
+      derivativesCollection = {
+        ...derivativesCollection,
+        enabled: true,
+        errors: [{ message: error instanceof Error ? error.message : String(error) }]
+      };
     }
 
     const newSignalRecords: { id: string; signal: SignalEvaluation }[] = [];
@@ -413,6 +471,8 @@ async function runSync(request: Request) {
         reviewErrors,
         sentEmails,
         failedEmails,
+        derivativesCollection,
+        liquidationCollector,
         concentrationComparison: {
           mode: concentrationComparison.mode,
           productionChanged: concentrationComparison.productionChanged,
@@ -439,6 +499,8 @@ async function runSync(request: Request) {
     reviewErrors,
     sentEmails,
     failedEmails,
+    derivativesCollection,
+    liquidationCollector,
     strongAlertIntervalMinutes,
     strongAlertWindowOpen,
     concentrationComparison: {
@@ -513,6 +575,23 @@ function candleToRow(candle: Candle) {
     is_closed: candle.isClosed,
     data_quality_score: candle.isClosed ? 100 : 70
   };
+}
+
+function buildPriceReferences(symbols: string[], candleSets: Map<string, Candle[]>): Record<string, PriceReference> {
+  return Object.fromEntries(symbols.flatMap((symbol) => {
+    const closed = closedCandles(candleSets.get(candleKey(symbol, "5m")) ?? []);
+    const current = closed.at(-1);
+    const previous = closed.at(-2);
+    return current && previous && previous.close > 0
+      ? [[symbol, {
+        current: current.close,
+        previous: previous.close,
+        interval: "5m",
+        currentTime: current.closeTime,
+        previousTime: previous.closeTime
+      } satisfies PriceReference]]
+      : [];
+  }));
 }
 
 async function ensureStrategyVersion(

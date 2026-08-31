@@ -1,0 +1,2382 @@
+{
+  "task": "GPT-PROFIT-004 — Derivatives Edge Data Foundation",
+  "schemaVersion": "gpt-profit-004-data-manifest-v2",
+  "generatedAt": "2026-08-30T23:44:52.416Z",
+  "sourceVersion": "binance-usdm-public-rest-v1",
+  "baseUrl": "https://fapi.binance.com",
+  "requestedWindow": {
+    "start": "2026-07-31T11:15:00.000Z",
+    "end": "2026-08-30T11:15:00.000Z",
+    "lookbackDays": 30
+  },
+  "backfill": {
+    "pageLimit": 500,
+    "maxPagesPerSymbolFamily": 18,
+    "noInterpolation": true,
+    "noFuturePercentiles": true
+  },
+  "symbols": [
+    "BTCUSDT",
+    "ETHUSDT",
+    "SOLUSDT",
+    "BNBUSDT",
+    "LINKUSDT",
+    "AVAXUSDT",
+    "DOGEUSDT"
+  ],
+  "sourceSpecs": [
+    {
+      "family": "open_interest_current",
+      "endpoint": "/fapi/v1/openInterest",
+      "officialUrl": "https://fapi.binance.com/fapi/v1/openInterest",
+      "public": true,
+      "anonymousPublic": true,
+      "classification": "ANONYMOUS_PUBLIC",
+      "apiKeyRequired": false,
+      "collectable": false,
+      "historicalLookback": "current snapshot only",
+      "maxLimit": 1,
+      "samplingInterval": "request",
+      "symbols": [
+        "BTCUSDT",
+        "ETHUSDT",
+        "SOLUSDT",
+        "BNBUSDT",
+        "LINKUSDT",
+        "AVAXUSDT",
+        "DOGEUSDT"
+      ],
+      "rateLimit": "weight 1",
+      "pointInTime": "server timestamp",
+      "safeForBacktest": false,
+      "pagination": "none",
+      "survivorshipRisk": "symbol universe is fixed to currently configured symbols; delisted contracts are not inferred",
+      "revisionRisk": "not historical-safe"
+    },
+    {
+      "family": "open_interest",
+      "endpoint": "/futures/data/openInterestHist",
+      "officialUrl": "https://fapi.binance.com/futures/data/openInterestHist",
+      "public": true,
+      "anonymousPublic": true,
+      "classification": "ANONYMOUS_PUBLIC",
+      "apiKeyRequired": false,
+      "collectable": true,
+      "historicalLookback": "latest 1 month",
+      "maxLimit": 500,
+      "samplingInterval": "5m",
+      "symbols": [
+        "BTCUSDT",
+        "ETHUSDT",
+        "SOLUSDT",
+        "BNBUSDT",
+        "LINKUSDT",
+        "AVAXUSDT",
+        "DOGEUSDT"
+      ],
+      "rateLimit": "1000 IP weight units / 5m; public data limit",
+      "pointInTime": "period end; available at endpoint timestamp",
+      "safeForBacktest": true,
+      "pagination": "backward",
+      "survivorshipRisk": "symbol universe is fixed to currently configured symbols; delisted contracts are not inferred",
+      "revisionRisk": "provider-limited history / possible revisions; retain source timestamps"
+    },
+    {
+      "family": "premium_index_current",
+      "endpoint": "/fapi/v1/premiumIndex",
+      "officialUrl": "https://fapi.binance.com/fapi/v1/premiumIndex",
+      "public": true,
+      "anonymousPublic": true,
+      "classification": "ANONYMOUS_PUBLIC",
+      "apiKeyRequired": false,
+      "collectable": false,
+      "historicalLookback": "current snapshot only",
+      "maxLimit": 1,
+      "samplingInterval": "request",
+      "symbols": [
+        "BTCUSDT",
+        "ETHUSDT",
+        "SOLUSDT",
+        "BNBUSDT",
+        "LINKUSDT",
+        "AVAXUSDT",
+        "DOGEUSDT"
+      ],
+      "rateLimit": "weight 1",
+      "pointInTime": "server timestamp",
+      "safeForBacktest": false,
+      "pagination": "none",
+      "survivorshipRisk": "symbol universe is fixed to currently configured symbols; delisted contracts are not inferred",
+      "revisionRisk": "not historical-safe"
+    },
+    {
+      "family": "funding",
+      "endpoint": "/fapi/v1/fundingRate",
+      "officialUrl": "https://fapi.binance.com/fapi/v1/fundingRate",
+      "public": true,
+      "anonymousPublic": true,
+      "classification": "ANONYMOUS_PUBLIC",
+      "apiKeyRequired": false,
+      "collectable": true,
+      "historicalLookback": "provider history; no guaranteed long-term archive",
+      "maxLimit": 1000,
+      "samplingInterval": "event / typically 8h",
+      "symbols": [
+        "BTCUSDT",
+        "ETHUSDT",
+        "SOLUSDT",
+        "BNBUSDT",
+        "LINKUSDT",
+        "AVAXUSDT",
+        "DOGEUSDT"
+      ],
+      "rateLimit": "500 / 5m IP shared with fundingInfo",
+      "pointInTime": "fundingTime settlement; available at fundingTime",
+      "safeForBacktest": true,
+      "pagination": "forward",
+      "survivorshipRisk": "symbol universe is fixed to currently configured symbols; delisted contracts are not inferred",
+      "revisionRisk": "yes for settled event; rateType/revisions must be retained"
+    },
+    {
+      "family": "basis",
+      "endpoint": "/futures/data/basis",
+      "officialUrl": "https://fapi.binance.com/futures/data/basis",
+      "public": true,
+      "anonymousPublic": true,
+      "classification": "ANONYMOUS_PUBLIC",
+      "apiKeyRequired": false,
+      "collectable": true,
+      "historicalLookback": "latest 30 days",
+      "maxLimit": 500,
+      "samplingInterval": "5m",
+      "symbols": [
+        "BTCUSDT",
+        "ETHUSDT",
+        "SOLUSDT",
+        "BNBUSDT",
+        "LINKUSDT",
+        "AVAXUSDT",
+        "DOGEUSDT"
+      ],
+      "rateLimit": "weight 0; IP limits apply",
+      "pointInTime": "period start; available at timestamp + 5m",
+      "safeForBacktest": true,
+      "pagination": "forward",
+      "survivorshipRisk": "symbol universe is fixed to currently configured symbols; delisted contracts are not inferred",
+      "revisionRisk": "provider-limited history / possible revisions; retain source timestamps"
+    },
+    {
+      "family": "taker_flow",
+      "endpoint": "/futures/data/takerlongshortRatio",
+      "officialUrl": "https://fapi.binance.com/futures/data/takerlongshortRatio",
+      "public": true,
+      "anonymousPublic": true,
+      "classification": "ANONYMOUS_PUBLIC",
+      "apiKeyRequired": false,
+      "collectable": true,
+      "historicalLookback": "latest 30 days",
+      "maxLimit": 500,
+      "samplingInterval": "5m",
+      "symbols": [
+        "BTCUSDT",
+        "ETHUSDT",
+        "SOLUSDT",
+        "BNBUSDT",
+        "LINKUSDT",
+        "AVAXUSDT",
+        "DOGEUSDT"
+      ],
+      "rateLimit": "1000 IP requests / 5m",
+      "pointInTime": "period start; available at timestamp + 5m",
+      "safeForBacktest": true,
+      "pagination": "backward",
+      "survivorshipRisk": "symbol universe is fixed to currently configured symbols; delisted contracts are not inferred",
+      "revisionRisk": "provider-limited history / possible revisions; retain source timestamps"
+    },
+    {
+      "family": "positioning",
+      "endpoint": "/futures/data/globalLongShortAccountRatio",
+      "officialUrl": "https://fapi.binance.com/futures/data/globalLongShortAccountRatio",
+      "public": true,
+      "anonymousPublic": true,
+      "classification": "ANONYMOUS_PUBLIC",
+      "apiKeyRequired": false,
+      "collectable": true,
+      "historicalLookback": "latest 30 days",
+      "maxLimit": 500,
+      "samplingInterval": "5m",
+      "symbols": [
+        "BTCUSDT",
+        "ETHUSDT",
+        "SOLUSDT",
+        "BNBUSDT",
+        "LINKUSDT",
+        "AVAXUSDT",
+        "DOGEUSDT"
+      ],
+      "rateLimit": "1000 IP requests / 5m",
+      "pointInTime": "period end; available at endpoint timestamp",
+      "safeForBacktest": true,
+      "pagination": "backward",
+      "survivorshipRisk": "symbol universe is fixed to currently configured symbols; delisted contracts are not inferred",
+      "revisionRisk": "yes; global account ratio only"
+    },
+    {
+      "family": "top_trader_account",
+      "endpoint": "/futures/data/topLongShortAccountRatio",
+      "officialUrl": "https://fapi.binance.com/futures/data/topLongShortAccountRatio",
+      "public": true,
+      "anonymousPublic": false,
+      "classification": "MARKET_DATA_API_KEY",
+      "apiKeyRequired": true,
+      "collectable": true,
+      "historicalLookback": "latest 30 days",
+      "maxLimit": 500,
+      "samplingInterval": "5m",
+      "symbols": [
+        "BTCUSDT",
+        "ETHUSDT",
+        "SOLUSDT",
+        "BNBUSDT",
+        "LINKUSDT",
+        "AVAXUSDT",
+        "DOGEUSDT"
+      ],
+      "rateLimit": "1000 IP requests / 5m",
+      "pointInTime": "period end; available at endpoint timestamp",
+      "safeForBacktest": true,
+      "pagination": "backward",
+      "survivorshipRisk": "symbol universe is fixed to currently configured symbols; delisted contracts are not inferred",
+      "revisionRisk": "provider-limited history / possible revisions; retain source timestamps"
+    },
+    {
+      "family": "top_trader_position",
+      "endpoint": "/futures/data/topLongShortPositionRatio",
+      "officialUrl": "https://fapi.binance.com/futures/data/topLongShortPositionRatio",
+      "public": true,
+      "anonymousPublic": false,
+      "classification": "MARKET_DATA_API_KEY",
+      "apiKeyRequired": true,
+      "collectable": true,
+      "historicalLookback": "latest 30 days",
+      "maxLimit": 500,
+      "samplingInterval": "5m",
+      "symbols": [
+        "BTCUSDT",
+        "ETHUSDT",
+        "SOLUSDT",
+        "BNBUSDT",
+        "LINKUSDT",
+        "AVAXUSDT",
+        "DOGEUSDT"
+      ],
+      "rateLimit": "1000 IP requests / 5m",
+      "pointInTime": "period end; available at endpoint timestamp",
+      "safeForBacktest": true,
+      "pagination": "backward",
+      "survivorshipRisk": "symbol universe is fixed to currently configured symbols; delisted contracts are not inferred",
+      "revisionRisk": "provider-limited history / possible revisions; retain source timestamps"
+    },
+    {
+      "family": "liquidation",
+      "endpoint": "websocket:!forceOrder@arr",
+      "officialUrl": "https://fapi.binance.com",
+      "public": true,
+      "anonymousPublic": true,
+      "classification": "ANONYMOUS_PUBLIC",
+      "apiKeyRequired": false,
+      "collectable": true,
+      "historicalLookback": "no public historical REST backfill; websocket forward-only",
+      "maxLimit": null,
+      "samplingInterval": "event stream",
+      "symbols": [
+        "BTCUSDT",
+        "ETHUSDT",
+        "SOLUSDT",
+        "BNBUSDT",
+        "LINKUSDT",
+        "AVAXUSDT",
+        "DOGEUSDT"
+      ],
+      "rateLimit": "websocket connection limits",
+      "pointInTime": "event time; available on receipt",
+      "safeForBacktest": false,
+      "pagination": "none",
+      "survivorshipRisk": "symbol universe is fixed to currently configured symbols; delisted contracts are not inferred",
+      "revisionRisk": "forward only; no safe historical backtest"
+    }
+  ],
+  "endpointCapabilities": {
+    "openInterest": {
+      "classification": "ANONYMOUS_PUBLIC",
+      "apiKeyRequired": false
+    },
+    "openInterestHistory": {
+      "classification": "ANONYMOUS_PUBLIC",
+      "apiKeyRequired": false
+    },
+    "premiumIndex": {
+      "classification": "ANONYMOUS_PUBLIC",
+      "apiKeyRequired": false
+    },
+    "fundingHistory": {
+      "classification": "ANONYMOUS_PUBLIC",
+      "apiKeyRequired": false
+    },
+    "basis": {
+      "classification": "ANONYMOUS_PUBLIC",
+      "apiKeyRequired": false
+    },
+    "takerFlow": {
+      "classification": "ANONYMOUS_PUBLIC",
+      "apiKeyRequired": false
+    },
+    "globalLongShort": {
+      "classification": "ANONYMOUS_PUBLIC",
+      "apiKeyRequired": false
+    },
+    "topTraderAccount": {
+      "classification": "MARKET_DATA_API_KEY",
+      "apiKeyRequired": true
+    },
+    "topTraderPosition": {
+      "classification": "MARKET_DATA_API_KEY",
+      "apiKeyRequired": true
+    },
+    "liquidation": {
+      "classification": "ANONYMOUS_PUBLIC",
+      "apiKeyRequired": false
+    }
+  },
+  "privateEndpointsUsed": false,
+  "privateEndpointFamilies": [],
+  "anonymousPublicFamilies": [
+    "open_interest_current",
+    "open_interest",
+    "premium_index_current",
+    "funding",
+    "basis",
+    "taker_flow",
+    "positioning",
+    "liquidation"
+  ],
+  "marketDataKeyFamilies": [
+    "top_trader_account",
+    "top_trader_position"
+  ],
+  "marketDataApiKeyConfigured": false,
+  "familyCoverage": {
+    "open_interest": {
+      "BTCUSDT": {
+        "symbol": "BTCUSDT",
+        "family": "open_interest",
+        "file": ".cache/gpt-profit-004/BTCUSDT-open_interest.json",
+        "fileSha256": "2bc0c732f09fcbba66db644e9c0d27cd03caf0f60b2effa3a0b12cfce8a89947",
+        "start": "2026-07-31T15:55:00.000Z",
+        "end": "2026-08-30T11:15:00.000Z",
+        "earliest": "2026-07-31T15:55:00.000Z",
+        "latest": "2026-08-30T11:15:00.000Z",
+        "calendarCoverageDays": 29.809028,
+        "commonWindow": {
+          "start": "2026-07-31T15:55:00.000Z",
+          "end": "2026-08-30T11:15:00.000Z"
+        },
+        "sourceTiming": {
+          "period": "5m",
+          "sourceTimestamp": "provider timestamp (period end)",
+          "periodStart": "timestamp - 5m",
+          "periodEnd": "timestamp",
+          "availableAt": "timestamp",
+          "rule": "period-end observation is PIT-usable at the endpoint timestamp"
+        },
+        "staleRatio": 0,
+        "observations": 8585,
+        "expectedObservations": 8641,
+        "missingRatio": 0.006481,
+        "duplicates": 0,
+        "freshnessMs": 0,
+        "source": "/futures/data/openInterestHist",
+        "sourceStatus": "ok",
+        "error": null
+      },
+      "ETHUSDT": {
+        "symbol": "ETHUSDT",
+        "family": "open_interest",
+        "file": ".cache/gpt-profit-004/ETHUSDT-open_interest.json",
+        "fileSha256": "561251a2383ce822a82779429d0ae45b0245a118c7c6baa981764b69de5b5848",
+        "start": "2026-07-31T15:55:00.000Z",
+        "end": "2026-08-30T11:15:00.000Z",
+        "earliest": "2026-07-31T15:55:00.000Z",
+        "latest": "2026-08-30T11:15:00.000Z",
+        "calendarCoverageDays": 29.809028,
+        "commonWindow": {
+          "start": "2026-07-31T15:55:00.000Z",
+          "end": "2026-08-30T11:15:00.000Z"
+        },
+        "sourceTiming": {
+          "period": "5m",
+          "sourceTimestamp": "provider timestamp (period end)",
+          "periodStart": "timestamp - 5m",
+          "periodEnd": "timestamp",
+          "availableAt": "timestamp",
+          "rule": "period-end observation is PIT-usable at the endpoint timestamp"
+        },
+        "staleRatio": 0,
+        "observations": 8585,
+        "expectedObservations": 8641,
+        "missingRatio": 0.006481,
+        "duplicates": 0,
+        "freshnessMs": 0,
+        "source": "/futures/data/openInterestHist",
+        "sourceStatus": "ok",
+        "error": null
+      },
+      "SOLUSDT": {
+        "symbol": "SOLUSDT",
+        "family": "open_interest",
+        "file": ".cache/gpt-profit-004/SOLUSDT-open_interest.json",
+        "fileSha256": "4d2451cd16202c48c24e56f3d5193d7328ce689b06d6215ebeb5716cded62faa",
+        "start": "2026-07-31T15:55:00.000Z",
+        "end": "2026-08-30T11:15:00.000Z",
+        "earliest": "2026-07-31T15:55:00.000Z",
+        "latest": "2026-08-30T11:15:00.000Z",
+        "calendarCoverageDays": 29.809028,
+        "commonWindow": {
+          "start": "2026-07-31T15:55:00.000Z",
+          "end": "2026-08-30T11:15:00.000Z"
+        },
+        "sourceTiming": {
+          "period": "5m",
+          "sourceTimestamp": "provider timestamp (period end)",
+          "periodStart": "timestamp - 5m",
+          "periodEnd": "timestamp",
+          "availableAt": "timestamp",
+          "rule": "period-end observation is PIT-usable at the endpoint timestamp"
+        },
+        "staleRatio": 0,
+        "observations": 8585,
+        "expectedObservations": 8641,
+        "missingRatio": 0.006481,
+        "duplicates": 0,
+        "freshnessMs": 0,
+        "source": "/futures/data/openInterestHist",
+        "sourceStatus": "ok",
+        "error": null
+      },
+      "BNBUSDT": {
+        "symbol": "BNBUSDT",
+        "family": "open_interest",
+        "file": ".cache/gpt-profit-004/BNBUSDT-open_interest.json",
+        "fileSha256": "a1acc97d1bf8db59b1dc0be427665e4fb9d1aa209e024a70de5700ea19cfc068",
+        "start": "2026-07-31T15:55:00.000Z",
+        "end": "2026-08-30T11:15:00.000Z",
+        "earliest": "2026-07-31T15:55:00.000Z",
+        "latest": "2026-08-30T11:15:00.000Z",
+        "calendarCoverageDays": 29.809028,
+        "commonWindow": {
+          "start": "2026-07-31T15:55:00.000Z",
+          "end": "2026-08-30T11:15:00.000Z"
+        },
+        "sourceTiming": {
+          "period": "5m",
+          "sourceTimestamp": "provider timestamp (period end)",
+          "periodStart": "timestamp - 5m",
+          "periodEnd": "timestamp",
+          "availableAt": "timestamp",
+          "rule": "period-end observation is PIT-usable at the endpoint timestamp"
+        },
+        "staleRatio": 0,
+        "observations": 8585,
+        "expectedObservations": 8641,
+        "missingRatio": 0.006481,
+        "duplicates": 0,
+        "freshnessMs": 0,
+        "source": "/futures/data/openInterestHist",
+        "sourceStatus": "ok",
+        "error": null
+      },
+      "LINKUSDT": {
+        "symbol": "LINKUSDT",
+        "family": "open_interest",
+        "file": ".cache/gpt-profit-004/LINKUSDT-open_interest.json",
+        "fileSha256": "903e81e1137fe90ec3ff5c4f6543ee748607c1aa5666f010acedae7594566dc8",
+        "start": "2026-07-31T15:55:00.000Z",
+        "end": "2026-08-30T11:15:00.000Z",
+        "earliest": "2026-07-31T15:55:00.000Z",
+        "latest": "2026-08-30T11:15:00.000Z",
+        "calendarCoverageDays": 29.809028,
+        "commonWindow": {
+          "start": "2026-07-31T15:55:00.000Z",
+          "end": "2026-08-30T11:15:00.000Z"
+        },
+        "sourceTiming": {
+          "period": "5m",
+          "sourceTimestamp": "provider timestamp (period end)",
+          "periodStart": "timestamp - 5m",
+          "periodEnd": "timestamp",
+          "availableAt": "timestamp",
+          "rule": "period-end observation is PIT-usable at the endpoint timestamp"
+        },
+        "staleRatio": 0,
+        "observations": 8585,
+        "expectedObservations": 8641,
+        "missingRatio": 0.006481,
+        "duplicates": 0,
+        "freshnessMs": 0,
+        "source": "/futures/data/openInterestHist",
+        "sourceStatus": "ok",
+        "error": null
+      },
+      "AVAXUSDT": {
+        "symbol": "AVAXUSDT",
+        "family": "open_interest",
+        "file": ".cache/gpt-profit-004/AVAXUSDT-open_interest.json",
+        "fileSha256": "666fe3a06c3f45bb7717ffd09a66cfcb519c3462c4c8b8bff8b30ee1447be95c",
+        "start": "2026-07-31T15:55:00.000Z",
+        "end": "2026-08-30T11:15:00.000Z",
+        "earliest": "2026-07-31T15:55:00.000Z",
+        "latest": "2026-08-30T11:15:00.000Z",
+        "calendarCoverageDays": 29.809028,
+        "commonWindow": {
+          "start": "2026-07-31T15:55:00.000Z",
+          "end": "2026-08-30T11:15:00.000Z"
+        },
+        "sourceTiming": {
+          "period": "5m",
+          "sourceTimestamp": "provider timestamp (period end)",
+          "periodStart": "timestamp - 5m",
+          "periodEnd": "timestamp",
+          "availableAt": "timestamp",
+          "rule": "period-end observation is PIT-usable at the endpoint timestamp"
+        },
+        "staleRatio": 0,
+        "observations": 8585,
+        "expectedObservations": 8641,
+        "missingRatio": 0.006481,
+        "duplicates": 0,
+        "freshnessMs": 0,
+        "source": "/futures/data/openInterestHist",
+        "sourceStatus": "ok",
+        "error": null
+      },
+      "DOGEUSDT": {
+        "symbol": "DOGEUSDT",
+        "family": "open_interest",
+        "file": ".cache/gpt-profit-004/DOGEUSDT-open_interest.json",
+        "fileSha256": "2704bed287a24ac583ff74a43feb6dbe7a1394e7b6e1d853dcaf0abed8bbdf9b",
+        "start": "2026-07-31T15:55:00.000Z",
+        "end": "2026-08-30T11:15:00.000Z",
+        "earliest": "2026-07-31T15:55:00.000Z",
+        "latest": "2026-08-30T11:15:00.000Z",
+        "calendarCoverageDays": 29.809028,
+        "commonWindow": {
+          "start": "2026-07-31T15:55:00.000Z",
+          "end": "2026-08-30T11:15:00.000Z"
+        },
+        "sourceTiming": {
+          "period": "5m",
+          "sourceTimestamp": "provider timestamp (period end)",
+          "periodStart": "timestamp - 5m",
+          "periodEnd": "timestamp",
+          "availableAt": "timestamp",
+          "rule": "period-end observation is PIT-usable at the endpoint timestamp"
+        },
+        "staleRatio": 0,
+        "observations": 8585,
+        "expectedObservations": 8641,
+        "missingRatio": 0.006481,
+        "duplicates": 0,
+        "freshnessMs": 0,
+        "source": "/futures/data/openInterestHist",
+        "sourceStatus": "ok",
+        "error": null
+      }
+    },
+    "funding": {
+      "BTCUSDT": {
+        "symbol": "BTCUSDT",
+        "family": "funding",
+        "file": ".cache/gpt-profit-004/BTCUSDT-funding.json",
+        "fileSha256": "faca246f68b5b9ed2d4cb09143c69e765b393023c9ac9147fb4c8334f5fdefc1",
+        "start": "2026-07-31T16:00:00.000Z",
+        "end": "2026-08-30T08:00:00.000Z",
+        "earliest": "2026-07-31T16:00:00.000Z",
+        "latest": "2026-08-30T08:00:00.000Z",
+        "calendarCoverageDays": 29.666667,
+        "commonWindow": {
+          "start": "2026-07-31T16:00:00.000Z",
+          "end": "2026-08-30T08:00:00.000Z"
+        },
+        "sourceTiming": {
+          "period": "event",
+          "sourceTimestamp": "fundingTime",
+          "periodStart": null,
+          "periodEnd": "fundingTime",
+          "availableAt": "fundingTime",
+          "rule": "last settled funding may persist only within funding freshness tolerance"
+        },
+        "staleRatio": 0,
+        "observations": 90,
+        "expectedObservations": null,
+        "missingRatio": null,
+        "duplicates": 0,
+        "freshnessMs": 11700000,
+        "source": "/fapi/v1/fundingRate",
+        "sourceStatus": "ok",
+        "error": null
+      },
+      "ETHUSDT": {
+        "symbol": "ETHUSDT",
+        "family": "funding",
+        "file": ".cache/gpt-profit-004/ETHUSDT-funding.json",
+        "fileSha256": "4dac1934662a3fc98a055dc822af4d56180f9213a07da4751cc998bcfe50b4ae",
+        "start": "2026-07-31T16:00:00.000Z",
+        "end": "2026-08-30T08:00:00.000Z",
+        "earliest": "2026-07-31T16:00:00.000Z",
+        "latest": "2026-08-30T08:00:00.000Z",
+        "calendarCoverageDays": 29.666667,
+        "commonWindow": {
+          "start": "2026-07-31T16:00:00.000Z",
+          "end": "2026-08-30T08:00:00.000Z"
+        },
+        "sourceTiming": {
+          "period": "event",
+          "sourceTimestamp": "fundingTime",
+          "periodStart": null,
+          "periodEnd": "fundingTime",
+          "availableAt": "fundingTime",
+          "rule": "last settled funding may persist only within funding freshness tolerance"
+        },
+        "staleRatio": 0,
+        "observations": 90,
+        "expectedObservations": null,
+        "missingRatio": null,
+        "duplicates": 0,
+        "freshnessMs": 11700000,
+        "source": "/fapi/v1/fundingRate",
+        "sourceStatus": "ok",
+        "error": null
+      },
+      "SOLUSDT": {
+        "symbol": "SOLUSDT",
+        "family": "funding",
+        "file": ".cache/gpt-profit-004/SOLUSDT-funding.json",
+        "fileSha256": "2db5f1538cf8ce000e577c01465d5c6fb00239967ffbc7c50beae0e44e61aa07",
+        "start": "2026-07-31T16:00:00.000Z",
+        "end": "2026-08-30T08:00:00.000Z",
+        "earliest": "2026-07-31T16:00:00.000Z",
+        "latest": "2026-08-30T08:00:00.000Z",
+        "calendarCoverageDays": 29.666667,
+        "commonWindow": {
+          "start": "2026-07-31T16:00:00.000Z",
+          "end": "2026-08-30T08:00:00.000Z"
+        },
+        "sourceTiming": {
+          "period": "event",
+          "sourceTimestamp": "fundingTime",
+          "periodStart": null,
+          "periodEnd": "fundingTime",
+          "availableAt": "fundingTime",
+          "rule": "last settled funding may persist only within funding freshness tolerance"
+        },
+        "staleRatio": 0,
+        "observations": 90,
+        "expectedObservations": null,
+        "missingRatio": null,
+        "duplicates": 0,
+        "freshnessMs": 11700000,
+        "source": "/fapi/v1/fundingRate",
+        "sourceStatus": "ok",
+        "error": null
+      },
+      "BNBUSDT": {
+        "symbol": "BNBUSDT",
+        "family": "funding",
+        "file": ".cache/gpt-profit-004/BNBUSDT-funding.json",
+        "fileSha256": "bb217350ef0fd51619289725e00ef405da6c600cd95254f894b49db32101e795",
+        "start": "2026-07-31T16:00:00.000Z",
+        "end": "2026-08-30T08:00:00.000Z",
+        "earliest": "2026-07-31T16:00:00.000Z",
+        "latest": "2026-08-30T08:00:00.000Z",
+        "calendarCoverageDays": 29.666667,
+        "commonWindow": {
+          "start": "2026-07-31T16:00:00.000Z",
+          "end": "2026-08-30T08:00:00.000Z"
+        },
+        "sourceTiming": {
+          "period": "event",
+          "sourceTimestamp": "fundingTime",
+          "periodStart": null,
+          "periodEnd": "fundingTime",
+          "availableAt": "fundingTime",
+          "rule": "last settled funding may persist only within funding freshness tolerance"
+        },
+        "staleRatio": 0,
+        "observations": 90,
+        "expectedObservations": null,
+        "missingRatio": null,
+        "duplicates": 0,
+        "freshnessMs": 11700000,
+        "source": "/fapi/v1/fundingRate",
+        "sourceStatus": "ok",
+        "error": null
+      },
+      "LINKUSDT": {
+        "symbol": "LINKUSDT",
+        "family": "funding",
+        "file": ".cache/gpt-profit-004/LINKUSDT-funding.json",
+        "fileSha256": "538ae76e15624a673555669c9be6f4fabf55c40fbe79c551eede7a6b8d10d97c",
+        "start": "2026-07-31T16:00:00.000Z",
+        "end": "2026-08-30T08:00:00.000Z",
+        "earliest": "2026-07-31T16:00:00.000Z",
+        "latest": "2026-08-30T08:00:00.000Z",
+        "calendarCoverageDays": 29.666667,
+        "commonWindow": {
+          "start": "2026-07-31T16:00:00.000Z",
+          "end": "2026-08-30T08:00:00.000Z"
+        },
+        "sourceTiming": {
+          "period": "event",
+          "sourceTimestamp": "fundingTime",
+          "periodStart": null,
+          "periodEnd": "fundingTime",
+          "availableAt": "fundingTime",
+          "rule": "last settled funding may persist only within funding freshness tolerance"
+        },
+        "staleRatio": 0,
+        "observations": 90,
+        "expectedObservations": null,
+        "missingRatio": null,
+        "duplicates": 0,
+        "freshnessMs": 11700000,
+        "source": "/fapi/v1/fundingRate",
+        "sourceStatus": "ok",
+        "error": null
+      },
+      "AVAXUSDT": {
+        "symbol": "AVAXUSDT",
+        "family": "funding",
+        "file": ".cache/gpt-profit-004/AVAXUSDT-funding.json",
+        "fileSha256": "bd8ac9ee7f90bfb4e547ba0c9960a3f5b4f7d0fda3214cb3f784ccb167e03337",
+        "start": "2026-07-31T16:00:00.000Z",
+        "end": "2026-08-30T08:00:00.000Z",
+        "earliest": "2026-07-31T16:00:00.000Z",
+        "latest": "2026-08-30T08:00:00.000Z",
+        "calendarCoverageDays": 29.666667,
+        "commonWindow": {
+          "start": "2026-07-31T16:00:00.000Z",
+          "end": "2026-08-30T08:00:00.000Z"
+        },
+        "sourceTiming": {
+          "period": "event",
+          "sourceTimestamp": "fundingTime",
+          "periodStart": null,
+          "periodEnd": "fundingTime",
+          "availableAt": "fundingTime",
+          "rule": "last settled funding may persist only within funding freshness tolerance"
+        },
+        "staleRatio": 0,
+        "observations": 90,
+        "expectedObservations": null,
+        "missingRatio": null,
+        "duplicates": 0,
+        "freshnessMs": 11700000,
+        "source": "/fapi/v1/fundingRate",
+        "sourceStatus": "ok",
+        "error": null
+      },
+      "DOGEUSDT": {
+        "symbol": "DOGEUSDT",
+        "family": "funding",
+        "file": ".cache/gpt-profit-004/DOGEUSDT-funding.json",
+        "fileSha256": "bbb8838b8554b86a439dead48e843253aaac3b6d42bbbd631fd07d029bb3f944",
+        "start": "2026-07-31T16:00:00.000Z",
+        "end": "2026-08-30T08:00:00.000Z",
+        "earliest": "2026-07-31T16:00:00.000Z",
+        "latest": "2026-08-30T08:00:00.000Z",
+        "calendarCoverageDays": 29.666667,
+        "commonWindow": {
+          "start": "2026-07-31T16:00:00.000Z",
+          "end": "2026-08-30T08:00:00.000Z"
+        },
+        "sourceTiming": {
+          "period": "event",
+          "sourceTimestamp": "fundingTime",
+          "periodStart": null,
+          "periodEnd": "fundingTime",
+          "availableAt": "fundingTime",
+          "rule": "last settled funding may persist only within funding freshness tolerance"
+        },
+        "staleRatio": 0,
+        "observations": 90,
+        "expectedObservations": null,
+        "missingRatio": null,
+        "duplicates": 0,
+        "freshnessMs": 11700000,
+        "source": "/fapi/v1/fundingRate",
+        "sourceStatus": "ok",
+        "error": null
+      }
+    },
+    "basis": {
+      "BTCUSDT": {
+        "symbol": "BTCUSDT",
+        "family": "basis",
+        "file": ".cache/gpt-profit-004/BTCUSDT-basis.json",
+        "fileSha256": "0cf26f91dcafcaca90b075a7bbf3e0a410ced029db69cb892b4739402a80fc1f",
+        "start": "2026-07-31T15:55:00.000Z",
+        "end": "2026-08-21T11:45:00.000Z",
+        "earliest": "2026-07-31T15:55:00.000Z",
+        "latest": "2026-08-21T11:45:00.000Z",
+        "calendarCoverageDays": 20.829861,
+        "commonWindow": {
+          "start": "2026-07-31T15:55:00.000Z",
+          "end": "2026-08-21T11:45:00.000Z"
+        },
+        "sourceTiming": {
+          "period": "5m",
+          "sourceTimestamp": "provider timestamp (period start)",
+          "periodStart": "timestamp",
+          "periodEnd": "timestamp + 5m",
+          "availableAt": "timestamp + 5m",
+          "rule": "period must be closed before PIT use"
+        },
+        "staleRatio": 0.000167,
+        "observations": 5999,
+        "expectedObservations": 8641,
+        "missingRatio": 0.305752,
+        "duplicates": 0,
+        "freshnessMs": 775800000,
+        "source": "/futures/data/basis",
+        "sourceStatus": "ok",
+        "error": null
+      },
+      "ETHUSDT": {
+        "symbol": "ETHUSDT",
+        "family": "basis",
+        "file": ".cache/gpt-profit-004/ETHUSDT-basis.json",
+        "fileSha256": "92d88e5d57e26b8a436cce006840f1ba2f25369d36dd3ffab639a8dc90da34c2",
+        "start": "2026-07-31T15:55:00.000Z",
+        "end": "2026-08-19T18:05:00.000Z",
+        "earliest": "2026-07-31T15:55:00.000Z",
+        "latest": "2026-08-19T18:05:00.000Z",
+        "calendarCoverageDays": 19.09375,
+        "commonWindow": {
+          "start": "2026-07-31T15:55:00.000Z",
+          "end": "2026-08-19T18:05:00.000Z"
+        },
+        "sourceTiming": {
+          "period": "5m",
+          "sourceTimestamp": "provider timestamp (period start)",
+          "periodStart": "timestamp",
+          "periodEnd": "timestamp + 5m",
+          "availableAt": "timestamp + 5m",
+          "rule": "period must be closed before PIT use"
+        },
+        "staleRatio": 0.000182,
+        "observations": 5499,
+        "expectedObservations": 8641,
+        "missingRatio": 0.363615,
+        "duplicates": 0,
+        "freshnessMs": 925800000,
+        "source": "/futures/data/basis",
+        "sourceStatus": "ok",
+        "error": null
+      },
+      "SOLUSDT": {
+        "symbol": "SOLUSDT",
+        "family": "basis",
+        "file": ".cache/gpt-profit-004/SOLUSDT-basis.json",
+        "fileSha256": "be89267d2b16d0b0e96b9e14c717591ed56eb56dde21a6da4b09f3628d7ffad7",
+        "start": "2026-07-31T15:55:00.000Z",
+        "end": "2026-08-24T23:05:00.000Z",
+        "earliest": "2026-07-31T15:55:00.000Z",
+        "latest": "2026-08-24T23:05:00.000Z",
+        "calendarCoverageDays": 24.302083,
+        "commonWindow": {
+          "start": "2026-07-31T15:55:00.000Z",
+          "end": "2026-08-24T23:05:00.000Z"
+        },
+        "sourceTiming": {
+          "period": "5m",
+          "sourceTimestamp": "provider timestamp (period start)",
+          "periodStart": "timestamp",
+          "periodEnd": "timestamp + 5m",
+          "availableAt": "timestamp + 5m",
+          "rule": "period must be closed before PIT use"
+        },
+        "staleRatio": 0.000143,
+        "observations": 6999,
+        "expectedObservations": 8641,
+        "missingRatio": 0.190024,
+        "duplicates": 0,
+        "freshnessMs": 475800000,
+        "source": "/futures/data/basis",
+        "sourceStatus": "ok",
+        "error": null
+      },
+      "BNBUSDT": {
+        "symbol": "BNBUSDT",
+        "family": "basis",
+        "file": ".cache/gpt-profit-004/BNBUSDT-basis.json",
+        "fileSha256": "85ae62087a35bd00a5469da9165cc5a6a86397af5dea2bc28794754f526a80bd",
+        "start": "2026-07-31T15:55:00.000Z",
+        "end": "2026-08-21T11:45:00.000Z",
+        "earliest": "2026-07-31T15:55:00.000Z",
+        "latest": "2026-08-21T11:45:00.000Z",
+        "calendarCoverageDays": 20.829861,
+        "commonWindow": {
+          "start": "2026-07-31T15:55:00.000Z",
+          "end": "2026-08-21T11:45:00.000Z"
+        },
+        "sourceTiming": {
+          "period": "5m",
+          "sourceTimestamp": "provider timestamp (period start)",
+          "periodStart": "timestamp",
+          "periodEnd": "timestamp + 5m",
+          "availableAt": "timestamp + 5m",
+          "rule": "period must be closed before PIT use"
+        },
+        "staleRatio": 0.000167,
+        "observations": 5999,
+        "expectedObservations": 8641,
+        "missingRatio": 0.305752,
+        "duplicates": 0,
+        "freshnessMs": 775800000,
+        "source": "/futures/data/basis",
+        "sourceStatus": "ok",
+        "error": null
+      },
+      "LINKUSDT": {
+        "symbol": "LINKUSDT",
+        "family": "basis",
+        "file": ".cache/gpt-profit-004/LINKUSDT-basis.json",
+        "fileSha256": "b246d67cf7c1481eac3ec96366133e85577a6566f3fe31ef60fb49cdbee6ba44",
+        "start": "2026-07-31T15:55:00.000Z",
+        "end": "2026-08-19T18:05:00.000Z",
+        "earliest": "2026-07-31T15:55:00.000Z",
+        "latest": "2026-08-19T18:05:00.000Z",
+        "calendarCoverageDays": 19.09375,
+        "commonWindow": {
+          "start": "2026-07-31T15:55:00.000Z",
+          "end": "2026-08-19T18:05:00.000Z"
+        },
+        "sourceTiming": {
+          "period": "5m",
+          "sourceTimestamp": "provider timestamp (period start)",
+          "periodStart": "timestamp",
+          "periodEnd": "timestamp + 5m",
+          "availableAt": "timestamp + 5m",
+          "rule": "period must be closed before PIT use"
+        },
+        "staleRatio": 0.000182,
+        "observations": 5499,
+        "expectedObservations": 8641,
+        "missingRatio": 0.363615,
+        "duplicates": 0,
+        "freshnessMs": 925800000,
+        "source": "/futures/data/basis",
+        "sourceStatus": "ok",
+        "error": null
+      },
+      "AVAXUSDT": {
+        "symbol": "AVAXUSDT",
+        "family": "basis",
+        "file": ".cache/gpt-profit-004/AVAXUSDT-basis.json",
+        "fileSha256": "6be07d7ad4c10a0a97c3bb97bb7e2c4bc2e6e372a3b5fea7a70ba47952135c7f",
+        "start": "2026-07-31T15:55:00.000Z",
+        "end": "2026-08-26T16:45:00.000Z",
+        "earliest": "2026-07-31T15:55:00.000Z",
+        "latest": "2026-08-26T16:45:00.000Z",
+        "calendarCoverageDays": 26.038194,
+        "commonWindow": {
+          "start": "2026-07-31T15:55:00.000Z",
+          "end": "2026-08-26T16:45:00.000Z"
+        },
+        "sourceTiming": {
+          "period": "5m",
+          "sourceTimestamp": "provider timestamp (period start)",
+          "periodStart": "timestamp",
+          "periodEnd": "timestamp + 5m",
+          "availableAt": "timestamp + 5m",
+          "rule": "period must be closed before PIT use"
+        },
+        "staleRatio": 0.000133,
+        "observations": 7499,
+        "expectedObservations": 8641,
+        "missingRatio": 0.132161,
+        "duplicates": 0,
+        "freshnessMs": 325800000,
+        "source": "/futures/data/basis",
+        "sourceStatus": "ok",
+        "error": null
+      },
+      "DOGEUSDT": {
+        "symbol": "DOGEUSDT",
+        "family": "basis",
+        "file": ".cache/gpt-profit-004/DOGEUSDT-basis.json",
+        "fileSha256": "23504b847ca92e403d60483b65555d86c8c3bc55e4ffe2658c7f25b17c504957",
+        "start": "2026-07-31T15:55:00.000Z",
+        "end": "2026-08-30T11:15:00.000Z",
+        "earliest": "2026-07-31T15:55:00.000Z",
+        "latest": "2026-08-30T11:15:00.000Z",
+        "calendarCoverageDays": 29.809028,
+        "commonWindow": {
+          "start": "2026-07-31T15:55:00.000Z",
+          "end": "2026-08-30T11:15:00.000Z"
+        },
+        "sourceTiming": {
+          "period": "5m",
+          "sourceTimestamp": "provider timestamp (period start)",
+          "periodStart": "timestamp",
+          "periodEnd": "timestamp + 5m",
+          "availableAt": "timestamp + 5m",
+          "rule": "period must be closed before PIT use"
+        },
+        "staleRatio": 0,
+        "observations": 8585,
+        "expectedObservations": 8641,
+        "missingRatio": 0.006481,
+        "duplicates": 0,
+        "freshnessMs": 0,
+        "source": "/futures/data/basis",
+        "sourceStatus": "ok",
+        "error": null
+      }
+    },
+    "taker_flow": {
+      "BTCUSDT": {
+        "symbol": "BTCUSDT",
+        "family": "taker_flow",
+        "file": ".cache/gpt-profit-004/BTCUSDT-taker_flow.json",
+        "fileSha256": "4b84693561910be61cadf43cf3f5d5322592e923b5c1f3a483a045c2b7b48e05",
+        "start": "2026-07-31T15:55:00.000Z",
+        "end": "2026-08-30T11:15:00.000Z",
+        "earliest": "2026-07-31T15:55:00.000Z",
+        "latest": "2026-08-30T11:15:00.000Z",
+        "calendarCoverageDays": 29.809028,
+        "commonWindow": {
+          "start": "2026-07-31T15:55:00.000Z",
+          "end": "2026-08-30T11:15:00.000Z"
+        },
+        "sourceTiming": {
+          "period": "5m",
+          "sourceTimestamp": "provider timestamp (period start)",
+          "periodStart": "timestamp",
+          "periodEnd": "timestamp + 5m",
+          "availableAt": "timestamp + 5m",
+          "rule": "period must be closed before PIT use"
+        },
+        "staleRatio": 0,
+        "observations": 8568,
+        "expectedObservations": 8641,
+        "missingRatio": 0.008448,
+        "duplicates": 0,
+        "freshnessMs": 0,
+        "source": "/futures/data/takerlongshortRatio",
+        "sourceStatus": "ok",
+        "error": null
+      },
+      "ETHUSDT": {
+        "symbol": "ETHUSDT",
+        "family": "taker_flow",
+        "file": ".cache/gpt-profit-004/ETHUSDT-taker_flow.json",
+        "fileSha256": "abe68f3e9bef1ee9d102b4d7ab86f01cc8855e3f07256d579242eb92da708d73",
+        "start": "2026-07-31T15:55:00.000Z",
+        "end": "2026-08-30T11:15:00.000Z",
+        "earliest": "2026-07-31T15:55:00.000Z",
+        "latest": "2026-08-30T11:15:00.000Z",
+        "calendarCoverageDays": 29.809028,
+        "commonWindow": {
+          "start": "2026-07-31T15:55:00.000Z",
+          "end": "2026-08-30T11:15:00.000Z"
+        },
+        "sourceTiming": {
+          "period": "5m",
+          "sourceTimestamp": "provider timestamp (period start)",
+          "periodStart": "timestamp",
+          "periodEnd": "timestamp + 5m",
+          "availableAt": "timestamp + 5m",
+          "rule": "period must be closed before PIT use"
+        },
+        "staleRatio": 0,
+        "observations": 8568,
+        "expectedObservations": 8641,
+        "missingRatio": 0.008448,
+        "duplicates": 0,
+        "freshnessMs": 0,
+        "source": "/futures/data/takerlongshortRatio",
+        "sourceStatus": "ok",
+        "error": null
+      },
+      "SOLUSDT": {
+        "symbol": "SOLUSDT",
+        "family": "taker_flow",
+        "file": ".cache/gpt-profit-004/SOLUSDT-taker_flow.json",
+        "fileSha256": "6c7a8e66a983565f2c216a820d3fb39ae0944dae41de09f1599cc52315b68453",
+        "start": "2026-07-31T15:50:00.000Z",
+        "end": "2026-08-30T11:15:00.000Z",
+        "earliest": "2026-07-31T15:50:00.000Z",
+        "latest": "2026-08-30T11:15:00.000Z",
+        "calendarCoverageDays": 29.8125,
+        "commonWindow": {
+          "start": "2026-07-31T15:50:00.000Z",
+          "end": "2026-08-30T11:15:00.000Z"
+        },
+        "sourceTiming": {
+          "period": "5m",
+          "sourceTimestamp": "provider timestamp (period start)",
+          "periodStart": "timestamp",
+          "periodEnd": "timestamp + 5m",
+          "availableAt": "timestamp + 5m",
+          "rule": "period must be closed before PIT use"
+        },
+        "staleRatio": 0,
+        "observations": 8569,
+        "expectedObservations": 8641,
+        "missingRatio": 0.008332,
+        "duplicates": 0,
+        "freshnessMs": 0,
+        "source": "/futures/data/takerlongshortRatio",
+        "sourceStatus": "ok",
+        "error": null
+      },
+      "BNBUSDT": {
+        "symbol": "BNBUSDT",
+        "family": "taker_flow",
+        "file": ".cache/gpt-profit-004/BNBUSDT-taker_flow.json",
+        "fileSha256": "1798a03e09c8e9dd3a3c3f46a63f041264f5506d2ca992e98125e732decc98c8",
+        "start": "2026-07-31T15:50:00.000Z",
+        "end": "2026-08-30T11:15:00.000Z",
+        "earliest": "2026-07-31T15:50:00.000Z",
+        "latest": "2026-08-30T11:15:00.000Z",
+        "calendarCoverageDays": 29.8125,
+        "commonWindow": {
+          "start": "2026-07-31T15:50:00.000Z",
+          "end": "2026-08-30T11:15:00.000Z"
+        },
+        "sourceTiming": {
+          "period": "5m",
+          "sourceTimestamp": "provider timestamp (period start)",
+          "periodStart": "timestamp",
+          "periodEnd": "timestamp + 5m",
+          "availableAt": "timestamp + 5m",
+          "rule": "period must be closed before PIT use"
+        },
+        "staleRatio": 0,
+        "observations": 8569,
+        "expectedObservations": 8641,
+        "missingRatio": 0.008332,
+        "duplicates": 0,
+        "freshnessMs": 0,
+        "source": "/futures/data/takerlongshortRatio",
+        "sourceStatus": "ok",
+        "error": null
+      },
+      "LINKUSDT": {
+        "symbol": "LINKUSDT",
+        "family": "taker_flow",
+        "file": ".cache/gpt-profit-004/LINKUSDT-taker_flow.json",
+        "fileSha256": "9ca3cbc2c8b72c66962680875327c4b006b4101f7784fa6971c5be4aba61cb21",
+        "start": "2026-07-31T15:55:00.000Z",
+        "end": "2026-08-30T11:15:00.000Z",
+        "earliest": "2026-07-31T15:55:00.000Z",
+        "latest": "2026-08-30T11:15:00.000Z",
+        "calendarCoverageDays": 29.809028,
+        "commonWindow": {
+          "start": "2026-07-31T15:55:00.000Z",
+          "end": "2026-08-30T11:15:00.000Z"
+        },
+        "sourceTiming": {
+          "period": "5m",
+          "sourceTimestamp": "provider timestamp (period start)",
+          "periodStart": "timestamp",
+          "periodEnd": "timestamp + 5m",
+          "availableAt": "timestamp + 5m",
+          "rule": "period must be closed before PIT use"
+        },
+        "staleRatio": 0,
+        "observations": 8568,
+        "expectedObservations": 8641,
+        "missingRatio": 0.008448,
+        "duplicates": 0,
+        "freshnessMs": 0,
+        "source": "/futures/data/takerlongshortRatio",
+        "sourceStatus": "ok",
+        "error": null
+      },
+      "AVAXUSDT": {
+        "symbol": "AVAXUSDT",
+        "family": "taker_flow",
+        "file": ".cache/gpt-profit-004/AVAXUSDT-taker_flow.json",
+        "fileSha256": "5695f96d1c909e8f16555fa8783a036c74a0079b003071d36155acff852efaa8",
+        "start": "2026-07-31T15:55:00.000Z",
+        "end": "2026-08-30T11:15:00.000Z",
+        "earliest": "2026-07-31T15:55:00.000Z",
+        "latest": "2026-08-30T11:15:00.000Z",
+        "calendarCoverageDays": 29.809028,
+        "commonWindow": {
+          "start": "2026-07-31T15:55:00.000Z",
+          "end": "2026-08-30T11:15:00.000Z"
+        },
+        "sourceTiming": {
+          "period": "5m",
+          "sourceTimestamp": "provider timestamp (period start)",
+          "periodStart": "timestamp",
+          "periodEnd": "timestamp + 5m",
+          "availableAt": "timestamp + 5m",
+          "rule": "period must be closed before PIT use"
+        },
+        "staleRatio": 0,
+        "observations": 8568,
+        "expectedObservations": 8641,
+        "missingRatio": 0.008448,
+        "duplicates": 0,
+        "freshnessMs": 0,
+        "source": "/futures/data/takerlongshortRatio",
+        "sourceStatus": "ok",
+        "error": null
+      },
+      "DOGEUSDT": {
+        "symbol": "DOGEUSDT",
+        "family": "taker_flow",
+        "file": ".cache/gpt-profit-004/DOGEUSDT-taker_flow.json",
+        "fileSha256": "72c9f0ac6ad91c43630f53bac6dfbc44191df0a4869d643a9992909b39d333b7",
+        "start": "2026-07-31T15:55:00.000Z",
+        "end": "2026-08-30T11:15:00.000Z",
+        "earliest": "2026-07-31T15:55:00.000Z",
+        "latest": "2026-08-30T11:15:00.000Z",
+        "calendarCoverageDays": 29.809028,
+        "commonWindow": {
+          "start": "2026-07-31T15:55:00.000Z",
+          "end": "2026-08-30T11:15:00.000Z"
+        },
+        "sourceTiming": {
+          "period": "5m",
+          "sourceTimestamp": "provider timestamp (period start)",
+          "periodStart": "timestamp",
+          "periodEnd": "timestamp + 5m",
+          "availableAt": "timestamp + 5m",
+          "rule": "period must be closed before PIT use"
+        },
+        "staleRatio": 0,
+        "observations": 8568,
+        "expectedObservations": 8641,
+        "missingRatio": 0.008448,
+        "duplicates": 0,
+        "freshnessMs": 0,
+        "source": "/futures/data/takerlongshortRatio",
+        "sourceStatus": "ok",
+        "error": null
+      }
+    },
+    "positioning": {
+      "BTCUSDT": {
+        "symbol": "BTCUSDT",
+        "family": "positioning",
+        "file": ".cache/gpt-profit-004/BTCUSDT-positioning.json",
+        "fileSha256": "8f3571874f8c32500fb6fa7d74975b4dba3f70400f1ed067fa2774923fce76d1",
+        "start": "2026-07-31T15:50:00.000Z",
+        "end": "2026-08-30T11:15:00.000Z",
+        "earliest": "2026-07-31T15:50:00.000Z",
+        "latest": "2026-08-30T11:15:00.000Z",
+        "calendarCoverageDays": 29.8125,
+        "commonWindow": {
+          "start": "2026-07-31T15:50:00.000Z",
+          "end": "2026-08-30T11:15:00.000Z"
+        },
+        "sourceTiming": {
+          "period": "5m",
+          "sourceTimestamp": "provider timestamp (period end)",
+          "periodStart": "timestamp - 5m",
+          "periodEnd": "timestamp",
+          "availableAt": "timestamp",
+          "rule": "period-end observation is PIT-usable at the endpoint timestamp"
+        },
+        "staleRatio": 0,
+        "observations": 8586,
+        "expectedObservations": 8641,
+        "missingRatio": 0.006365,
+        "duplicates": 0,
+        "freshnessMs": 0,
+        "source": "/futures/data/globalLongShortAccountRatio",
+        "sourceStatus": "ok",
+        "error": null
+      },
+      "ETHUSDT": {
+        "symbol": "ETHUSDT",
+        "family": "positioning",
+        "file": ".cache/gpt-profit-004/ETHUSDT-positioning.json",
+        "fileSha256": "a24e691977048b9befdd3339acc687ee1a5d14b23fc0d3ba19a024e2b33ebcac",
+        "start": "2026-07-31T15:50:00.000Z",
+        "end": "2026-08-30T11:15:00.000Z",
+        "earliest": "2026-07-31T15:50:00.000Z",
+        "latest": "2026-08-30T11:15:00.000Z",
+        "calendarCoverageDays": 29.8125,
+        "commonWindow": {
+          "start": "2026-07-31T15:50:00.000Z",
+          "end": "2026-08-30T11:15:00.000Z"
+        },
+        "sourceTiming": {
+          "period": "5m",
+          "sourceTimestamp": "provider timestamp (period end)",
+          "periodStart": "timestamp - 5m",
+          "periodEnd": "timestamp",
+          "availableAt": "timestamp",
+          "rule": "period-end observation is PIT-usable at the endpoint timestamp"
+        },
+        "staleRatio": 0,
+        "observations": 8586,
+        "expectedObservations": 8641,
+        "missingRatio": 0.006365,
+        "duplicates": 0,
+        "freshnessMs": 0,
+        "source": "/futures/data/globalLongShortAccountRatio",
+        "sourceStatus": "ok",
+        "error": null
+      },
+      "SOLUSDT": {
+        "symbol": "SOLUSDT",
+        "family": "positioning",
+        "file": ".cache/gpt-profit-004/SOLUSDT-positioning.json",
+        "fileSha256": "719bde75da2c0bce6240122fcb3cdd6e8750659b13e45fb26fbc986571e705e1",
+        "start": "2026-07-31T15:50:00.000Z",
+        "end": "2026-08-30T11:15:00.000Z",
+        "earliest": "2026-07-31T15:50:00.000Z",
+        "latest": "2026-08-30T11:15:00.000Z",
+        "calendarCoverageDays": 29.8125,
+        "commonWindow": {
+          "start": "2026-07-31T15:50:00.000Z",
+          "end": "2026-08-30T11:15:00.000Z"
+        },
+        "sourceTiming": {
+          "period": "5m",
+          "sourceTimestamp": "provider timestamp (period end)",
+          "periodStart": "timestamp - 5m",
+          "periodEnd": "timestamp",
+          "availableAt": "timestamp",
+          "rule": "period-end observation is PIT-usable at the endpoint timestamp"
+        },
+        "staleRatio": 0,
+        "observations": 8586,
+        "expectedObservations": 8641,
+        "missingRatio": 0.006365,
+        "duplicates": 0,
+        "freshnessMs": 0,
+        "source": "/futures/data/globalLongShortAccountRatio",
+        "sourceStatus": "ok",
+        "error": null
+      },
+      "BNBUSDT": {
+        "symbol": "BNBUSDT",
+        "family": "positioning",
+        "file": ".cache/gpt-profit-004/BNBUSDT-positioning.json",
+        "fileSha256": "d080afa281a929e888da2dc43e0281cd3f92818bb6a1b4440d2b903d7b979194",
+        "start": "2026-07-31T15:50:00.000Z",
+        "end": "2026-08-30T11:15:00.000Z",
+        "earliest": "2026-07-31T15:50:00.000Z",
+        "latest": "2026-08-30T11:15:00.000Z",
+        "calendarCoverageDays": 29.8125,
+        "commonWindow": {
+          "start": "2026-07-31T15:50:00.000Z",
+          "end": "2026-08-30T11:15:00.000Z"
+        },
+        "sourceTiming": {
+          "period": "5m",
+          "sourceTimestamp": "provider timestamp (period end)",
+          "periodStart": "timestamp - 5m",
+          "periodEnd": "timestamp",
+          "availableAt": "timestamp",
+          "rule": "period-end observation is PIT-usable at the endpoint timestamp"
+        },
+        "staleRatio": 0,
+        "observations": 8586,
+        "expectedObservations": 8641,
+        "missingRatio": 0.006365,
+        "duplicates": 0,
+        "freshnessMs": 0,
+        "source": "/futures/data/globalLongShortAccountRatio",
+        "sourceStatus": "ok",
+        "error": null
+      },
+      "LINKUSDT": {
+        "symbol": "LINKUSDT",
+        "family": "positioning",
+        "file": ".cache/gpt-profit-004/LINKUSDT-positioning.json",
+        "fileSha256": "6db004ba8b58601ca89153e4270a0dd76bf424293f70cec81600aad828d0cb8a",
+        "start": "2026-07-31T15:50:00.000Z",
+        "end": "2026-08-30T11:15:00.000Z",
+        "earliest": "2026-07-31T15:50:00.000Z",
+        "latest": "2026-08-30T11:15:00.000Z",
+        "calendarCoverageDays": 29.8125,
+        "commonWindow": {
+          "start": "2026-07-31T15:50:00.000Z",
+          "end": "2026-08-30T11:15:00.000Z"
+        },
+        "sourceTiming": {
+          "period": "5m",
+          "sourceTimestamp": "provider timestamp (period end)",
+          "periodStart": "timestamp - 5m",
+          "periodEnd": "timestamp",
+          "availableAt": "timestamp",
+          "rule": "period-end observation is PIT-usable at the endpoint timestamp"
+        },
+        "staleRatio": 0,
+        "observations": 8586,
+        "expectedObservations": 8641,
+        "missingRatio": 0.006365,
+        "duplicates": 0,
+        "freshnessMs": 0,
+        "source": "/futures/data/globalLongShortAccountRatio",
+        "sourceStatus": "ok",
+        "error": null
+      },
+      "AVAXUSDT": {
+        "symbol": "AVAXUSDT",
+        "family": "positioning",
+        "file": ".cache/gpt-profit-004/AVAXUSDT-positioning.json",
+        "fileSha256": "d0b7188b9fbb40923742b7b9c41a791c4dd904015fda7a47804e4cd807718824",
+        "start": "2026-07-31T15:50:00.000Z",
+        "end": "2026-08-30T11:15:00.000Z",
+        "earliest": "2026-07-31T15:50:00.000Z",
+        "latest": "2026-08-30T11:15:00.000Z",
+        "calendarCoverageDays": 29.8125,
+        "commonWindow": {
+          "start": "2026-07-31T15:50:00.000Z",
+          "end": "2026-08-30T11:15:00.000Z"
+        },
+        "sourceTiming": {
+          "period": "5m",
+          "sourceTimestamp": "provider timestamp (period end)",
+          "periodStart": "timestamp - 5m",
+          "periodEnd": "timestamp",
+          "availableAt": "timestamp",
+          "rule": "period-end observation is PIT-usable at the endpoint timestamp"
+        },
+        "staleRatio": 0,
+        "observations": 8586,
+        "expectedObservations": 8641,
+        "missingRatio": 0.006365,
+        "duplicates": 0,
+        "freshnessMs": 0,
+        "source": "/futures/data/globalLongShortAccountRatio",
+        "sourceStatus": "ok",
+        "error": null
+      },
+      "DOGEUSDT": {
+        "symbol": "DOGEUSDT",
+        "family": "positioning",
+        "file": ".cache/gpt-profit-004/DOGEUSDT-positioning.json",
+        "fileSha256": "aed8d15428ce03b75e94a05a03ba5b1864d4e9093a66c431b60f3450560cd4b9",
+        "start": "2026-07-31T15:50:00.000Z",
+        "end": "2026-08-30T11:15:00.000Z",
+        "earliest": "2026-07-31T15:50:00.000Z",
+        "latest": "2026-08-30T11:15:00.000Z",
+        "calendarCoverageDays": 29.8125,
+        "commonWindow": {
+          "start": "2026-07-31T15:50:00.000Z",
+          "end": "2026-08-30T11:15:00.000Z"
+        },
+        "sourceTiming": {
+          "period": "5m",
+          "sourceTimestamp": "provider timestamp (period end)",
+          "periodStart": "timestamp - 5m",
+          "periodEnd": "timestamp",
+          "availableAt": "timestamp",
+          "rule": "period-end observation is PIT-usable at the endpoint timestamp"
+        },
+        "staleRatio": 0,
+        "observations": 8586,
+        "expectedObservations": 8641,
+        "missingRatio": 0.006365,
+        "duplicates": 0,
+        "freshnessMs": 0,
+        "source": "/futures/data/globalLongShortAccountRatio",
+        "sourceStatus": "ok",
+        "error": null
+      }
+    },
+    "top_trader_account": {
+      "BTCUSDT": {
+        "symbol": "BTCUSDT",
+        "family": "top_trader_account",
+        "file": null,
+        "fileSha256": null,
+        "start": null,
+        "end": null,
+        "earliest": null,
+        "latest": null,
+        "calendarCoverageDays": 0,
+        "commonWindow": {
+          "start": null,
+          "end": null
+        },
+        "sourceTiming": {
+          "period": "5m",
+          "sourceTimestamp": "provider timestamp (period end)",
+          "periodStart": "timestamp - 5m",
+          "periodEnd": "timestamp",
+          "availableAt": "timestamp",
+          "rule": "period-end observation is PIT-usable at the endpoint timestamp"
+        },
+        "staleRatio": null,
+        "observations": 0,
+        "expectedObservations": null,
+        "missingRatio": null,
+        "duplicates": 0,
+        "freshnessMs": null,
+        "source": "/futures/data/topLongShortAccountRatio",
+        "sourceStatus": "UNAVAILABLE_API_KEY_REQUIRED",
+        "error": null
+      },
+      "ETHUSDT": {
+        "symbol": "ETHUSDT",
+        "family": "top_trader_account",
+        "file": null,
+        "fileSha256": null,
+        "start": null,
+        "end": null,
+        "earliest": null,
+        "latest": null,
+        "calendarCoverageDays": 0,
+        "commonWindow": {
+          "start": null,
+          "end": null
+        },
+        "sourceTiming": {
+          "period": "5m",
+          "sourceTimestamp": "provider timestamp (period end)",
+          "periodStart": "timestamp - 5m",
+          "periodEnd": "timestamp",
+          "availableAt": "timestamp",
+          "rule": "period-end observation is PIT-usable at the endpoint timestamp"
+        },
+        "staleRatio": null,
+        "observations": 0,
+        "expectedObservations": null,
+        "missingRatio": null,
+        "duplicates": 0,
+        "freshnessMs": null,
+        "source": "/futures/data/topLongShortAccountRatio",
+        "sourceStatus": "UNAVAILABLE_API_KEY_REQUIRED",
+        "error": null
+      },
+      "SOLUSDT": {
+        "symbol": "SOLUSDT",
+        "family": "top_trader_account",
+        "file": null,
+        "fileSha256": null,
+        "start": null,
+        "end": null,
+        "earliest": null,
+        "latest": null,
+        "calendarCoverageDays": 0,
+        "commonWindow": {
+          "start": null,
+          "end": null
+        },
+        "sourceTiming": {
+          "period": "5m",
+          "sourceTimestamp": "provider timestamp (period end)",
+          "periodStart": "timestamp - 5m",
+          "periodEnd": "timestamp",
+          "availableAt": "timestamp",
+          "rule": "period-end observation is PIT-usable at the endpoint timestamp"
+        },
+        "staleRatio": null,
+        "observations": 0,
+        "expectedObservations": null,
+        "missingRatio": null,
+        "duplicates": 0,
+        "freshnessMs": null,
+        "source": "/futures/data/topLongShortAccountRatio",
+        "sourceStatus": "UNAVAILABLE_API_KEY_REQUIRED",
+        "error": null
+      },
+      "BNBUSDT": {
+        "symbol": "BNBUSDT",
+        "family": "top_trader_account",
+        "file": null,
+        "fileSha256": null,
+        "start": null,
+        "end": null,
+        "earliest": null,
+        "latest": null,
+        "calendarCoverageDays": 0,
+        "commonWindow": {
+          "start": null,
+          "end": null
+        },
+        "sourceTiming": {
+          "period": "5m",
+          "sourceTimestamp": "provider timestamp (period end)",
+          "periodStart": "timestamp - 5m",
+          "periodEnd": "timestamp",
+          "availableAt": "timestamp",
+          "rule": "period-end observation is PIT-usable at the endpoint timestamp"
+        },
+        "staleRatio": null,
+        "observations": 0,
+        "expectedObservations": null,
+        "missingRatio": null,
+        "duplicates": 0,
+        "freshnessMs": null,
+        "source": "/futures/data/topLongShortAccountRatio",
+        "sourceStatus": "UNAVAILABLE_API_KEY_REQUIRED",
+        "error": null
+      },
+      "LINKUSDT": {
+        "symbol": "LINKUSDT",
+        "family": "top_trader_account",
+        "file": null,
+        "fileSha256": null,
+        "start": null,
+        "end": null,
+        "earliest": null,
+        "latest": null,
+        "calendarCoverageDays": 0,
+        "commonWindow": {
+          "start": null,
+          "end": null
+        },
+        "sourceTiming": {
+          "period": "5m",
+          "sourceTimestamp": "provider timestamp (period end)",
+          "periodStart": "timestamp - 5m",
+          "periodEnd": "timestamp",
+          "availableAt": "timestamp",
+          "rule": "period-end observation is PIT-usable at the endpoint timestamp"
+        },
+        "staleRatio": null,
+        "observations": 0,
+        "expectedObservations": null,
+        "missingRatio": null,
+        "duplicates": 0,
+        "freshnessMs": null,
+        "source": "/futures/data/topLongShortAccountRatio",
+        "sourceStatus": "UNAVAILABLE_API_KEY_REQUIRED",
+        "error": null
+      },
+      "AVAXUSDT": {
+        "symbol": "AVAXUSDT",
+        "family": "top_trader_account",
+        "file": null,
+        "fileSha256": null,
+        "start": null,
+        "end": null,
+        "earliest": null,
+        "latest": null,
+        "calendarCoverageDays": 0,
+        "commonWindow": {
+          "start": null,
+          "end": null
+        },
+        "sourceTiming": {
+          "period": "5m",
+          "sourceTimestamp": "provider timestamp (period end)",
+          "periodStart": "timestamp - 5m",
+          "periodEnd": "timestamp",
+          "availableAt": "timestamp",
+          "rule": "period-end observation is PIT-usable at the endpoint timestamp"
+        },
+        "staleRatio": null,
+        "observations": 0,
+        "expectedObservations": null,
+        "missingRatio": null,
+        "duplicates": 0,
+        "freshnessMs": null,
+        "source": "/futures/data/topLongShortAccountRatio",
+        "sourceStatus": "UNAVAILABLE_API_KEY_REQUIRED",
+        "error": null
+      },
+      "DOGEUSDT": {
+        "symbol": "DOGEUSDT",
+        "family": "top_trader_account",
+        "file": null,
+        "fileSha256": null,
+        "start": null,
+        "end": null,
+        "earliest": null,
+        "latest": null,
+        "calendarCoverageDays": 0,
+        "commonWindow": {
+          "start": null,
+          "end": null
+        },
+        "sourceTiming": {
+          "period": "5m",
+          "sourceTimestamp": "provider timestamp (period end)",
+          "periodStart": "timestamp - 5m",
+          "periodEnd": "timestamp",
+          "availableAt": "timestamp",
+          "rule": "period-end observation is PIT-usable at the endpoint timestamp"
+        },
+        "staleRatio": null,
+        "observations": 0,
+        "expectedObservations": null,
+        "missingRatio": null,
+        "duplicates": 0,
+        "freshnessMs": null,
+        "source": "/futures/data/topLongShortAccountRatio",
+        "sourceStatus": "UNAVAILABLE_API_KEY_REQUIRED",
+        "error": null
+      }
+    },
+    "top_trader_position": {
+      "BTCUSDT": {
+        "symbol": "BTCUSDT",
+        "family": "top_trader_position",
+        "file": null,
+        "fileSha256": null,
+        "start": null,
+        "end": null,
+        "earliest": null,
+        "latest": null,
+        "calendarCoverageDays": 0,
+        "commonWindow": {
+          "start": null,
+          "end": null
+        },
+        "sourceTiming": {
+          "period": "5m",
+          "sourceTimestamp": "provider timestamp (period end)",
+          "periodStart": "timestamp - 5m",
+          "periodEnd": "timestamp",
+          "availableAt": "timestamp",
+          "rule": "period-end observation is PIT-usable at the endpoint timestamp"
+        },
+        "staleRatio": null,
+        "observations": 0,
+        "expectedObservations": null,
+        "missingRatio": null,
+        "duplicates": 0,
+        "freshnessMs": null,
+        "source": "/futures/data/topLongShortPositionRatio",
+        "sourceStatus": "UNAVAILABLE_API_KEY_REQUIRED",
+        "error": null
+      },
+      "ETHUSDT": {
+        "symbol": "ETHUSDT",
+        "family": "top_trader_position",
+        "file": null,
+        "fileSha256": null,
+        "start": null,
+        "end": null,
+        "earliest": null,
+        "latest": null,
+        "calendarCoverageDays": 0,
+        "commonWindow": {
+          "start": null,
+          "end": null
+        },
+        "sourceTiming": {
+          "period": "5m",
+          "sourceTimestamp": "provider timestamp (period end)",
+          "periodStart": "timestamp - 5m",
+          "periodEnd": "timestamp",
+          "availableAt": "timestamp",
+          "rule": "period-end observation is PIT-usable at the endpoint timestamp"
+        },
+        "staleRatio": null,
+        "observations": 0,
+        "expectedObservations": null,
+        "missingRatio": null,
+        "duplicates": 0,
+        "freshnessMs": null,
+        "source": "/futures/data/topLongShortPositionRatio",
+        "sourceStatus": "UNAVAILABLE_API_KEY_REQUIRED",
+        "error": null
+      },
+      "SOLUSDT": {
+        "symbol": "SOLUSDT",
+        "family": "top_trader_position",
+        "file": null,
+        "fileSha256": null,
+        "start": null,
+        "end": null,
+        "earliest": null,
+        "latest": null,
+        "calendarCoverageDays": 0,
+        "commonWindow": {
+          "start": null,
+          "end": null
+        },
+        "sourceTiming": {
+          "period": "5m",
+          "sourceTimestamp": "provider timestamp (period end)",
+          "periodStart": "timestamp - 5m",
+          "periodEnd": "timestamp",
+          "availableAt": "timestamp",
+          "rule": "period-end observation is PIT-usable at the endpoint timestamp"
+        },
+        "staleRatio": null,
+        "observations": 0,
+        "expectedObservations": null,
+        "missingRatio": null,
+        "duplicates": 0,
+        "freshnessMs": null,
+        "source": "/futures/data/topLongShortPositionRatio",
+        "sourceStatus": "UNAVAILABLE_API_KEY_REQUIRED",
+        "error": null
+      },
+      "BNBUSDT": {
+        "symbol": "BNBUSDT",
+        "family": "top_trader_position",
+        "file": null,
+        "fileSha256": null,
+        "start": null,
+        "end": null,
+        "earliest": null,
+        "latest": null,
+        "calendarCoverageDays": 0,
+        "commonWindow": {
+          "start": null,
+          "end": null
+        },
+        "sourceTiming": {
+          "period": "5m",
+          "sourceTimestamp": "provider timestamp (period end)",
+          "periodStart": "timestamp - 5m",
+          "periodEnd": "timestamp",
+          "availableAt": "timestamp",
+          "rule": "period-end observation is PIT-usable at the endpoint timestamp"
+        },
+        "staleRatio": null,
+        "observations": 0,
+        "expectedObservations": null,
+        "missingRatio": null,
+        "duplicates": 0,
+        "freshnessMs": null,
+        "source": "/futures/data/topLongShortPositionRatio",
+        "sourceStatus": "UNAVAILABLE_API_KEY_REQUIRED",
+        "error": null
+      },
+      "LINKUSDT": {
+        "symbol": "LINKUSDT",
+        "family": "top_trader_position",
+        "file": null,
+        "fileSha256": null,
+        "start": null,
+        "end": null,
+        "earliest": null,
+        "latest": null,
+        "calendarCoverageDays": 0,
+        "commonWindow": {
+          "start": null,
+          "end": null
+        },
+        "sourceTiming": {
+          "period": "5m",
+          "sourceTimestamp": "provider timestamp (period end)",
+          "periodStart": "timestamp - 5m",
+          "periodEnd": "timestamp",
+          "availableAt": "timestamp",
+          "rule": "period-end observation is PIT-usable at the endpoint timestamp"
+        },
+        "staleRatio": null,
+        "observations": 0,
+        "expectedObservations": null,
+        "missingRatio": null,
+        "duplicates": 0,
+        "freshnessMs": null,
+        "source": "/futures/data/topLongShortPositionRatio",
+        "sourceStatus": "UNAVAILABLE_API_KEY_REQUIRED",
+        "error": null
+      },
+      "AVAXUSDT": {
+        "symbol": "AVAXUSDT",
+        "family": "top_trader_position",
+        "file": null,
+        "fileSha256": null,
+        "start": null,
+        "end": null,
+        "earliest": null,
+        "latest": null,
+        "calendarCoverageDays": 0,
+        "commonWindow": {
+          "start": null,
+          "end": null
+        },
+        "sourceTiming": {
+          "period": "5m",
+          "sourceTimestamp": "provider timestamp (period end)",
+          "periodStart": "timestamp - 5m",
+          "periodEnd": "timestamp",
+          "availableAt": "timestamp",
+          "rule": "period-end observation is PIT-usable at the endpoint timestamp"
+        },
+        "staleRatio": null,
+        "observations": 0,
+        "expectedObservations": null,
+        "missingRatio": null,
+        "duplicates": 0,
+        "freshnessMs": null,
+        "source": "/futures/data/topLongShortPositionRatio",
+        "sourceStatus": "UNAVAILABLE_API_KEY_REQUIRED",
+        "error": null
+      },
+      "DOGEUSDT": {
+        "symbol": "DOGEUSDT",
+        "family": "top_trader_position",
+        "file": null,
+        "fileSha256": null,
+        "start": null,
+        "end": null,
+        "earliest": null,
+        "latest": null,
+        "calendarCoverageDays": 0,
+        "commonWindow": {
+          "start": null,
+          "end": null
+        },
+        "sourceTiming": {
+          "period": "5m",
+          "sourceTimestamp": "provider timestamp (period end)",
+          "periodStart": "timestamp - 5m",
+          "periodEnd": "timestamp",
+          "availableAt": "timestamp",
+          "rule": "period-end observation is PIT-usable at the endpoint timestamp"
+        },
+        "staleRatio": null,
+        "observations": 0,
+        "expectedObservations": null,
+        "missingRatio": null,
+        "duplicates": 0,
+        "freshnessMs": null,
+        "source": "/futures/data/topLongShortPositionRatio",
+        "sourceStatus": "UNAVAILABLE_API_KEY_REQUIRED",
+        "error": null
+      }
+    },
+    "liquidation": {
+      "BTCUSDT": {
+        "symbol": "BTCUSDT",
+        "family": "liquidation",
+        "file": null,
+        "fileSha256": null,
+        "start": null,
+        "end": null,
+        "earliest": null,
+        "latest": null,
+        "calendarCoverageDays": 0,
+        "commonWindow": {
+          "start": null,
+          "end": null
+        },
+        "sourceTiming": {
+          "period": "event",
+          "sourceTimestamp": "eventTime",
+          "periodStart": null,
+          "periodEnd": null,
+          "availableAt": "receivedAt",
+          "rule": "forward-only"
+        },
+        "staleRatio": null,
+        "observations": 0,
+        "expectedObservations": null,
+        "missingRatio": null,
+        "duplicates": 0,
+        "freshnessMs": null,
+        "source": "websocket:!forceOrder@arr",
+        "sourceStatus": "INSUFFICIENT_HISTORICAL_LIQUIDATION_DATA",
+        "error": null
+      },
+      "ETHUSDT": {
+        "symbol": "ETHUSDT",
+        "family": "liquidation",
+        "file": null,
+        "fileSha256": null,
+        "start": null,
+        "end": null,
+        "earliest": null,
+        "latest": null,
+        "calendarCoverageDays": 0,
+        "commonWindow": {
+          "start": null,
+          "end": null
+        },
+        "sourceTiming": {
+          "period": "event",
+          "sourceTimestamp": "eventTime",
+          "periodStart": null,
+          "periodEnd": null,
+          "availableAt": "receivedAt",
+          "rule": "forward-only"
+        },
+        "staleRatio": null,
+        "observations": 0,
+        "expectedObservations": null,
+        "missingRatio": null,
+        "duplicates": 0,
+        "freshnessMs": null,
+        "source": "websocket:!forceOrder@arr",
+        "sourceStatus": "INSUFFICIENT_HISTORICAL_LIQUIDATION_DATA",
+        "error": null
+      },
+      "SOLUSDT": {
+        "symbol": "SOLUSDT",
+        "family": "liquidation",
+        "file": null,
+        "fileSha256": null,
+        "start": null,
+        "end": null,
+        "earliest": null,
+        "latest": null,
+        "calendarCoverageDays": 0,
+        "commonWindow": {
+          "start": null,
+          "end": null
+        },
+        "sourceTiming": {
+          "period": "event",
+          "sourceTimestamp": "eventTime",
+          "periodStart": null,
+          "periodEnd": null,
+          "availableAt": "receivedAt",
+          "rule": "forward-only"
+        },
+        "staleRatio": null,
+        "observations": 0,
+        "expectedObservations": null,
+        "missingRatio": null,
+        "duplicates": 0,
+        "freshnessMs": null,
+        "source": "websocket:!forceOrder@arr",
+        "sourceStatus": "INSUFFICIENT_HISTORICAL_LIQUIDATION_DATA",
+        "error": null
+      },
+      "BNBUSDT": {
+        "symbol": "BNBUSDT",
+        "family": "liquidation",
+        "file": null,
+        "fileSha256": null,
+        "start": null,
+        "end": null,
+        "earliest": null,
+        "latest": null,
+        "calendarCoverageDays": 0,
+        "commonWindow": {
+          "start": null,
+          "end": null
+        },
+        "sourceTiming": {
+          "period": "event",
+          "sourceTimestamp": "eventTime",
+          "periodStart": null,
+          "periodEnd": null,
+          "availableAt": "receivedAt",
+          "rule": "forward-only"
+        },
+        "staleRatio": null,
+        "observations": 0,
+        "expectedObservations": null,
+        "missingRatio": null,
+        "duplicates": 0,
+        "freshnessMs": null,
+        "source": "websocket:!forceOrder@arr",
+        "sourceStatus": "INSUFFICIENT_HISTORICAL_LIQUIDATION_DATA",
+        "error": null
+      },
+      "LINKUSDT": {
+        "symbol": "LINKUSDT",
+        "family": "liquidation",
+        "file": null,
+        "fileSha256": null,
+        "start": null,
+        "end": null,
+        "earliest": null,
+        "latest": null,
+        "calendarCoverageDays": 0,
+        "commonWindow": {
+          "start": null,
+          "end": null
+        },
+        "sourceTiming": {
+          "period": "event",
+          "sourceTimestamp": "eventTime",
+          "periodStart": null,
+          "periodEnd": null,
+          "availableAt": "receivedAt",
+          "rule": "forward-only"
+        },
+        "staleRatio": null,
+        "observations": 0,
+        "expectedObservations": null,
+        "missingRatio": null,
+        "duplicates": 0,
+        "freshnessMs": null,
+        "source": "websocket:!forceOrder@arr",
+        "sourceStatus": "INSUFFICIENT_HISTORICAL_LIQUIDATION_DATA",
+        "error": null
+      },
+      "AVAXUSDT": {
+        "symbol": "AVAXUSDT",
+        "family": "liquidation",
+        "file": null,
+        "fileSha256": null,
+        "start": null,
+        "end": null,
+        "earliest": null,
+        "latest": null,
+        "calendarCoverageDays": 0,
+        "commonWindow": {
+          "start": null,
+          "end": null
+        },
+        "sourceTiming": {
+          "period": "event",
+          "sourceTimestamp": "eventTime",
+          "periodStart": null,
+          "periodEnd": null,
+          "availableAt": "receivedAt",
+          "rule": "forward-only"
+        },
+        "staleRatio": null,
+        "observations": 0,
+        "expectedObservations": null,
+        "missingRatio": null,
+        "duplicates": 0,
+        "freshnessMs": null,
+        "source": "websocket:!forceOrder@arr",
+        "sourceStatus": "INSUFFICIENT_HISTORICAL_LIQUIDATION_DATA",
+        "error": null
+      },
+      "DOGEUSDT": {
+        "symbol": "DOGEUSDT",
+        "family": "liquidation",
+        "file": null,
+        "fileSha256": null,
+        "start": null,
+        "end": null,
+        "earliest": null,
+        "latest": null,
+        "calendarCoverageDays": 0,
+        "commonWindow": {
+          "start": null,
+          "end": null
+        },
+        "sourceTiming": {
+          "period": "event",
+          "sourceTimestamp": "eventTime",
+          "periodStart": null,
+          "periodEnd": null,
+          "availableAt": "receivedAt",
+          "rule": "forward-only"
+        },
+        "staleRatio": null,
+        "observations": 0,
+        "expectedObservations": null,
+        "missingRatio": null,
+        "duplicates": 0,
+        "freshnessMs": null,
+        "source": "websocket:!forceOrder@arr",
+        "sourceStatus": "INSUFFICIENT_HISTORICAL_LIQUIDATION_DATA",
+        "error": null
+      }
+    }
+  },
+  "familyCoverageSummaries": {
+    "open_interest": {
+      "family": "open_interest",
+      "earliest": "2026-07-31T15:55:00.000Z",
+      "latest": "2026-08-30T11:15:00.000Z",
+      "commonWindow": {
+        "start": "2026-07-31T15:55:00.000Z",
+        "end": "2026-08-30T11:15:00.000Z"
+      },
+      "calendarCoverageDays": 29.809028,
+      "symbolsMeetingCoverage": [],
+      "symbolsWithData": [
+        "BTCUSDT",
+        "ETHUSDT",
+        "SOLUSDT",
+        "BNBUSDT",
+        "LINKUSDT",
+        "AVAXUSDT",
+        "DOGEUSDT"
+      ],
+      "missingRatio": 0.006481,
+      "staleRatio": 0,
+      "observations": 60095
+    },
+    "funding": {
+      "family": "funding",
+      "earliest": "2026-07-31T16:00:00.000Z",
+      "latest": "2026-08-30T08:00:00.000Z",
+      "commonWindow": {
+        "start": "2026-07-31T16:00:00.000Z",
+        "end": "2026-08-30T08:00:00.000Z"
+      },
+      "calendarCoverageDays": 29.666667,
+      "symbolsMeetingCoverage": [],
+      "symbolsWithData": [
+        "BTCUSDT",
+        "ETHUSDT",
+        "SOLUSDT",
+        "BNBUSDT",
+        "LINKUSDT",
+        "AVAXUSDT",
+        "DOGEUSDT"
+      ],
+      "missingRatio": null,
+      "staleRatio": 0,
+      "observations": 630
+    },
+    "basis": {
+      "family": "basis",
+      "earliest": "2026-07-31T15:55:00.000Z",
+      "latest": "2026-08-30T11:15:00.000Z",
+      "commonWindow": {
+        "start": "2026-07-31T15:55:00.000Z",
+        "end": "2026-08-19T18:05:00.000Z"
+      },
+      "calendarCoverageDays": 19.09375,
+      "symbolsMeetingCoverage": [],
+      "symbolsWithData": [
+        "BTCUSDT",
+        "ETHUSDT",
+        "SOLUSDT",
+        "BNBUSDT",
+        "LINKUSDT",
+        "AVAXUSDT",
+        "DOGEUSDT"
+      ],
+      "missingRatio": 0.2382,
+      "staleRatio": 0.00013,
+      "observations": 46079
+    },
+    "taker_flow": {
+      "family": "taker_flow",
+      "earliest": "2026-07-31T15:50:00.000Z",
+      "latest": "2026-08-30T11:15:00.000Z",
+      "commonWindow": {
+        "start": "2026-07-31T15:55:00.000Z",
+        "end": "2026-08-30T11:15:00.000Z"
+      },
+      "calendarCoverageDays": 29.809028,
+      "symbolsMeetingCoverage": [],
+      "symbolsWithData": [
+        "BTCUSDT",
+        "ETHUSDT",
+        "SOLUSDT",
+        "BNBUSDT",
+        "LINKUSDT",
+        "AVAXUSDT",
+        "DOGEUSDT"
+      ],
+      "missingRatio": 0.008415,
+      "staleRatio": 0,
+      "observations": 59978
+    },
+    "positioning": {
+      "family": "positioning",
+      "earliest": "2026-07-31T15:50:00.000Z",
+      "latest": "2026-08-30T11:15:00.000Z",
+      "commonWindow": {
+        "start": "2026-07-31T15:50:00.000Z",
+        "end": "2026-08-30T11:15:00.000Z"
+      },
+      "calendarCoverageDays": 29.8125,
+      "symbolsMeetingCoverage": [],
+      "symbolsWithData": [
+        "BTCUSDT",
+        "ETHUSDT",
+        "SOLUSDT",
+        "BNBUSDT",
+        "LINKUSDT",
+        "AVAXUSDT",
+        "DOGEUSDT"
+      ],
+      "missingRatio": 0.006365,
+      "staleRatio": 0,
+      "observations": 60102
+    },
+    "top_trader_account": {
+      "family": "top_trader_account",
+      "earliest": null,
+      "latest": null,
+      "commonWindow": {
+        "start": null,
+        "end": null
+      },
+      "calendarCoverageDays": 0,
+      "symbolsMeetingCoverage": [],
+      "symbolsWithData": [],
+      "missingRatio": null,
+      "staleRatio": null,
+      "observations": 0
+    },
+    "top_trader_position": {
+      "family": "top_trader_position",
+      "earliest": null,
+      "latest": null,
+      "commonWindow": {
+        "start": null,
+        "end": null
+      },
+      "calendarCoverageDays": 0,
+      "symbolsMeetingCoverage": [],
+      "symbolsWithData": [],
+      "missingRatio": null,
+      "staleRatio": null,
+      "observations": 0
+    },
+    "liquidation": {
+      "family": "liquidation",
+      "earliest": null,
+      "latest": null,
+      "commonWindow": {
+        "start": null,
+        "end": null
+      },
+      "calendarCoverageDays": 0,
+      "symbolsMeetingCoverage": [],
+      "symbolsWithData": [],
+      "missingRatio": null,
+      "staleRatio": null,
+      "observations": 0
+    }
+  },
+  "familyCoverageDays": {
+    "open_interest": 29.809028,
+    "funding": 29.666667,
+    "basis": 19.09375,
+    "taker_flow": 29.809028,
+    "positioning": 29.8125,
+    "top_trader_account": 0,
+    "top_trader_position": 0,
+    "liquidation": 0
+  },
+  "combinedCoverageDays": 19.090278,
+  "totalRows": 226884,
+  "consolidatedMetricRows": 60375,
+  "totalExpectedRows": 241948,
+  "missingDataRatio": 0.064865,
+  "earliestMetricTime": "2026-07-31T15:50:00.000Z",
+  "latestMetricTime": "2026-08-30T11:15:00.000Z",
+  "commonMetricWindow": {
+    "start": "2026-07-31T16:00:00.000Z",
+    "end": "2026-08-19T18:05:00.000Z"
+  },
+  "historicalCoverageDays": 19.086806,
+  "historicalCoverageAtLeast90d": false,
+  "coverageMethod": "family-specific; global common window is descriptive only",
+  "sourceGapInvestigations": {
+    "DOGEUSDT_basis": {
+      "status": "SOURCE_GAP_UNRESOLVED",
+      "observedGap": false,
+      "latestObserved": "2026-08-30T11:15:00.000Z",
+      "note": "The earlier truncation was not reproduced on the fixed-window refresh; the provider returned observations through the requested end. The historical cause of the prior gap remains unresolved."
+    }
+  },
+  "datasetHash": "17ee65012bb0c5c2e877a09ad5a0aaf008677d62e1a9b02a4d4896718e170c2a",
+  "errors": [],
+  "prohibitedSources": [
+    "private Binance API",
+    "account API",
+    "position API",
+    "user trade API",
+    "liquidation REST history without reliable public PIT data"
+  ],
+  "databasePersistence": "migration included in Draft PR; not applied to Production"
+}
