@@ -76,6 +76,50 @@ const MARKET_DATA_KEY_HEADER = ["X-MBX", "APIKEY"].join("-");
 
 type FetchLike = typeof fetch;
 
+export type DerivativesErrorClassification =
+  | "EXPECTED_UNAVAILABLE"
+  | "PROVIDER_RATE_LIMIT"
+  | "PROVIDER_HTTP_ERROR"
+  | "PROVIDER_SCHEMA_ERROR"
+  | "INTERNAL_COLLECTOR_ERROR";
+
+export type DerivativesErrorDetails = {
+  classification: DerivativesErrorClassification;
+  code: string;
+  httpStatus?: number;
+  retryAfterMs?: number;
+  providerCode?: string | number;
+  providerMessage?: string;
+};
+
+/** A typed request/provider failure that can be safely classified by the collector. */
+export class DerivativesRequestError extends Error {
+  readonly classification: DerivativesErrorClassification;
+  readonly code: string;
+  readonly httpStatus?: number;
+  readonly retryAfterMs?: number;
+  readonly providerCode?: string | number;
+  readonly providerMessage?: string;
+
+  constructor(message: string, details: DerivativesErrorDetails) {
+    super(message);
+    this.name = "DerivativesRequestError";
+    this.classification = details.classification;
+    this.code = details.code;
+    this.httpStatus = details.httpStatus;
+    this.retryAfterMs = details.retryAfterMs;
+    this.providerCode = details.providerCode;
+    this.providerMessage = details.providerMessage;
+  }
+}
+
+export type DerivativesEndpointError = DerivativesErrorDetails & {
+  endpoint: string;
+  message: string;
+};
+
+export const DERIVATIVES_SYMBOL_CONCURRENCY = 2;
+
 export type DerivativesRequestOptions = {
   baseUrl?: string;
   fetchImpl?: FetchLike;
@@ -252,7 +296,7 @@ export type DerivativesCollectionResult = {
   rows: DerivativesMetric[];
   attemptedSymbols: string[];
   endpointStatus: Record<string, { ok: number; failed: number; observations: number }>;
-  errors: Array<{ symbol: string; endpoint: string; message: string }>;
+  errors: Array<DerivativesEndpointError & { symbol: string }>;
 };
 
 export type CollectionInput = {
@@ -268,11 +312,11 @@ export type CollectionInput = {
   globalLongShortHistory: TimedPositioning[];
   topTraderAccountHistory?: TimedTopTraderPositioning[];
   topTraderPositionHistory?: TimedTopTraderPositioning[];
-  endpointErrors?: Array<{ endpoint: string; message: string }>;
+  endpointErrors?: DerivativesEndpointError[];
 };
 
 export async function fetchCurrentOpenInterest(symbol: string, options: DerivativesRequestOptions = {}) {
-  const data = await requestJson<Record<string, unknown>>(DERIVATIVES_PUBLIC_ENDPOINTS.openInterest, { symbol }, options);
+  const data = await requestJsonObject(DERIVATIVES_PUBLIC_ENDPOINTS.openInterest, { symbol }, options);
   const timestamp = finiteNumber(data.time);
   return {
     symbol,
@@ -286,7 +330,7 @@ export async function fetchCurrentOpenInterest(symbol: string, options: Derivati
 }
 
 export async function fetchOpenInterestHistory(symbol: string, options: DerivativesRequestOptions = {}) {
-  const data = await requestJson<unknown[]>(DERIVATIVES_PUBLIC_ENDPOINTS.openInterestHistory, {
+  const data = await requestJsonArray(DERIVATIVES_PUBLIC_ENDPOINTS.openInterestHistory, {
     symbol,
     period: DERIVATIVES_INTERVAL,
     limit: options.limit ?? DERIVATIVES_HISTORY_LIMIT
@@ -310,7 +354,7 @@ export async function fetchOpenInterestHistory(symbol: string, options: Derivati
 }
 
 export async function fetchPremiumIndex(symbol: string, options: DerivativesRequestOptions = {}) {
-  const data = await requestJson<Record<string, unknown>>(DERIVATIVES_PUBLIC_ENDPOINTS.premiumIndex, { symbol }, options);
+  const data = await requestJsonObject(DERIVATIVES_PUBLIC_ENDPOINTS.premiumIndex, { symbol }, options);
   return {
     symbol,
     markPrice: finiteNumberOrNull(data.markPrice),
@@ -326,7 +370,7 @@ export async function fetchPremiumIndex(symbol: string, options: DerivativesRequ
 }
 
 export async function fetchFundingHistory(symbol: string, options: DerivativesRequestOptions = {}) {
-  const data = await requestJson<unknown[]>(DERIVATIVES_PUBLIC_ENDPOINTS.fundingHistory, {
+  const data = await requestJsonArray(DERIVATIVES_PUBLIC_ENDPOINTS.fundingHistory, {
     symbol,
     limit: options.limit ?? DERIVATIVES_HISTORY_LIMIT
   }, options);
@@ -349,7 +393,7 @@ export async function fetchFundingHistory(symbol: string, options: DerivativesRe
 }
 
 export async function fetchBasisHistory(symbol: string, options: DerivativesRequestOptions = {}) {
-  const data = await requestJson<unknown[]>(DERIVATIVES_PUBLIC_ENDPOINTS.basis, {
+  const data = await requestJsonArray(DERIVATIVES_PUBLIC_ENDPOINTS.basis, {
     pair: symbol,
     contractType: "PERPETUAL",
     period: DERIVATIVES_INTERVAL,
@@ -375,7 +419,7 @@ export async function fetchBasisHistory(symbol: string, options: DerivativesRequ
 }
 
 export async function fetchTakerFlowHistory(symbol: string, options: DerivativesRequestOptions = {}) {
-  const data = await requestJson<unknown[]>(DERIVATIVES_PUBLIC_ENDPOINTS.takerFlow, {
+  const data = await requestJsonArray(DERIVATIVES_PUBLIC_ENDPOINTS.takerFlow, {
     symbol,
     period: DERIVATIVES_INTERVAL,
     limit: options.limit ?? DERIVATIVES_HISTORY_LIMIT
@@ -398,7 +442,7 @@ export async function fetchTakerFlowHistory(symbol: string, options: Derivatives
 }
 
 export async function fetchGlobalLongShortHistory(symbol: string, options: DerivativesRequestOptions = {}) {
-  const data = await requestJson<unknown[]>(DERIVATIVES_PUBLIC_ENDPOINTS.globalLongShort, {
+  const data = await requestJsonArray(DERIVATIVES_PUBLIC_ENDPOINTS.globalLongShort, {
     symbol,
     period: DERIVATIVES_INTERVAL,
     limit: options.limit ?? DERIVATIVES_HISTORY_LIMIT
@@ -430,7 +474,7 @@ export async function fetchTopTraderPositionHistory(symbol: string, options: Der
 }
 
 async function fetchTopTraderHistory(symbol: string, endpoint: string, options: DerivativesRequestOptions) {
-  const data = await requestJson<unknown[]>(endpoint, {
+  const data = await requestJsonArray(endpoint, {
     symbol,
     period: DERIVATIVES_INTERVAL,
     limit: options.limit ?? DERIVATIVES_HISTORY_LIMIT
@@ -577,7 +621,9 @@ export function buildDerivativesMetric(input: CollectionInput): DerivativesMetri
     ["liquidationNotional", null]
   ].filter(([, value]) => value === null).map(([name]) => name);
   const endpointErrors = input.endpointErrors ?? [];
-  const unavailableEndpoint = (endpoint: string) => endpointErrors.some((error) => error.endpoint === endpoint && error.message.includes("UNAVAILABLE_API_KEY_REQUIRED"));
+  const unavailableEndpoint = (endpoint: string) => endpointErrors.some((error) => error.endpoint === endpoint && (
+    error.code === "UNAVAILABLE_API_KEY_REQUIRED" || error.message.includes("UNAVAILABLE_API_KEY_REQUIRED")
+  ));
   if (unavailableEndpoint(DERIVATIVES_PUBLIC_ENDPOINTS.topTraderAccount)) sourceTiming.top_trader_account = unavailableTiming();
   if (unavailableEndpoint(DERIVATIVES_PUBLIC_ENDPOINTS.topTraderPosition)) sourceTiming.top_trader_position = unavailableTiming();
   const sourceStatus = {
@@ -699,7 +745,7 @@ export async function collectDerivativesMetrics(
   const now = options.now ?? Date.now();
   const endpointStatus: DerivativesCollectionResult["endpointStatus"] = {};
   const errors: DerivativesCollectionResult["errors"] = [];
-  const rows = await Promise.all(symbols.map(async (symbol) => {
+  const rows = await mapWithConcurrency(symbols, DERIVATIVES_SYMBOL_CONCURRENCY, async (symbol) => {
     const jobs: Array<[string, () => Promise<unknown>]> = [
       [DERIVATIVES_PUBLIC_ENDPOINTS.openInterest, () => fetchCurrentOpenInterest(symbol, options)],
       [DERIVATIVES_PUBLIC_ENDPOINTS.openInterestHistory, () => fetchOpenInterestHistory(symbol, options)],
@@ -711,22 +757,26 @@ export async function collectDerivativesMetrics(
       [DERIVATIVES_PUBLIC_ENDPOINTS.topTraderAccount, () => fetchTopTraderAccountHistory(symbol, options)],
       [DERIVATIVES_PUBLIC_ENDPOINTS.topTraderPosition, () => fetchTopTraderPositionHistory(symbol, options)]
     ];
-    const settled = await Promise.all(jobs.map(async ([endpoint, job]) => {
+    const settled: Array<{ endpoint: string; value: unknown; error: DerivativesEndpointError | null }> = [];
+    // Keep endpoint requests sequential within each symbol. Together with the
+    // symbol worker limit this prevents a symbol x endpoint request burst.
+    for (const [endpoint, job] of jobs) {
       try {
         const value = await job();
         const observations = Array.isArray(value) ? value.length : value ? 1 : 0;
         endpointStatus[endpoint] = endpointStatus[endpoint] ?? { ok: 0, failed: 0, observations: 0 };
         endpointStatus[endpoint].ok += 1;
         endpointStatus[endpoint].observations += observations;
-        return { endpoint, value, error: null };
+        settled.push({ endpoint, value, error: null });
       } catch (error) {
-        const message = error instanceof Error ? error.message : String(error);
+        const classified = classifyDerivativesError(error, endpoint);
         endpointStatus[endpoint] = endpointStatus[endpoint] ?? { ok: 0, failed: 0, observations: 0 };
         endpointStatus[endpoint].failed += 1;
-        errors.push({ symbol, endpoint, message });
-        return { endpoint, value: null, error: message };
+        const endpointError = { endpoint, ...classified };
+        errors.push({ symbol, ...endpointError });
+        settled.push({ endpoint, value: null, error: endpointError });
       }
-    }));
+    }
     const value = new Map(settled.map((item) => [item.endpoint, item.value]));
     return buildDerivativesMetric({
       symbol,
@@ -741,9 +791,9 @@ export async function collectDerivativesMetrics(
       globalLongShortHistory: (value.get(DERIVATIVES_PUBLIC_ENDPOINTS.globalLongShort) as TimedPositioning[] | null) ?? [],
       topTraderAccountHistory: (value.get(DERIVATIVES_PUBLIC_ENDPOINTS.topTraderAccount) as TimedTopTraderPositioning[] | null) ?? [],
       topTraderPositionHistory: (value.get(DERIVATIVES_PUBLIC_ENDPOINTS.topTraderPosition) as TimedTopTraderPositioning[] | null) ?? [],
-      endpointErrors: settled.filter((item) => item.error).map((item) => ({ endpoint: item.endpoint, message: item.error! }))
+      endpointErrors: settled.flatMap((item) => item.error ? [item.error] : [])
     });
-  }));
+  });
 
   return { rows, attemptedSymbols: [...symbols], endpointStatus, errors };
 }
@@ -897,12 +947,158 @@ async function requestJson<T>(endpoint: string, params: Record<string, string | 
   for (const [key, value] of Object.entries(params)) url.searchParams.set(key, String(value));
   const requiresMarketDataKey = DERIVATIVES_MARKET_DATA_KEY_ENDPOINTS.includes(endpoint as typeof DERIVATIVES_MARKET_DATA_KEY_ENDPOINTS[number]);
   const marketDataApiKey = process.env.BINANCE_MARKET_DATA_API_KEY?.trim();
-  if (requiresMarketDataKey && !marketDataApiKey) throw new Error("UNAVAILABLE_API_KEY_REQUIRED");
+  if (requiresMarketDataKey && !marketDataApiKey) {
+    throw new DerivativesRequestError("UNAVAILABLE_API_KEY_REQUIRED", {
+      classification: "EXPECTED_UNAVAILABLE",
+      code: "UNAVAILABLE_API_KEY_REQUIRED"
+    });
+  }
   const headers: Record<string, string> = {};
   if (requiresMarketDataKey && marketDataApiKey) headers[MARKET_DATA_KEY_HEADER] = marketDataApiKey;
-  const response = await (options.fetchImpl ?? fetch)(url, { cache: "no-store", ...(Object.keys(headers).length ? { headers } : {}) });
-  if (!response.ok) throw new Error(`${endpoint} failed: ${response.status} ${response.statusText}`);
-  return await response.json() as T;
+  let response: Response;
+  try {
+    response = await (options.fetchImpl ?? fetch)(url, { cache: "no-store", ...(Object.keys(headers).length ? { headers } : {}) });
+  } catch (error) {
+    throw new DerivativesRequestError(
+      `${endpoint} request failed: ${error instanceof Error ? error.message : String(error)}`,
+      { classification: "PROVIDER_HTTP_ERROR", code: "PROVIDER_REQUEST_FAILED" }
+    );
+  }
+  if (!response.ok) {
+    const provider = await readProviderError(response);
+    const rateLimit = response.status === 429 || response.status === 418;
+    const code = response.status === 429
+      ? "RATE_LIMITED_429"
+      : response.status === 418
+        ? "IP_RATE_LIMITED_418"
+        : "PROVIDER_HTTP_ERROR";
+    const message = provider
+      ? `${endpoint} failed: ${response.status} ${provider.message}`
+      : `${endpoint} failed: ${response.status} ${response.statusText}`;
+    throw new DerivativesRequestError(message, {
+      classification: rateLimit ? "PROVIDER_RATE_LIMIT" : "PROVIDER_HTTP_ERROR",
+      code,
+      httpStatus: response.status,
+      retryAfterMs: readRetryAfterMs(response.headers.get("retry-after")),
+      providerCode: provider?.code,
+      providerMessage: provider?.message
+    });
+  }
+  try {
+    return await response.json() as T;
+  } catch (error) {
+    throw new DerivativesRequestError(
+      `${endpoint} returned invalid JSON: ${error instanceof Error ? error.message : String(error)}`,
+      { classification: "PROVIDER_SCHEMA_ERROR", code: "INVALID_JSON" }
+    );
+  }
+}
+
+async function requestJsonArray(
+  endpoint: string,
+  params: Record<string, string | number>,
+  options: DerivativesRequestOptions
+) {
+  const data = await requestJson<unknown>(endpoint, params, options);
+  if (Array.isArray(data)) return data;
+  if (isRecord(data) && isProviderErrorPayload(data)) {
+    throw new DerivativesRequestError(
+      `${endpoint} provider error ${String(data.code)}: ${data.msg}`,
+      {
+        classification: "PROVIDER_HTTP_ERROR",
+        code: "PROVIDER_ERROR_RESPONSE",
+        providerCode: data.code as string | number,
+        providerMessage: data.msg
+      }
+    );
+  }
+  throw new DerivativesRequestError("UNEXPECTED_PROVIDER_RESPONSE_SHAPE", {
+    classification: "PROVIDER_SCHEMA_ERROR",
+    code: "UNEXPECTED_PROVIDER_RESPONSE_SHAPE"
+  });
+}
+
+async function requestJsonObject(
+  endpoint: string,
+  params: Record<string, string | number>,
+  options: DerivativesRequestOptions
+) {
+  const data = await requestJson<unknown>(endpoint, params, options);
+  if (isRecord(data)) {
+    if (isProviderErrorPayload(data)) {
+      throw new DerivativesRequestError(
+        `${endpoint} provider error ${String(data.code)}: ${data.msg}`,
+        {
+          classification: "PROVIDER_HTTP_ERROR",
+          code: "PROVIDER_ERROR_RESPONSE",
+          providerCode: data.code as string | number,
+          providerMessage: data.msg
+        }
+      );
+    }
+    return data;
+  }
+  throw new DerivativesRequestError("UNEXPECTED_PROVIDER_RESPONSE_SHAPE", {
+    classification: "PROVIDER_SCHEMA_ERROR",
+    code: "UNEXPECTED_PROVIDER_RESPONSE_SHAPE"
+  });
+}
+
+function isProviderErrorPayload(value: Record<string, unknown>): value is Record<string, unknown> & { code: string | number; msg: string } {
+  return (typeof value.code === "string" || typeof value.code === "number") && typeof value.msg === "string";
+}
+
+function readRetryAfterMs(value: string | null) {
+  if (!value) return undefined;
+  const seconds = Number(value);
+  if (Number.isFinite(seconds)) return Math.max(0, Math.round(seconds * 1000));
+  const timestamp = Date.parse(value);
+  return Number.isFinite(timestamp) ? Math.max(0, timestamp - Date.now()) : undefined;
+}
+
+async function readProviderError(response: Response) {
+  try {
+    const data = await response.json() as unknown;
+    if (isRecord(data) && isProviderErrorPayload(data)) {
+      return { code: data.code as string | number, message: data.msg };
+    }
+  } catch {
+    // Preserve the HTTP status when a provider returns a non-JSON error body.
+  }
+  return null;
+}
+
+function classifyDerivativesError(error: unknown, endpoint: string): Omit<DerivativesEndpointError, "endpoint" | "message"> & { message: string } {
+  if (error instanceof DerivativesRequestError) {
+    return {
+      message: error.message,
+      classification: error.classification,
+      code: error.code,
+      ...(error.httpStatus === undefined ? {} : { httpStatus: error.httpStatus }),
+      ...(error.retryAfterMs === undefined ? {} : { retryAfterMs: error.retryAfterMs }),
+      ...(error.providerCode === undefined ? {} : { providerCode: error.providerCode }),
+      ...(error.providerMessage === undefined ? {} : { providerMessage: error.providerMessage })
+    };
+  }
+  const message = error instanceof Error ? error.message : String(error);
+  if (message.includes("non-numeric value")) {
+    return { message, classification: "PROVIDER_SCHEMA_ERROR", code: "INVALID_PROVIDER_FIELD" };
+  }
+  return { message: `${endpoint}: ${message}`, classification: "INTERNAL_COLLECTOR_ERROR", code: "INTERNAL_COLLECTOR_ERROR" };
+}
+
+async function mapWithConcurrency<T, R>(items: T[], limit: number, mapper: (item: T, index: number) => Promise<R>) {
+  const results = new Array<R>(items.length);
+  let nextIndex = 0;
+  const worker = async () => {
+    while (true) {
+      const index = nextIndex++;
+      if (index >= items.length) return;
+      results[index] = await mapper(items[index]!, index);
+    }
+  };
+  await Promise.all(Array.from({ length: Math.min(limit, items.length) }, () => worker()));
+  return results;
 }
 
 function latestAtOrBefore<T>(rows: T[], timestamp: number, getTimestamp: (row: T) => number, excludeTimestamp?: number) {
@@ -928,8 +1124,12 @@ function zScore(value: number | null, history: number[]) {
   return standardDeviation > 0 ? round((value - mean) / standardDeviation) : 0;
 }
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return value !== null && typeof value === "object" && !Array.isArray(value);
+}
+
 function asRecord(value: unknown): Record<string, unknown> {
-  return value && typeof value === "object" && !Array.isArray(value) ? value as Record<string, unknown> : {};
+  return isRecord(value) ? value : {};
 }
 
 function finiteNumber(value: unknown) {
