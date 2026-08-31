@@ -6,12 +6,16 @@ import {
   DERIVATIVES_ENDPOINT_CAPABILITIES,
   DERIVATIVES_MARKET_DATA_KEY_ENDPOINTS,
   DERIVATIVES_PUBLIC_ENDPOINTS,
+  DerivativesRequestError,
   buildDerivativesMetric,
   classifyPriceOiState,
   closedMetricTime,
   collectDerivativesMetrics,
+  fetchBasisHistory,
+  fetchFundingHistory,
   fetchGlobalLongShortHistory,
   fetchOpenInterestHistory,
+  fetchTakerFlowHistory,
   fetchTopTraderAccountHistory,
   fetchTopTraderPositionHistory,
   isFreshObservation,
@@ -79,6 +83,168 @@ describe("GPT-PROFIT-004 public derivatives foundation", () => {
     }
     expect((requests[0]!.headers as Record<string, string>)[["X-MBX", "APIKEY"].join("-")]).toBe("market-data-test");
     expect(requests[1]!.headers).toBeUndefined();
+  });
+
+  test("basis array response is parsed", async () => {
+    const timestamp = Date.parse("2026-08-30T12:00:00.000Z");
+    const fetchImpl = vi.fn(async () => response([{ timestamp, basis: "0.2", indexPrice: "100", futuresPrice: "100.2" }])) as typeof fetch;
+    const rows = await fetchBasisHistory("BTCUSDT", { fetchImpl });
+    expect(rows).toHaveLength(1);
+    expect(rows[0]).toMatchObject({ pair: "BTCUSDT", timestamp, basis: 0.2 });
+  });
+
+  test("basis provider code/msg response is a typed provider error, not a flatMap TypeError", async () => {
+    const fetchImpl = vi.fn(async () => response({ code: -1003, msg: "Too many requests" })) as typeof fetch;
+    const error = await fetchBasisHistory("SOLUSDT", { fetchImpl }).catch((value: unknown) => value);
+    expect(error).toBeInstanceOf(DerivativesRequestError);
+    expect(error).toMatchObject({
+      classification: "PROVIDER_HTTP_ERROR",
+      code: "PROVIDER_ERROR_RESPONSE",
+      providerCode: -1003,
+      providerMessage: "Too many requests"
+    });
+    expect((error as Error).message).not.toContain("flatMap is not a function");
+  });
+
+  test("unknown array-endpoint response shape fails closed", async () => {
+    const fetchImpl = vi.fn(async () => response({ unexpected: true })) as typeof fetch;
+    const error = await fetchBasisHistory("SOLUSDT", { fetchImpl }).catch((value: unknown) => value);
+    expect(error).toBeInstanceOf(DerivativesRequestError);
+    expect(error).toMatchObject({
+      classification: "PROVIDER_SCHEMA_ERROR",
+      code: "UNEXPECTED_PROVIDER_RESPONSE_SHAPE"
+    });
+    expect((error as Error).message).toBe("UNEXPECTED_PROVIDER_RESPONSE_SHAPE");
+  });
+
+  test("every derivatives history array endpoint validates its top-level response", async () => {
+    const fetchImpl = vi.fn(async () => response({ code: "BAD_SHAPE", msg: "not an array" })) as typeof fetch;
+    vi.stubEnv("BINANCE_MARKET_DATA_API_KEY", "market-data-test");
+    try {
+      const readers = [
+        fetchOpenInterestHistory,
+        fetchFundingHistory,
+        fetchBasisHistory,
+        fetchTakerFlowHistory,
+        fetchGlobalLongShortHistory,
+        fetchTopTraderAccountHistory,
+        fetchTopTraderPositionHistory
+      ];
+      for (const reader of readers) {
+        const error = await reader("BTCUSDT", { fetchImpl }).catch((value: unknown) => value);
+        expect(error).toBeInstanceOf(DerivativesRequestError);
+        expect(error).toMatchObject({ code: "PROVIDER_ERROR_RESPONSE" });
+        expect((error as Error).message).not.toMatch(/(?:flatMap|map) is not a function/);
+      }
+    } finally {
+      vi.unstubAllEnvs();
+    }
+  });
+
+  test("418 and 429 responses are classified with Retry-After metadata", async () => {
+    const rateLimited = (status: number, message: string) => new Response(
+      JSON.stringify({ code: -1003, msg: message }),
+      { status, headers: { "content-type": "application/json", "retry-after": "2" } }
+    );
+    const fetch418 = vi.fn(async () => rateLimited(418, "IP banned")) as typeof fetch;
+    const error418 = await fetchBasisHistory("DOGEUSDT", { fetchImpl: fetch418 }).catch((value: unknown) => value);
+    expect(error418).toMatchObject({
+      classification: "PROVIDER_RATE_LIMIT",
+      code: "IP_RATE_LIMITED_418",
+      httpStatus: 418,
+      retryAfterMs: 2000
+    });
+    const fetch429 = vi.fn(async () => rateLimited(429, "Rate limited")) as typeof fetch;
+    const error429 = await fetchBasisHistory("DOGEUSDT", { fetchImpl: fetch429 }).catch((value: unknown) => value);
+    expect(error429).toMatchObject({
+      classification: "PROVIDER_RATE_LIMIT",
+      code: "RATE_LIMITED_429",
+      httpStatus: 429,
+      retryAfterMs: 2000
+    });
+  });
+
+  test("rate limits are not retried within the same collection attempt", async () => {
+    let calls = 0;
+    const fetchImpl = vi.fn(async () => {
+      calls += 1;
+      return new Response(JSON.stringify({ code: -1003, msg: "Too many requests" }), {
+        status: 429,
+        headers: { "retry-after": "5" }
+      });
+    }) as typeof fetch;
+    const error = await fetchBasisHistory("DOGEUSDT", { fetchImpl }).catch((value: unknown) => value);
+    expect(error).toMatchObject({ code: "RATE_LIMITED_429", retryAfterMs: 5000 });
+    expect(calls).toBe(1);
+  });
+
+  test("collector bounds symbol concurrency and keeps other symbols fail-soft", async () => {
+    let active = 0;
+    let maximumActive = 0;
+    const now = Date.UTC(2026, 7, 30, 12, 4);
+    const fetchImpl = vi.fn(async (input: RequestInfo | URL) => {
+      active += 1;
+      maximumActive = Math.max(maximumActive, active);
+      await new Promise((resolve) => setTimeout(resolve, 1));
+      const pathname = new URL(String(input)).pathname;
+      const value = pathname === DERIVATIVES_PUBLIC_ENDPOINTS.openInterest
+        ? { symbol: "BTCUSDT", openInterest: "100", time: now - 5 * 60 * 1000 }
+        : pathname === DERIVATIVES_PUBLIC_ENDPOINTS.premiumIndex
+          ? { symbol: "BTCUSDT", markPrice: "100", indexPrice: "100", lastFundingRate: "0", nextFundingTime: now, time: now - 5 * 60 * 1000 }
+          : [{ timestamp: now - 5 * 60 * 1000, sumOpenInterest: "100", fundingRate: "0", fundingTime: now - 5 * 60 * 1000, basis: "0.1", indexPrice: "100", futuresPrice: "100.1", buySellRatio: "1", buyVol: "100", sellVol: "100", longShortRatio: "1", longAccount: "0.5", shortAccount: "0.5" }];
+      active -= 1;
+      return response(value);
+    }) as typeof fetch;
+    vi.stubEnv("BINANCE_MARKET_DATA_API_KEY", "market-data-test");
+    try {
+      const result = await collectDerivativesMetrics(["BTCUSDT", "ETHUSDT", "SOLUSDT", "BNBUSDT"], { now, fetchImpl });
+      expect(result.rows).toHaveLength(4);
+      expect(result.errors).toHaveLength(0);
+      expect(maximumActive).toBeLessThanOrEqual(2);
+      expect(fetchImpl).toHaveBeenCalledTimes(36);
+    } finally {
+      vi.unstubAllEnvs();
+    }
+  });
+
+  test("a rate-limited symbol does not stop other symbols and internal errors stay zero", async () => {
+    const now = Date.UTC(2026, 7, 30, 12, 4);
+    const fetchImpl = vi.fn(async (input: RequestInfo | URL) => {
+      const url = new URL(String(input));
+      if ((url.searchParams.get("symbol") ?? url.searchParams.get("pair")) === "DOGEUSDT" && url.pathname === DERIVATIVES_PUBLIC_ENDPOINTS.basis) {
+        return new Response(JSON.stringify({ code: -1003, msg: "IP rate limited" }), { status: 418, headers: { "retry-after": "3" } });
+      }
+      const value = url.pathname === DERIVATIVES_PUBLIC_ENDPOINTS.openInterest
+        ? { symbol: url.searchParams.get("symbol"), openInterest: "100", time: now - 5 * 60 * 1000 }
+        : url.pathname === DERIVATIVES_PUBLIC_ENDPOINTS.premiumIndex
+          ? { symbol: url.searchParams.get("symbol"), markPrice: "100", indexPrice: "100", lastFundingRate: "0", nextFundingTime: now, time: now - 5 * 60 * 1000 }
+          : [{ timestamp: now - 5 * 60 * 1000, sumOpenInterest: "100", fundingRate: "0", fundingTime: now - 5 * 60 * 1000, basis: "0.1", indexPrice: "100", futuresPrice: "100.1", buySellRatio: "1", buyVol: "100", sellVol: "100", longShortRatio: "1", longAccount: "0.5", shortAccount: "0.5" }];
+      return response(value);
+    }) as typeof fetch;
+    vi.stubEnv("BINANCE_MARKET_DATA_API_KEY", "market-data-test");
+    try {
+      const result = await collectDerivativesMetrics(["DOGEUSDT", "ETHUSDT"], { now, fetchImpl });
+      expect(result.rows).toHaveLength(2);
+      expect(result.errors).toContainEqual(expect.objectContaining({
+        symbol: "DOGEUSDT",
+        endpoint: DERIVATIVES_PUBLIC_ENDPOINTS.basis,
+        classification: "PROVIDER_RATE_LIMIT",
+        code: "IP_RATE_LIMITED_418",
+        retryAfterMs: 3000
+      }));
+      expect(result.errors.some((error) => error.classification === "INTERNAL_COLLECTOR_ERROR")).toBe(false);
+      expect(result.rows.find((row) => row.symbol === "ETHUSDT")?.openInterest).toBe(100);
+      expect(result.rows.find((row) => row.symbol === "DOGEUSDT")?.dataQualityFlags.endpointErrors).toEqual(expect.arrayContaining([
+        expect.objectContaining({
+          endpoint: DERIVATIVES_PUBLIC_ENDPOINTS.basis,
+          classification: "PROVIDER_RATE_LIMIT",
+          code: "IP_RATE_LIMITED_418",
+          retryAfterMs: 3000
+        })
+      ]));
+    } finally {
+      vi.unstubAllEnvs();
+    }
   });
 
   test("source timing enforces period close and funding settlement", () => {
