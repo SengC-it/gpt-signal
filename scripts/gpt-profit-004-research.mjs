@@ -63,15 +63,29 @@ const ablation = buildDerivativeAblation({ events, metrics, historyDays, familyC
 const bestFamily = ablation.families
   .filter((summary) => summary.status === "EVALUATED" && Number.isFinite(summary.deltaNetExpectancyR))
   .sort((left, right) => (right.deltaNetExpectancyR ?? -Infinity) - (left.deltaNetExpectancyR ?? -Infinity))[0] ?? null;
-const gate = bestFamily ? evaluateDerivativesGate({ historyDays, summary: bestFamily }) : {
-  status: historyDays < 90 ? "INSUFFICIENT_DERIVATIVES_HISTORY" : "FAIL",
+const preliminaryBestFamily = ablation.families
+  .filter((summary) => summary.status !== "NO_DATA" && Number.isFinite(summary.deltaNetExpectancyR))
+  .sort((left, right) => (right.deltaNetExpectancyR ?? -Infinity) - (left.deltaNetExpectancyR ?? -Infinity))[0] ?? null;
+const familyWithEnoughHistory = ablation.families.some((summary) => (summary.coverageDays ?? 0) >= 90);
+const gate = bestFamily ? evaluateDerivativesGate({
+  // A single-family Gate is allowed to use only the selected family's valid
+  // point-in-time coverage. Combined coverage is descriptive and never a
+  // reason to block an otherwise-ready single family.
+  historyDays: bestFamily.coverageDays ?? 0,
+  summary: bestFamily
+}) : {
+  status: familyWithEnoughHistory ? "FAIL" : "INSUFFICIENT_DERIVATIVES_HISTORY",
   passed: false,
-  reasons: [historyDays < 90 ? "no family can be evaluated with >=90d coverage" : "no evaluated family"],
-  checks: { historyAtLeast90d: historyDays >= 90 }
+  reasons: [familyWithEnoughHistory ? "no evaluated family" : "no family can be evaluated with >=90d coverage"],
+  checks: { historyAtLeast90d: familyWithEnoughHistory, nestedValidationCompleted: false },
+  evidenceStatus: familyWithEnoughHistory ? "NO_PRELIMINARY_INCREMENTAL_EVIDENCE" : "INSUFFICIENT_DERIVATIVES_HISTORY",
+  validationRequired: "PURGED_NESTED_OOS"
 };
-const result = historyDays < 90 || ablation.families.every((summary) => summary.status === "INSUFFICIENT_DERIVATIVES_HISTORY")
-  ? "INSUFFICIENT_DERIVATIVES_HISTORY"
-  : gate.passed ? "DERIVATIVES_EDGE_REQUIRES_SEPARATE_REVIEW" : "NO DERIVATIVES EDGE FOUND";
+const result = bestFamily
+  ? gate.status === "READY_FOR_NESTED_DERIVATIVES_RESEARCH"
+    ? "READY_FOR_NESTED_DERIVATIVES_RESEARCH"
+    : gate.passed ? "DERIVATIVES_EDGE_REQUIRES_SEPARATE_REVIEW" : "NO DERIVATIVES EDGE FOUND"
+  : familyWithEnoughHistory ? "NO DERIVATIVES EDGE FOUND" : "INSUFFICIENT_DERIVATIVES_HISTORY";
 const report = {
   task: "GPT-PROFIT-004 — Derivatives Edge Data Foundation",
   generatedAt: new Date().toISOString(),
@@ -94,7 +108,9 @@ const report = {
     latestMetric: metricTimes.length ? new Date(Math.max(...metricTimes)).toISOString() : null,
     historicalCoverageDays: historyDays,
     historicalCoverageAtLeast90d: historyDays >= 90,
+    combinedPermittedCoverageDays: ablation.combined.coverageDays,
     familyCoverageDays,
+    familyCoverageAtLeast90d: Object.fromEntries(Object.entries(familyCoverageDays).map(([family, days]) => [family, Number(days) >= 90])),
     familyCoverage: manifest.familyCoverageSummaries ?? {},
     coverageMethod: "family-specific; combined coverage is selected-family intersection"
   },
@@ -111,13 +127,22 @@ const report = {
     comparableBaseline: "unconditional outcomes for the same events with fresh point-in-time family data",
     conditionedSlice: "deterministic top 30% of each family score; no threshold grid",
     deltaDefinition: "conditioned slice metric minus its same-event unconditional baseline",
-    familyEligibility: "positive delta net and PF, positive delta gross or predictive evidence, conditioned fold consistency, and conditioned sample/breadth"
+    familyEligibility: "positive delta net and PF, positive delta gross or predictive evidence, conditioned fold consistency, and conditioned sample/breadth",
+    conditionalEvidenceStatus: "PRELIMINARY / NOT OOS EDGE EVIDENCE"
+  },
+  gateProtocol: {
+    singleFamilyCoverage: "evaluateDerivativesGate uses bestFamily.coverageDays only",
+    combinedCoverage: "intersection of selected/permitted family coverageDays only",
+    preliminaryStatus: "PRELIMINARY_INCREMENTAL_EVIDENCE",
+    robustPassRequires: "purged nested OOS, train-only calibration, and OOS evaluation; full-sample top-30% diagnostics cannot PASS"
   },
   events: { priceOnlyEvents: events.length, symbols: TRADE_SYMBOLS, noCandidateSearch: true },
   baseline: ablation.baseline,
   families: ablation.families,
   combinedPermitted: ablation.combined,
   bestIncrementalFamily: bestFamily?.family ?? null,
+  preliminaryBestFamily: preliminaryBestFamily?.family ?? null,
+  gateHistoryDays: bestFamily?.coverageDays ?? null,
   internalGate: gate,
   candidateSearch: { maxCandidates: 8, candidatesGenerated: 0, bestCandidate: null, status: "NO_CANDIDATE_SEARCH_IN_DATA_FOUNDATION" },
   prospectiveCollector: { enabled: true, integratedInto: "src/app/api/jobs/sync-market/route.ts", failSoft: true, appendOnlyTable: "gpt_derivatives_metrics", priceChange5mSource: "Binance USD-M /fapi/v1/klines interval=5m closed candles" },
@@ -326,27 +351,40 @@ function renderMarkdown(report) {
     "",
     `Research cutoff: ${report.boundary.researchCutoff}; forward validation starts: ${report.boundary.forwardValidationStarts}. This is separate from GPT-PROFIT-003 Final Unseen, which remains at ${report.holdoutExecutions} executions.`,
     "",
-    `Source observations: ${report.sources.sourceObservationRows}; consolidated PIT metric rows: ${report.sources.metricRows} across ${report.sources.metricFiles} cache files; earliest: ${report.sources.earliestMetric ?? "none"}; latest: ${report.sources.latestMetric ?? "none"}; combined selected-family history: ${report.sources.historicalCoverageDays.toFixed(2)} days; >=90d: **${report.sources.historicalCoverageAtLeast90d}**.`,
+    `Source observations: ${report.sources.sourceObservationRows}; consolidated PIT metric rows: ${report.sources.metricRows} across ${report.sources.metricFiles} cache files; earliest: ${report.sources.earliestMetric ?? "none"}; latest: ${report.sources.latestMetric ?? "none"}; overall observed history intersection: ${report.sources.historicalCoverageDays.toFixed(2)} days; selected/permitted-family intersection: ${format(report.sources.combinedPermittedCoverageDays)}; overall >=90d: **${report.sources.historicalCoverageAtLeast90d}**.`,
     `Family coverage (independent): ${Object.entries(report.sources.familyCoverageDays).map(([family, days]) => `${family}=${Number(days).toFixed(2)}d`).join(", ")}.`,
     `Price-only diagnostic events: ${report.events.priceOnlyEvents}; label horizon: ${report.labels.horizonBars} bars; costs: fee ${report.labels.feePerSide} + slippage ${report.labels.slippagePerSide} per side; same-candle priority: ${report.labels.sameCandlePriority}.`,
     "",
     "## Incremental information ablation",
     "",
-    "Unconditional family columns are the comparable baseline population for that family. Conditioned columns are the deterministic score top 30% slice; deltas are conditioned minus that same-event baseline.",
+    "Unconditional family columns are the comparable baseline population for that family. Conditioned columns are the deterministic score top 30% slice; deltas are conditioned minus that same-event baseline. These diagnostics are **PRELIMINARY / NOT OOS EDGE EVIDENCE** and cannot produce a robust Gate PASS.",
     "",
-    "| Family | Base events | Base settled | Base Gross E[R] | Base Net E[R] | Base PF | Cond events | Cond settled | Cond Gross E[R] | Cond Net E[R] | Cond PF | Δ Gross E[R] | Δ Net E[R] | Δ PF | Spearman | Mono violations | Top lift | Base symbols | Cond symbols | Base months | Cond folds | Missing | Stale | Status |",
-    "|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---|",
+    "| Family | Base events | Base settled | Base Gross E[R] | Base Net E[R] | Base PF | Cond events | Cond settled | Cond Gross E[R] | Cond Net E[R] | Cond PF | Δ Gross E[R] | Δ Net E[R] | Δ PF | Spearman | Decile buckets | Valid buckets | Mono violations | Top lift | Base symbols | Cond symbols | Base months | Cond folds | Missing | Stale | Status |",
+    "|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---|",
     row(report.baseline),
     ...report.families.map(row),
     row(report.combinedPermitted),
     "",
+    "## Decile monotonicity",
+    "",
+    "Monotonicity is evaluated across fixed ten score buckets (ascending score), not individual trade-to-trade transitions. Each bucket reports count, gross expectancy, and net expectancy; the maximum possible transition violations is nine.",
+    "",
+    ...report.families.flatMap((summary) => [
+      `### ${summary.family}`,
+      `- bucket count: ${summary.monotonicBucketCount}; valid bucket count: ${summary.monotonicValidBucketCount}; gross expectancy monotonic violations: ${formatCount(summary.monotonicViolations)}.`,
+      "| Bucket | Count | Gross E[R] | Net E[R] |",
+      "|---:|---:|---:|---:|",
+      ...summary.monotonicBuckets.map((bucket) => `| ${bucket.bucket + 1} | ${bucket.count} | ${format(bucket.grossExpectancyR)} | ${format(bucket.netExpectancyR)} |`),
+      ""
+    ]),
     ...report.families.map((summary) => `- ${summary.family} net-R contribution concentration: largest absolute=${format(summary.largestSymbolAbsoluteContributionShare)}, largest positive=${format(summary.largestSymbolPositiveContributionShare)}; future Gate requires each <= 0.50.`),
     "",
-    `Best incremental family: **${report.bestIncrementalFamily ?? "none"}**. No candidate search was run (candidates generated: ${report.candidateSearch.candidatesGenerated}).`,
+    `Best evaluated family: **${report.bestIncrementalFamily ?? "none"}**; preliminary best family: **${report.preliminaryBestFamily ?? "none"}**. No candidate search was run (candidates generated: ${report.candidateSearch.candidatesGenerated}); GPT-PROFIT-004 produces no Production or Shadow candidate.`,
     "",
     "## Gate and collection",
     "",
-    `Internal Gate: **${report.internalGate.status}**; reasons: ${report.internalGate.reasons.join(", ") || "none"}.`,
+    `Internal Gate: **${report.internalGate.status}**; evidence: **${report.internalGate.evidenceStatus}**; Gate history input: ${format(report.gateHistoryDays)} days; reasons: ${report.internalGate.reasons.join(", ") || "none"}.`,
+    `Single-family coverage uses the selected family's own coverage; combined coverage uses only the selected/permitted-family intersection. Robust PASS is unavailable until purged nested OOS, train-only calibration, and OOS evaluation are complete.`,
     "",
     "The prospective collector is enabled in the existing market sync, writes append-only `gpt_derivatives_metrics`, and is fail-soft: endpoint or table errors are returned in sync metadata without failing the candle/signal sync.",
     "",
@@ -359,6 +397,7 @@ function renderMarkdown(report) {
   return lines.join("\n") + "\n";
 }
 function row(summary) {
-  return `| ${summary.family} | ${summary.eventCount} | ${summary.settled} | ${format(summary.grossExpectancyR)} | ${format(summary.netExpectancyR)} | ${format(summary.profitFactor)} | ${summary.conditionedEventCount} | ${summary.conditionedSettled} | ${format(summary.conditionedGrossExpectancyR)} | ${format(summary.conditionedNetExpectancyR)} | ${format(summary.conditionedProfitFactor)} | ${format(summary.deltaGrossExpectancyR)} | ${format(summary.deltaNetExpectancyR)} | ${format(summary.deltaProfitFactor)} | ${format(summary.spearman)} | ${format(summary.monotonicViolations)} | ${format(summary.conditionalLiftR)} | ${summary.symbolBreadth} | ${summary.conditionedSymbolBreadth} | ${summary.monthBreadth} | ${summary.conditionedFoldConsistency} | ${summary.missingExcludedCount} | ${summary.staleExcludedCount} | ${summary.status} |`;
+  return `| ${summary.family} | ${summary.eventCount} | ${summary.settled} | ${format(summary.grossExpectancyR)} | ${format(summary.netExpectancyR)} | ${format(summary.profitFactor)} | ${summary.conditionedEventCount} | ${summary.conditionedSettled} | ${format(summary.conditionedGrossExpectancyR)} | ${format(summary.conditionedNetExpectancyR)} | ${format(summary.conditionedProfitFactor)} | ${format(summary.deltaGrossExpectancyR)} | ${format(summary.deltaNetExpectancyR)} | ${format(summary.deltaProfitFactor)} | ${format(summary.spearman)} | ${summary.monotonicBucketCount} | ${summary.monotonicValidBucketCount} | ${formatCount(summary.monotonicViolations)} | ${format(summary.conditionalLiftR)} | ${summary.symbolBreadth} | ${summary.conditionedSymbolBreadth} | ${summary.monthBreadth} | ${summary.conditionedFoldConsistency} | ${summary.missingExcludedCount} | ${summary.staleExcludedCount} | ${summary.status} |`;
 }
+function formatCount(value) { return value === null || value === undefined ? "n/a" : String(value); }
 function format(value) { return value === null || value === undefined ? "n/a" : Number.isFinite(value) ? value.toFixed(6) : String(value); }

@@ -1,6 +1,6 @@
 {
   "task": "GPT-PROFIT-004 — Derivatives Edge Data Foundation",
-  "generatedAt": "2026-08-30T23:48:34.058Z",
+  "generatedAt": "2026-08-31T02:23:26.641Z",
   "result": "INSUFFICIENT_DERIVATIVES_HISTORY",
   "boundary": {
     "researchCutoff": "2026-08-30T00:00:00.000Z",
@@ -24,12 +24,20 @@
     "latestMetric": "2026-08-30T11:15:00.000Z",
     "historicalCoverageDays": 19.090278,
     "historicalCoverageAtLeast90d": false,
+    "combinedPermittedCoverageDays": null,
     "familyCoverageDays": {
       "open_interest": 29.809028,
       "funding": 29.666667,
       "basis": 19.09375,
       "taker_flow": 29.809028,
       "positioning": 29.8125
+    },
+    "familyCoverageAtLeast90d": {
+      "open_interest": false,
+      "funding": false,
+      "basis": false,
+      "taker_flow": false,
+      "positioning": false
     },
     "familyCoverage": {
       "open_interest": {
@@ -208,7 +216,14 @@
     "comparableBaseline": "unconditional outcomes for the same events with fresh point-in-time family data",
     "conditionedSlice": "deterministic top 30% of each family score; no threshold grid",
     "deltaDefinition": "conditioned slice metric minus its same-event unconditional baseline",
-    "familyEligibility": "positive delta net and PF, positive delta gross or predictive evidence, conditioned fold consistency, and conditioned sample/breadth"
+    "familyEligibility": "positive delta net and PF, positive delta gross or predictive evidence, conditioned fold consistency, and conditioned sample/breadth",
+    "conditionalEvidenceStatus": "PRELIMINARY / NOT OOS EDGE EVIDENCE"
+  },
+  "gateProtocol": {
+    "singleFamilyCoverage": "evaluateDerivativesGate uses bestFamily.coverageDays only",
+    "combinedCoverage": "intersection of selected/permitted family coverageDays only",
+    "preliminaryStatus": "PRELIMINARY_INCREMENTAL_EVIDENCE",
+    "robustPassRequires": "purged nested OOS, train-only calibration, and OOS evaluation; full-sample top-30% diagnostics cannot PASS"
   },
   "events": {
     "priceOnlyEvents": 4086,
@@ -240,11 +255,79 @@
     "conditionedScoreThreshold": null,
     "conditionedSymbolBreadth": 0,
     "conditionedMonthBreadth": 0,
+    "conditionedPositiveMonths": 0,
     "conditionedPositiveFolds": 0,
     "conditionedFolds": 0,
     "conditionedFoldConsistency": "0/0",
+    "conditionedNetRBySymbol": {},
+    "conditionedLargestSymbolAbsoluteContributionShare": null,
+    "conditionedLargestSymbolPositiveContributionShare": null,
     "spearman": null,
+    "monotonicBucketCount": 10,
+    "monotonicValidBucketCount": 0,
     "monotonicViolations": null,
+    "monotonicBuckets": [
+      {
+        "bucket": 0,
+        "count": 0,
+        "grossExpectancyR": null,
+        "netExpectancyR": null
+      },
+      {
+        "bucket": 1,
+        "count": 0,
+        "grossExpectancyR": null,
+        "netExpectancyR": null
+      },
+      {
+        "bucket": 2,
+        "count": 0,
+        "grossExpectancyR": null,
+        "netExpectancyR": null
+      },
+      {
+        "bucket": 3,
+        "count": 0,
+        "grossExpectancyR": null,
+        "netExpectancyR": null
+      },
+      {
+        "bucket": 4,
+        "count": 0,
+        "grossExpectancyR": null,
+        "netExpectancyR": null
+      },
+      {
+        "bucket": 5,
+        "count": 0,
+        "grossExpectancyR": null,
+        "netExpectancyR": null
+      },
+      {
+        "bucket": 6,
+        "count": 0,
+        "grossExpectancyR": null,
+        "netExpectancyR": null
+      },
+      {
+        "bucket": 7,
+        "count": 0,
+        "grossExpectancyR": null,
+        "netExpectancyR": null
+      },
+      {
+        "bucket": 8,
+        "count": 0,
+        "grossExpectancyR": null,
+        "netExpectancyR": null
+      },
+      {
+        "bucket": 9,
+        "count": 0,
+        "grossExpectancyR": null,
+        "netExpectancyR": null
+      }
+    ],
     "conditionalLiftR": null,
     "deltaGrossExpectancyR": null,
     "deltaNetExpectancyR": null,
@@ -295,11 +378,86 @@
       "conditionedScoreThreshold": 0.018726,
       "conditionedSymbolBreadth": 6,
       "conditionedMonthBreadth": 2,
+      "conditionedPositiveMonths": 0,
       "conditionedPositiveFolds": 0,
       "conditionedFolds": 3,
       "conditionedFoldConsistency": "0/3",
+      "conditionedNetRBySymbol": {
+        "BNBUSDT": -219.652519,
+        "AVAXUSDT": -171.812712,
+        "ETHUSDT": -243.558987,
+        "LINKUSDT": -173.101515,
+        "SOLUSDT": -227.491482,
+        "DOGEUSDT": -213.46775
+      },
+      "conditionedLargestSymbolAbsoluteContributionShare": 0.19499,
+      "conditionedLargestSymbolPositiveContributionShare": null,
       "spearman": -0.014944,
-      "monotonicViolations": 1000,
+      "monotonicBucketCount": 10,
+      "monotonicValidBucketCount": 10,
+      "monotonicViolations": 4,
+      "monotonicBuckets": [
+        {
+          "bucket": 0,
+          "count": 408,
+          "grossExpectancyR": -0.036855,
+          "netExpectancyR": -0.832839
+        },
+        {
+          "bucket": 1,
+          "count": 408,
+          "grossExpectancyR": -0.009804,
+          "netExpectancyR": -1.024536
+        },
+        {
+          "bucket": 2,
+          "count": 408,
+          "grossExpectancyR": 0.02451,
+          "netExpectancyR": -1.074977
+        },
+        {
+          "bucket": 3,
+          "count": 408,
+          "grossExpectancyR": -0.029412,
+          "netExpectancyR": -1.389026
+        },
+        {
+          "bucket": 4,
+          "count": 408,
+          "grossExpectancyR": 0.029412,
+          "netExpectancyR": -1.403219
+        },
+        {
+          "bucket": 5,
+          "count": 408,
+          "grossExpectancyR": 0,
+          "netExpectancyR": -1.504427
+        },
+        {
+          "bucket": 6,
+          "count": 408,
+          "grossExpectancyR": 0.004902,
+          "netExpectancyR": -1.324848
+        },
+        {
+          "bucket": 7,
+          "count": 408,
+          "grossExpectancyR": -0.068627,
+          "netExpectancyR": -1.210524
+        },
+        {
+          "bucket": 8,
+          "count": 408,
+          "grossExpectancyR": -0.029412,
+          "netExpectancyR": -0.974102
+        },
+        {
+          "bucket": 9,
+          "count": 408,
+          "grossExpectancyR": -0.078431,
+          "netExpectancyR": -0.876857
+        }
+      ],
       "conditionalLiftR": 0.141122,
       "deltaGrossExpectancyR": -0.039457,
       "deltaNetExpectancyR": 0.141122,
@@ -349,11 +507,86 @@
       "conditionedScoreThreshold": 0.000051,
       "conditionedSymbolBreadth": 6,
       "conditionedMonthBreadth": 2,
+      "conditionedPositiveMonths": 0,
       "conditionedPositiveFolds": 0,
       "conditionedFolds": 3,
       "conditionedFoldConsistency": "0/3",
+      "conditionedNetRBySymbol": {
+        "SOLUSDT": -267.450386,
+        "LINKUSDT": -173.291458,
+        "AVAXUSDT": -194.797761,
+        "ETHUSDT": -207.256388,
+        "DOGEUSDT": -237.487681,
+        "BNBUSDT": -170.690881
+      },
+      "conditionedLargestSymbolAbsoluteContributionShare": 0.213794,
+      "conditionedLargestSymbolPositiveContributionShare": null,
       "spearman": -0.013265,
-      "monotonicViolations": 839,
+      "monotonicBucketCount": 10,
+      "monotonicValidBucketCount": 10,
+      "monotonicViolations": 4,
+      "monotonicBuckets": [
+        {
+          "bucket": 0,
+          "count": 408,
+          "grossExpectancyR": 0.034314,
+          "netExpectancyR": -1.031633
+        },
+        {
+          "bucket": 1,
+          "count": 408,
+          "grossExpectancyR": 0.009804,
+          "netExpectancyR": -0.465106
+        },
+        {
+          "bucket": 2,
+          "count": 408,
+          "grossExpectancyR": 0.02451,
+          "netExpectancyR": -1.169242
+        },
+        {
+          "bucket": 3,
+          "count": 408,
+          "grossExpectancyR": -0.063725,
+          "netExpectancyR": -1.293838
+        },
+        {
+          "bucket": 4,
+          "count": 408,
+          "grossExpectancyR": -0.04902,
+          "netExpectancyR": -1.429054
+        },
+        {
+          "bucket": 5,
+          "count": 408,
+          "grossExpectancyR": 0.014706,
+          "netExpectancyR": -1.584376
+        },
+        {
+          "bucket": 6,
+          "count": 408,
+          "grossExpectancyR": -0.137255,
+          "netExpectancyR": -1.574574
+        },
+        {
+          "bucket": 7,
+          "count": 408,
+          "grossExpectancyR": -0.031941,
+          "netExpectancyR": -1.303577
+        },
+        {
+          "bucket": 8,
+          "count": 408,
+          "grossExpectancyR": 0.098039,
+          "netExpectancyR": -1.073805
+        },
+        {
+          "bucket": 9,
+          "count": 408,
+          "grossExpectancyR": -0.093137,
+          "netExpectancyR": -0.691303
+        }
+      ],
       "conditionalLiftR": 0.139578,
       "deltaGrossExpectancyR": 0.011197,
       "deltaNetExpectancyR": 0.139578,
@@ -403,11 +636,86 @@
       "conditionedScoreThreshold": 4.423361,
       "conditionedSymbolBreadth": 6,
       "conditionedMonthBreadth": 2,
+      "conditionedPositiveMonths": 0,
       "conditionedPositiveFolds": 0,
       "conditionedFolds": 3,
       "conditionedFoldConsistency": "0/3",
+      "conditionedNetRBySymbol": {
+        "BNBUSDT": -387.34282,
+        "SOLUSDT": -200.470245,
+        "ETHUSDT": -238.853159,
+        "DOGEUSDT": -206.069105,
+        "AVAXUSDT": -160.433539,
+        "LINKUSDT": -163.713326
+      },
+      "conditionedLargestSymbolAbsoluteContributionShare": 0.285465,
+      "conditionedLargestSymbolPositiveContributionShare": null,
       "spearman": 0.034404,
-      "monotonicViolations": 824,
+      "monotonicBucketCount": 10,
+      "monotonicValidBucketCount": 10,
+      "monotonicViolations": 5,
+      "monotonicBuckets": [
+        {
+          "bucket": 0,
+          "count": 331,
+          "grossExpectancyR": -0.178248,
+          "netExpectancyR": -1.268009
+        },
+        {
+          "bucket": 1,
+          "count": 330,
+          "grossExpectancyR": 0.090909,
+          "netExpectancyR": -1.31307
+        },
+        {
+          "bucket": 2,
+          "count": 331,
+          "grossExpectancyR": -0.099698,
+          "netExpectancyR": -1.611781
+        },
+        {
+          "bucket": 3,
+          "count": 330,
+          "grossExpectancyR": -0.024242,
+          "netExpectancyR": -1.419391
+        },
+        {
+          "bucket": 4,
+          "count": 330,
+          "grossExpectancyR": 0.012121,
+          "netExpectancyR": -0.822109
+        },
+        {
+          "bucket": 5,
+          "count": 331,
+          "grossExpectancyR": 0.009063,
+          "netExpectancyR": -0.82916
+        },
+        {
+          "bucket": 6,
+          "count": 330,
+          "grossExpectancyR": -0.024242,
+          "netExpectancyR": -1.368036
+        },
+        {
+          "bucket": 7,
+          "count": 331,
+          "grossExpectancyR": 0.075529,
+          "netExpectancyR": -1.381011
+        },
+        {
+          "bucket": 8,
+          "count": 330,
+          "grossExpectancyR": 0.048485,
+          "netExpectancyR": -1.462563
+        },
+        {
+          "bucket": 9,
+          "count": 330,
+          "grossExpectancyR": -0.036364,
+          "netExpectancyR": -1.263118
+        }
+      ],
       "conditionalLiftR": -0.094002,
       "deltaGrossExpectancyR": 0.042954,
       "deltaNetExpectancyR": -0.094002,
@@ -457,11 +765,86 @@
       "conditionedScoreThreshold": 0.161261,
       "conditionedSymbolBreadth": 6,
       "conditionedMonthBreadth": 2,
+      "conditionedPositiveMonths": 0,
       "conditionedPositiveFolds": 0,
       "conditionedFolds": 3,
       "conditionedFoldConsistency": "0/3",
+      "conditionedNetRBySymbol": {
+        "LINKUSDT": -167.072314,
+        "DOGEUSDT": -234.235509,
+        "BNBUSDT": -382.910755,
+        "SOLUSDT": -209.605412,
+        "ETHUSDT": -319.899157,
+        "AVAXUSDT": -176.778555
+      },
+      "conditionedLargestSymbolAbsoluteContributionShare": 0.256901,
+      "conditionedLargestSymbolPositiveContributionShare": null,
       "spearman": 0.002157,
-      "monotonicViolations": 1047,
+      "monotonicBucketCount": 10,
+      "monotonicValidBucketCount": 10,
+      "monotonicViolations": 4,
+      "monotonicBuckets": [
+        {
+          "bucket": 0,
+          "count": 409,
+          "grossExpectancyR": -0.002445,
+          "netExpectancyR": -1.449327
+        },
+        {
+          "bucket": 1,
+          "count": 408,
+          "grossExpectancyR": -0.073529,
+          "netExpectancyR": -1.296728
+        },
+        {
+          "bucket": 2,
+          "count": 408,
+          "grossExpectancyR": 0.046683,
+          "netExpectancyR": -1.01527
+        },
+        {
+          "bucket": 3,
+          "count": 408,
+          "grossExpectancyR": 0.009804,
+          "netExpectancyR": -1.037922
+        },
+        {
+          "bucket": 4,
+          "count": 408,
+          "grossExpectancyR": -0.122549,
+          "netExpectancyR": -1.149556
+        },
+        {
+          "bucket": 5,
+          "count": 409,
+          "grossExpectancyR": 0.056235,
+          "netExpectancyR": -0.948632
+        },
+        {
+          "bucket": 6,
+          "count": 408,
+          "grossExpectancyR": -0.073529,
+          "netExpectancyR": -1.071935
+        },
+        {
+          "bucket": 7,
+          "count": 408,
+          "grossExpectancyR": -0.058824,
+          "netExpectancyR": -1.12996
+        },
+        {
+          "bucket": 8,
+          "count": 408,
+          "grossExpectancyR": 0,
+          "netExpectancyR": -1.206831
+        },
+        {
+          "bucket": 9,
+          "count": 408,
+          "grossExpectancyR": 0.019608,
+          "netExpectancyR": -1.312113
+        }
+      ],
       "conditionalLiftR": -0.054855,
       "deltaGrossExpectancyR": 0.00597,
       "deltaNetExpectancyR": -0.054855,
@@ -511,11 +894,86 @@
       "conditionedScoreThreshold": 0.002,
       "conditionedSymbolBreadth": 6,
       "conditionedMonthBreadth": 2,
+      "conditionedPositiveMonths": 0,
       "conditionedPositiveFolds": 0,
       "conditionedFolds": 3,
       "conditionedFoldConsistency": "0/3",
+      "conditionedNetRBySymbol": {
+        "AVAXUSDT": -141.541503,
+        "BNBUSDT": -330.334154,
+        "LINKUSDT": -124.364134,
+        "SOLUSDT": -267.710241,
+        "ETHUSDT": -215.587372,
+        "DOGEUSDT": -244.662854
+      },
+      "conditionedLargestSymbolAbsoluteContributionShare": 0.249459,
+      "conditionedLargestSymbolPositiveContributionShare": null,
       "spearman": -0.012768,
-      "monotonicViolations": 1024,
+      "monotonicBucketCount": 10,
+      "monotonicValidBucketCount": 10,
+      "monotonicViolations": 5,
+      "monotonicBuckets": [
+        {
+          "bucket": 0,
+          "count": 409,
+          "grossExpectancyR": -0.026895,
+          "netExpectancyR": -0.831923
+        },
+        {
+          "bucket": 1,
+          "count": 409,
+          "grossExpectancyR": -0.009804,
+          "netExpectancyR": -1.054973
+        },
+        {
+          "bucket": 2,
+          "count": 408,
+          "grossExpectancyR": 0.02451,
+          "netExpectancyR": -1.140981
+        },
+        {
+          "bucket": 3,
+          "count": 409,
+          "grossExpectancyR": -0.036675,
+          "netExpectancyR": -1.362606
+        },
+        {
+          "bucket": 4,
+          "count": 408,
+          "grossExpectancyR": 0.004902,
+          "netExpectancyR": -1.650903
+        },
+        {
+          "bucket": 5,
+          "count": 409,
+          "grossExpectancyR": -0.051345,
+          "netExpectancyR": -1.203043
+        },
+        {
+          "bucket": 6,
+          "count": 409,
+          "grossExpectancyR": 0.041565,
+          "netExpectancyR": -1.238132
+        },
+        {
+          "bucket": 7,
+          "count": 408,
+          "grossExpectancyR": -0.014706,
+          "netExpectancyR": -1.126614
+        },
+        {
+          "bucket": 8,
+          "count": 409,
+          "grossExpectancyR": -0.066015,
+          "netExpectancyR": -1.104502
+        },
+        {
+          "bucket": 9,
+          "count": 408,
+          "grossExpectancyR": -0.073529,
+          "netExpectancyR": -0.909189
+        }
+      ],
       "conditionalLiftR": 0.107969,
       "deltaGrossExpectancyR": -0.023778,
       "deltaNetExpectancyR": 0.107969,
@@ -550,7 +1008,7 @@
   ],
   "combinedPermitted": {
     "family": "combined_permitted",
-    "status": "INSUFFICIENT_DERIVATIVES_HISTORY",
+    "status": "NOT_PERMITTED",
     "eventCount": 0,
     "settled": 0,
     "grossExpectancyR": null,
@@ -566,11 +1024,79 @@
     "conditionedScoreThreshold": null,
     "conditionedSymbolBreadth": 0,
     "conditionedMonthBreadth": 0,
+    "conditionedPositiveMonths": 0,
     "conditionedPositiveFolds": 0,
     "conditionedFolds": 0,
     "conditionedFoldConsistency": "0/0",
+    "conditionedNetRBySymbol": {},
+    "conditionedLargestSymbolAbsoluteContributionShare": null,
+    "conditionedLargestSymbolPositiveContributionShare": null,
     "spearman": null,
+    "monotonicBucketCount": 10,
+    "monotonicValidBucketCount": 0,
     "monotonicViolations": null,
+    "monotonicBuckets": [
+      {
+        "bucket": 0,
+        "count": 0,
+        "grossExpectancyR": null,
+        "netExpectancyR": null
+      },
+      {
+        "bucket": 1,
+        "count": 0,
+        "grossExpectancyR": null,
+        "netExpectancyR": null
+      },
+      {
+        "bucket": 2,
+        "count": 0,
+        "grossExpectancyR": null,
+        "netExpectancyR": null
+      },
+      {
+        "bucket": 3,
+        "count": 0,
+        "grossExpectancyR": null,
+        "netExpectancyR": null
+      },
+      {
+        "bucket": 4,
+        "count": 0,
+        "grossExpectancyR": null,
+        "netExpectancyR": null
+      },
+      {
+        "bucket": 5,
+        "count": 0,
+        "grossExpectancyR": null,
+        "netExpectancyR": null
+      },
+      {
+        "bucket": 6,
+        "count": 0,
+        "grossExpectancyR": null,
+        "netExpectancyR": null
+      },
+      {
+        "bucket": 7,
+        "count": 0,
+        "grossExpectancyR": null,
+        "netExpectancyR": null
+      },
+      {
+        "bucket": 8,
+        "count": 0,
+        "grossExpectancyR": null,
+        "netExpectancyR": null
+      },
+      {
+        "bucket": 9,
+        "count": 0,
+        "grossExpectancyR": null,
+        "netExpectancyR": null
+      }
+    ],
     "conditionalLiftR": null,
     "deltaGrossExpectancyR": null,
     "deltaNetExpectancyR": null,
@@ -581,7 +1107,7 @@
     "positiveFolds": 0,
     "folds": 0,
     "foldConsistency": "0/0",
-    "coverageDays": 19.090278,
+    "coverageDays": null,
     "missingExcludedCount": 0,
     "staleExcludedCount": 0,
     "netRBySymbol": {},
@@ -596,6 +1122,8 @@
     }
   },
   "bestIncrementalFamily": null,
+  "preliminaryBestFamily": "open_interest",
+  "gateHistoryDays": null,
   "internalGate": {
     "status": "INSUFFICIENT_DERIVATIVES_HISTORY",
     "passed": false,
@@ -603,8 +1131,11 @@
       "no family can be evaluated with >=90d coverage"
     ],
     "checks": {
-      "historyAtLeast90d": false
-    }
+      "historyAtLeast90d": false,
+      "nestedValidationCompleted": false
+    },
+    "evidenceStatus": "INSUFFICIENT_DERIVATIVES_HISTORY",
+    "validationRequired": "PURGED_NESTED_OOS"
   },
   "candidateSearch": {
     "maxCandidates": 8,
@@ -641,11 +1172,11 @@
   },
   "provenance": {
     "mainBaseSha": "dccf086485409e1cd94d8942697a030fac6271dc",
-    "branchHeadSha": "030d775d391aecc24a3142e4f4f7f6992596d7eb",
+    "branchHeadSha": "7c4ac1fd88a177c0a48965d79bac845de3ee1001",
     "sourceParentSha": null,
     "dataManifestSha256": "eaf14895ac7cc7cb5ecc14833d00a12d35588d462b85b82e59ca88bc53e29588",
-    "researchScriptSha256": "3156bda7b6c936eaab72969a06647a4dc3f710142c9665b6810e9cab437956e1",
-    "researchModuleSha256": "34d8f9efcafcd904447ad20f8d4b400ae447374c779d87fcbcbde75f2d96813f",
+    "researchScriptSha256": "3f46c4e6ba9e4c1278caf6f13c57bd06bd99f8d2ea485bca429c2ad04265b33c",
+    "researchModuleSha256": "63888491d52de57d89a2ebe2ec771d59a86e5881939c57b7180851165ec018df",
     "derivativesCollectorSha256": "b1a3ad9ba6f91dc09aeaf78fcd1939943575912e3aa4cac6126b3a1830bae1da",
     "liquidationForwardCollectorSha256": "b8b499c2434cad0525d1d58129d24c9ab00b3f9a21f98aad40bcc7c166e3533a"
   },

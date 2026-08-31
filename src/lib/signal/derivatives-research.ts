@@ -43,6 +43,15 @@ export type DerivativesResearchEvent = {
   netR: number | null;
 };
 
+export type DerivativesMonotonicBucket = {
+  bucket: number;
+  count: number;
+  grossExpectancyR: number | null;
+  netExpectancyR: number | null;
+};
+
+export const DERIVATIVES_MONOTONIC_BUCKET_COUNT = 10;
+
 export type DerivativesFamilySummary = {
   family: "price_only" | DerivativeFamily | "combined_permitted";
   status: "EVALUATED" | "INSUFFICIENT_DERIVATIVES_HISTORY" | "NO_DATA" | "NOT_PERMITTED";
@@ -61,11 +70,18 @@ export type DerivativesFamilySummary = {
   conditionedScoreThreshold: number | null;
   conditionedSymbolBreadth: number;
   conditionedMonthBreadth: number;
+  conditionedPositiveMonths: number;
   conditionedPositiveFolds: number;
   conditionedFolds: number;
   conditionedFoldConsistency: string;
+  conditionedNetRBySymbol: Record<string, number>;
+  conditionedLargestSymbolAbsoluteContributionShare: number | null;
+  conditionedLargestSymbolPositiveContributionShare: number | null;
   spearman: number | null;
+  monotonicBucketCount: number;
+  monotonicValidBucketCount: number;
   monotonicViolations: number | null;
+  monotonicBuckets: DerivativesMonotonicBucket[];
   conditionalLiftR: number | null;
   deltaGrossExpectancyR: number | null;
   deltaNetExpectancyR: number | null;
@@ -92,10 +108,12 @@ export type DerivativesFamilySummary = {
 };
 
 export type DerivativesGate = {
-  status: "PASS" | "FAIL" | "INSUFFICIENT_DERIVATIVES_HISTORY";
+  status: "PASS" | "FAIL" | "INSUFFICIENT_DERIVATIVES_HISTORY" | "READY_FOR_NESTED_DERIVATIVES_RESEARCH";
   passed: boolean;
   reasons: string[];
   checks: Record<string, boolean>;
+  evidenceStatus: "PRELIMINARY_INCREMENTAL_EVIDENCE" | "NO_PRELIMINARY_INCREMENTAL_EVIDENCE" | "INSUFFICIENT_DERIVATIVES_HISTORY";
+  validationRequired: "PURGED_NESTED_OOS";
 };
 
 /** Point-in-time join: an observation is visible only after its source-specific availability boundary. */
@@ -239,6 +257,11 @@ export function summarizeDerivativeFamily(
   const conditionedProfitFactor = calculateProfitFactor(conditionedNet);
   const conditionalLiftR = conditionedNetMean !== null && netMean !== null ? round(conditionedNetMean - netMean) : null;
   const conditionedMonths = new Set(conditionedSettledRows.map((row) => new Date(row.event.eventTime).toISOString().slice(0, 7)));
+  const conditionedMonthReturns = new Map<string, number>();
+  for (const row of conditionedSettledRows) {
+    const month = new Date(row.event.eventTime).toISOString().slice(0, 7);
+    conditionedMonthReturns.set(month, (conditionedMonthReturns.get(month) ?? 0) + row.event.netR!);
+  }
   const conditionedFoldValues = new Map<number, number[]>();
   for (const row of conditionedSettledRows) {
     const values = conditionedFoldValues.get(row.event.fold) ?? [];
@@ -247,6 +270,19 @@ export function summarizeDerivativeFamily(
   }
   const conditionedPositiveFolds = [...conditionedFoldValues.values()].filter((values) => (mean(values) ?? 0) > 0).length;
   const conditionedFolds = conditionedFoldValues.size;
+  const conditionedNetRBySymbol: Record<string, number> = {};
+  for (const row of conditionedSettledRows) {
+    conditionedNetRBySymbol[row.event.symbol] = round((conditionedNetRBySymbol[row.event.symbol] ?? 0) + row.event.netR!);
+  }
+  const conditionedAbsoluteContributionTotal = Object.values(conditionedNetRBySymbol).reduce((sum, value) => sum + Math.abs(value), 0);
+  const conditionedPositiveContributionTotal = Object.values(conditionedNetRBySymbol).reduce((sum, value) => sum + Math.max(value, 0), 0);
+  const conditionedLargestSymbolAbsoluteContributionShare = conditionedAbsoluteContributionTotal > 0
+    ? round(Math.max(...Object.values(conditionedNetRBySymbol).map((value) => Math.abs(value))) / conditionedAbsoluteContributionTotal)
+    : null;
+  const conditionedLargestSymbolPositiveContributionShare = conditionedPositiveContributionTotal > 0
+    ? round(Math.max(...Object.values(conditionedNetRBySymbol).map((value) => Math.max(value, 0))) / conditionedPositiveContributionTotal)
+    : null;
+  const monotonic = buildMonotonicDeciles(sorted);
   const summary: DerivativesFamilySummary = {
     family,
     status,
@@ -265,11 +301,18 @@ export function summarizeDerivativeFamily(
     conditionedScoreThreshold: topCut,
     conditionedSymbolBreadth: new Set(conditionedSettledRows.map((row) => row.event.symbol)).size,
     conditionedMonthBreadth: conditionedMonths.size,
+    conditionedPositiveMonths: [...conditionedMonthReturns.values()].filter((value) => value > 0).length,
     conditionedPositiveFolds,
     conditionedFolds,
     conditionedFoldConsistency: conditionedFolds ? `${conditionedPositiveFolds}/${conditionedFolds}` : "0/0",
+    conditionedNetRBySymbol,
+    conditionedLargestSymbolAbsoluteContributionShare,
+    conditionedLargestSymbolPositiveContributionShare,
     spearman: scoreValues.length >= 2 ? spearman(scoreValues, outcomeValues) : null,
-    monotonicViolations: scoreValues.length >= 3 ? monotonicViolations(sorted.map((row) => row.event.grossR).filter(isFiniteNumber)) : null,
+    monotonicBucketCount: monotonic.bucketCount,
+    monotonicValidBucketCount: monotonic.validBucketCount,
+    monotonicViolations: monotonic.violations,
+    monotonicBuckets: monotonic.buckets,
     conditionalLiftR,
     deltaGrossExpectancyR: comparableBaseline
       ? difference(conditionedGrossMean, comparableBaseline.grossExpectancyR) : null,
@@ -372,8 +415,8 @@ export function buildDerivativeAblation(input: {
   }) : [];
   const combinedBaseline = summarizeDerivativeFamily("price_only", combinedRows.map((row) => ({ event: row.event, score: null })));
   const combinedCoverageDays = permittedFamilies.length
-    ? Math.min(...permittedFamilies.map((summary) => summary.coverageDays ?? input.historyDays ?? 0))
-    : input.historyDays ?? null;
+    ? derivativesIntersectionCoverageDays(permittedFamilies.map((summary) => summary.coverageDays))
+    : null;
   const combined = summarizeDerivativeFamily(
     "combined_permitted",
     combinedRows,
@@ -384,6 +427,12 @@ export function buildDerivativeAblation(input: {
     { coverageDays: combinedCoverageDays }
   );
   return { baseline, families, combined };
+}
+
+/** Return the time intersection available to the selected families only. */
+export function derivativesIntersectionCoverageDays(coverageDays: Array<number | null | undefined>): number | null {
+  const valid = coverageDays.filter((days): days is number => days !== null && days !== undefined && Number.isFinite(days) && days >= 0);
+  return valid.length ? Math.min(...valid) : null;
 }
 
 function selectSortedMetricAsOf(rows: DerivativesResearchMetric[], asOf: number, family?: DerivativeFamily): DerivativesResearchMetric | null {
@@ -439,37 +488,59 @@ function isFreshFamilyMetric(metric: DerivativesResearchMetric, family: Derivati
 export function evaluateDerivativesGate(input: {
   historyDays: number;
   summary: DerivativesFamilySummary;
+  validation?: "PRELIMINARY_ONLY" | "PURGED_NESTED_OOS";
 }): DerivativesGate {
   if (input.historyDays < 90) {
     return {
       status: "INSUFFICIENT_DERIVATIVES_HISTORY",
       passed: false,
       reasons: [`only ${input.historyDays.toFixed(2)} days of point-in-time derivatives history; >=90 days required`],
-      checks: { historyAtLeast90d: false }
+      checks: { historyAtLeast90d: false, nestedValidationCompleted: false },
+      evidenceStatus: "INSUFFICIENT_DERIVATIVES_HISTORY",
+      validationRequired: "PURGED_NESTED_OOS"
     };
   }
   const summary = input.summary;
+  const validation = input.validation ?? "PRELIMINARY_ONLY";
   const checks = {
     historyAtLeast90d: true,
-    settledAtLeast300: summary.settled >= 300,
-    netExpectancyPositive: (summary.netExpectancyR ?? -Infinity) > 0,
-    profitFactorAtLeast125: (summary.profitFactor ?? 0) >= 1.25,
-    expectancyAtLeast008: (summary.netExpectancyR ?? -Infinity) >= 0.08,
-    payoffAtLeast080: (summary.payoff ?? 0) >= 0.8,
-    positiveFoldsAtLeast2of3: summary.positiveFolds >= 2,
-    symbolBreadthAtLeast3: summary.symbolBreadth >= 3,
-    positiveMonthShareAtLeast60: summary.monthBreadth > 0 && summary.positiveMonths / summary.monthBreadth >= 0.6,
-    largestSymbolAbsoluteContributionAtMost50: summary.largestSymbolAbsoluteContributionShare !== null
-      && summary.largestSymbolAbsoluteContributionShare <= 0.5,
-    largestSymbolPositiveContributionAtMost50: summary.largestSymbolPositiveContributionShare !== null
-      && summary.largestSymbolPositiveContributionShare <= 0.5,
-    noSingleSymbolDomination: summary.largestSymbolAbsoluteContributionShare !== null
-      && summary.largestSymbolAbsoluteContributionShare <= 0.5,
+    settledAtLeast300: summary.conditionedSettled >= 300,
+    netExpectancyPositive: (summary.conditionedNetExpectancyR ?? -Infinity) > 0,
+    profitFactorAtLeast125: (summary.conditionedProfitFactor ?? 0) >= 1.25,
+    expectancyAtLeast008: (summary.conditionedNetExpectancyR ?? -Infinity) >= 0.08,
+    payoffAtLeast080: (summary.conditionedPayoff ?? 0) >= 0.8,
+    positiveFoldsAtLeast2of3: summary.conditionedPositiveFolds >= 2,
+    symbolBreadthAtLeast3: summary.conditionedSymbolBreadth >= 3,
+    positiveMonthShareAtLeast60: summary.conditionedMonthBreadth > 0 && summary.conditionedPositiveMonths / summary.conditionedMonthBreadth >= 0.6,
+    largestSymbolAbsoluteContributionAtMost50: summary.conditionedLargestSymbolAbsoluteContributionShare !== null
+      && summary.conditionedLargestSymbolAbsoluteContributionShare <= 0.5,
+    largestSymbolPositiveContributionAtMost50: summary.conditionedLargestSymbolPositiveContributionShare !== null
+      && summary.conditionedLargestSymbolPositiveContributionShare <= 0.5,
+    noSingleSymbolDomination: summary.conditionedLargestSymbolAbsoluteContributionShare !== null
+      && summary.conditionedLargestSymbolAbsoluteContributionShare <= 0.5,
     materiallyBetterThanPriceOnly: (summary.deltaNetExpectancyR ?? -Infinity) > 0,
-    noLeakage: true
+    noLeakage: true,
+    nestedValidationCompleted: validation === "PURGED_NESTED_OOS"
   };
+  const preliminaryEvidence = (summary.conditionedNetExpectancyR ?? -Infinity) > 0
+    && (summary.deltaNetExpectancyR ?? -Infinity) > 0
+    && (summary.deltaProfitFactor ?? -Infinity) > 0
+    && ((summary.deltaGrossExpectancyR ?? -Infinity) > 0 || (summary.spearman ?? -Infinity) > 0);
+  const evidenceStatus = preliminaryEvidence ? "PRELIMINARY_INCREMENTAL_EVIDENCE" : "NO_PRELIMINARY_INCREMENTAL_EVIDENCE";
+  if (validation !== "PURGED_NESTED_OOS") {
+    return {
+      status: preliminaryEvidence ? "READY_FOR_NESTED_DERIVATIVES_RESEARCH" : "FAIL",
+      passed: false,
+      reasons: preliminaryEvidence
+        ? ["preliminary conditional evidence requires purged nested OOS before a robust Gate decision"]
+        : ["no preliminary incremental evidence", "robust Gate requires purged nested OOS"],
+      checks,
+      evidenceStatus,
+      validationRequired: "PURGED_NESTED_OOS"
+    };
+  }
   const reasons = Object.entries(checks).filter(([, passed]) => !passed).map(([name]) => name);
-  return { status: reasons.length ? "FAIL" : "PASS", passed: reasons.length === 0, reasons, checks };
+  return { status: reasons.length ? "FAIL" : "PASS", passed: reasons.length === 0, reasons, checks, evidenceStatus, validationRequired: "PURGED_NESTED_OOS" };
 }
 
 function emptyComparableBaseline() { return { eventCount: 0, settled: 0, grossExpectancyR: null, netExpectancyR: null, profitFactor: null, payoff: null }; }
@@ -508,9 +579,39 @@ function spearman(scores: number[], outcomes: number[]): number | null {
 function rank(values: number[]): number[] {
   return values.map((value) => 1 + values.filter((other) => other < value).length + (values.filter((other) => other === value).length - 1) / 2);
 }
-function monotonicViolations(values: number[]): number {
+function buildMonotonicDeciles(rows: Array<{ event: DerivativesResearchEvent; score: number | null }>): {
+  bucketCount: number;
+  validBucketCount: number;
+  violations: number | null;
+  buckets: DerivativesMonotonicBucket[];
+} {
+  const buckets = Array.from({ length: DERIVATIVES_MONOTONIC_BUCKET_COUNT }, (_, bucket) => ({
+    bucket,
+    rows: [] as Array<{ event: DerivativesResearchEvent; score: number | null }>
+  }));
+  rows.forEach((row, index) => {
+    const bucket = Math.min(
+      DERIVATIVES_MONOTONIC_BUCKET_COUNT - 1,
+      Math.floor(index * DERIVATIVES_MONOTONIC_BUCKET_COUNT / Math.max(rows.length, 1))
+    );
+    buckets[bucket]!.rows.push(row);
+  });
+  const summaries = buckets.map(({ bucket, rows: bucketRows }) => ({
+    bucket,
+    count: bucketRows.length,
+    grossExpectancyR: mean(bucketRows.map((row) => row.event.grossR).filter(isFiniteNumber)),
+    netExpectancyR: mean(bucketRows.map((row) => row.event.netR).filter(isFiniteNumber))
+  }));
+  const valid = summaries.filter((summary) => summary.grossExpectancyR !== null);
   let violations = 0;
-  for (let index = 1; index < values.length; index += 1) if (values[index]! < values[index - 1]!) violations += 1;
-  return violations;
+  for (let index = 1; index < valid.length; index += 1) {
+    if (valid[index]!.grossExpectancyR! < valid[index - 1]!.grossExpectancyR!) violations += 1;
+  }
+  return {
+    bucketCount: DERIVATIVES_MONOTONIC_BUCKET_COUNT,
+    validBucketCount: valid.length,
+    violations: valid.length >= 2 ? violations : null,
+    buckets: summaries
+  };
 }
 function round(value: number): number { return Math.round(value * 1_000_000) / 1_000_000; }

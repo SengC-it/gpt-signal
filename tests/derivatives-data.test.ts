@@ -22,6 +22,7 @@ import {
 import { forwardLiquidationCollectorStatus, parseForwardLiquidationEvent } from "@/lib/binance/liquidation-forward";
 import {
   buildDerivativeAblation,
+  derivativesIntersectionCoverageDays,
   evaluateDerivativesGate,
   selectDerivativeMetricAsOf,
   summarizeDerivativeFamily,
@@ -341,6 +342,38 @@ describe("GPT-PROFIT-004 public derivatives foundation", () => {
     expect(result.families.find((family) => family.family === "basis")?.coverageDays).toBe(20);
   });
 
+  test("single-family Gate uses its own coverage and combined uses selected-family intersection", () => {
+    const event: DerivativesResearchEvent = {
+      eventId: "single-family-1",
+      symbol: "BTCUSDT",
+      direction: "LONG",
+      eventTime: Date.parse("2026-08-30T12:00:00Z"),
+      fold: 1,
+      grossR: 1,
+      netR: 0.5
+    };
+    const metric: DerivativesResearchMetric = {
+      symbol: event.symbol,
+      metric_time: new Date(event.eventTime).toISOString(),
+      open_interest: 100,
+      oi_change_5m: 1,
+      basis_bps: 1
+    };
+    const result = buildDerivativeAblation({
+      events: [event],
+      metrics: [metric],
+      historyDays: 30,
+      familyCoverageDays: { open_interest: 120, basis: 30 }
+    });
+    const oi = result.families.find((family) => family.family === "open_interest")!;
+    const gate = evaluateDerivativesGate({ historyDays: oi.coverageDays!, summary: oi });
+    expect(gate.checks.historyAtLeast90d).toBe(true);
+    expect(gate.status).not.toBe("INSUFFICIENT_DERIVATIVES_HISTORY");
+    expect(derivativesIntersectionCoverageDays([120, 30])).toBe(30);
+    expect(derivativesIntersectionCoverageDays([120])).toBe(120);
+    expect(result.combined.coverageDays).toBeNull();
+  });
+
   test("incremental top-30% slice improves a positively related family", () => {
     const rows = [-5, -4, -3, -2, -1, 0.5, 1, 3, -1, 8].map((netR, index) => ({
       event: {
@@ -360,6 +393,58 @@ describe("GPT-PROFIT-004 public derivatives foundation", () => {
     expect(summary.conditionedNetExpectancyR).toBeGreaterThan(summary.netExpectancyR!);
     expect(summary.deltaNetExpectancyR).toBeGreaterThan(0);
     expect(summary.deltaProfitFactor).toBeGreaterThan(0);
+  });
+
+  test("preliminary conditional evidence uses conditioned metrics but cannot robustly PASS without nested OOS", () => {
+    const rows = [-5, -4, -3, -2, -1, 0.5, 1, 3, -1, 8].map((netR, index) => ({
+      event: {
+        eventId: `preliminary-${index}`,
+        symbol: ["BTCUSDT", "ETHUSDT", "SOLUSDT"][index % 3]!,
+        direction: "LONG" as const,
+        eventTime: Date.UTC(2026, 0, 1 + index),
+        fold: (index % 3) + 1,
+        grossR: netR,
+        netR
+      },
+      score: index + 1
+    }));
+    const baseline = summarizeDerivativeFamily("price_only", rows.map(({ event }) => ({ event, score: null })));
+    const summary = summarizeDerivativeFamily("open_interest", rows, baseline);
+    const gate = evaluateDerivativesGate({ historyDays: 120, summary });
+    expect(summary.netExpectancyR).toBeLessThan(0);
+    expect(summary.conditionedNetExpectancyR).toBeGreaterThan(0);
+    expect(gate.evidenceStatus).toBe("PRELIMINARY_INCREMENTAL_EVIDENCE");
+    expect(gate.status).toBe("READY_FOR_NESTED_DERIVATIVES_RESEARCH");
+    expect(gate.passed).toBe(false);
+    expect(gate.checks.netExpectancyPositive).toBe(true);
+    expect(gate.checks.nestedValidationCompleted).toBe(false);
+    expect(evaluateDerivativesGate({ historyDays: 120, summary, validation: "PURGED_NESTED_OOS" }).passed).toBe(false);
+  });
+
+  test("monotonicity is bounded to fixed score deciles", () => {
+    const rows = Array.from({ length: 25 }, (_, index) => {
+      const grossR = index % 2 === 0 ? 1 : -1;
+      return {
+        event: {
+          eventId: `decile-${index}`,
+          symbol: ["BTCUSDT", "ETHUSDT", "SOLUSDT"][index % 3]!,
+          direction: "LONG" as const,
+          eventTime: Date.UTC(2026, 0, 1 + index),
+          fold: (index % 3) + 1,
+          grossR,
+          netR: grossR - 0.1
+        },
+        score: index + 1
+      };
+    });
+    const summary = summarizeDerivativeFamily("open_interest", rows);
+    expect(summary.monotonicBucketCount).toBe(10);
+    expect(summary.monotonicBuckets).toHaveLength(10);
+    expect(summary.monotonicValidBucketCount).toBe(10);
+    expect(summary.monotonicViolations).toBeGreaterThanOrEqual(0);
+    expect(summary.monotonicViolations).toBeLessThanOrEqual(9);
+    expect(summary.monotonicBuckets.reduce((sum, bucket) => sum + bucket.count, 0)).toBe(25);
+    expect(summary.monotonicBuckets.every((bucket) => "grossExpectancyR" in bucket && "netExpectancyR" in bucket)).toBe(true);
   });
 
   test("non-predictive scores are not marked incremental", () => {
